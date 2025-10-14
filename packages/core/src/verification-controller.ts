@@ -169,7 +169,15 @@ export function createVerificationController({
       const isBBS = await isBBSPlusCredential(credentialSelection.credential);
       const isKVAC = await isKvacCredential(credentialSelection.credential);
 
-      if (isBBS || isKVAC) {
+      if (credentialSelection.credential._sd_jwt) {
+        const derivedCredential =
+          await credentialServiceRPC.createSDJWTPresentation({
+            attributesToReveal: credentialSelection.attributesToReveal,
+            credential: credentialSelection.credential._sd_jwt.encoded,
+          });
+
+        credentials.push(derivedCredential);
+      } else if (isBBS || isKVAC) {
         // derive credential
         const derivedCredentials =
           await credentialServiceRPC.deriveVCFromPresentation({
