@@ -229,10 +229,5 @@ export async function credentialToW3C(credential) {
     }
   }
 
-  // If it's an object with a data field (like from wallet SDK)
-  if (typeof credential === 'object' && credential.data) {
-    return await credentialToW3C(credential.data);
-  }
-
   throw new Error('Unable to convert credential to W3C format');
 }

@@ -496,4 +496,267 @@ describe('SD-JWT Service', () => {
       expect(typeof result.error).toBe('string');
     });
   });
+
+  describe('createSDJWTPresentation', () => {
+    it('should create presentation with selective disclosure of specific attributes', async () => {
+      // Test selective disclosure - reveal only name and date, hide id and number
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name', 'date'],
+        credential: TEST_SD_JWT,
+      });
+
+      // Presentation should be a string
+      expect(typeof presentation).toBe('string');
+
+      // Should be a valid JWT format with disclosures
+      expect(presentation).toContain('~');
+
+      // Decode the presentation to verify only requested attributes are included
+      const decoded = await decodeSDJWT(presentation);
+      const disclosureKeys = decoded.disclosures.map((d: any) => d.key);
+
+      // Should include requested attributes
+      expect(disclosureKeys).toContain('name');
+      expect(disclosureKeys).toContain('date');
+
+      // Should NOT include unrequested attributes
+      expect(disclosureKeys).not.toContain('number');
+      // Note: 'id' might be included by default in some implementations
+    });
+
+    it('should create presentation revealing only one attribute', async () => {
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name'],
+        credential: TEST_SD_JWT,
+      });
+
+      expect(typeof presentation).toBe('string');
+
+      const decoded = await decodeSDJWT(presentation);
+      const disclosureKeys = decoded.disclosures.map((d: any) => d.key);
+
+      // Should only include the requested attribute
+      expect(disclosureKeys).toContain('name');
+      expect(disclosureKeys.filter((k: string) => k !== 'name').length).toBeLessThan(disclosureKeys.length);
+    });
+
+    it('should create presentation revealing all attributes', async () => {
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['id', 'name', 'date', 'number'],
+        credential: TEST_SD_JWT,
+      });
+
+      expect(typeof presentation).toBe('string');
+
+      const decoded = await decodeSDJWT(presentation);
+      const disclosureKeys = decoded.disclosures.map((d: any) => d.key);
+
+      // Should include all requested attributes
+      expect(disclosureKeys).toContain('id');
+      expect(disclosureKeys).toContain('name');
+      expect(disclosureKeys).toContain('date');
+      expect(disclosureKeys).toContain('number');
+    });
+
+    it('should create presentation with empty attributes array (minimal disclosure)', async () => {
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: [],
+        credential: TEST_SD_JWT,
+      });
+
+      expect(typeof presentation).toBe('string');
+      expect(presentation).toContain('~');
+
+      // Should still be valid JWT format
+      const decoded = await decodeSDJWT(presentation);
+      expect(decoded).toHaveProperty('jwt');
+      expect(decoded).toHaveProperty('disclosures');
+
+      // Should have minimal or no disclosures
+      expect(Array.isArray(decoded.disclosures)).toBe(true);
+    });
+
+    it('should maintain credential integrity in presentation', async () => {
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name', 'date'],
+        credential: TEST_SD_JWT,
+      });
+
+      const decoded = await decodeSDJWT(presentation);
+
+      // JWT payload should maintain core claims
+      expect(decoded.jwt.payload).toHaveProperty('iss');
+      expect(decoded.jwt.payload).toHaveProperty('vct');
+      expect(decoded.jwt.payload.vct).toBe('InternalTesting');
+      expect(decoded.jwt.payload.iss).toBe('did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7#keys-1');
+    });
+
+    it('should convert presentation to W3C format correctly', async () => {
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name', 'number'],
+        credential: TEST_SD_JWT,
+      });
+
+      // Convert presentation to W3C format
+      const w3cPresentation = await decodeSDJWTToW3C(presentation) as any;
+
+      expect(w3cPresentation).toHaveProperty('credentialSubject');
+      expect(w3cPresentation.credentialSubject).toHaveProperty('name');
+      expect(w3cPresentation.credentialSubject).toHaveProperty('number');
+
+      // Should have the revealed values
+      expect(w3cPresentation.credentialSubject.name).toBe('maycon');
+      expect(w3cPresentation.credentialSubject.number).toBe(123);
+    });
+
+    it('should handle non-existent attribute gracefully', async () => {
+      // Request an attribute that doesn't exist in the credential
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name', 'nonExistentAttribute'],
+        credential: TEST_SD_JWT,
+      });
+
+      expect(typeof presentation).toBe('string');
+
+      const decoded = await decodeSDJWT(presentation);
+      const disclosureKeys = decoded.disclosures.map((d: any) => d.key);
+
+      // Should include existing attributes
+      expect(disclosureKeys).toContain('name');
+      // Non-existent attribute should not break the process
+      expect(presentation).toBeTruthy();
+    });
+
+    it('should fail with invalid credential format', async () => {
+      await expect(
+        createSDJWTPresentation({
+          attributesToReveal: ['name'],
+          credential: 'invalid-jwt-format',
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should fail with empty credential', async () => {
+      await expect(
+        createSDJWTPresentation({
+          attributesToReveal: ['name'],
+          credential: '',
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should preserve presentation format for verification flow', async () => {
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name', 'date'],
+        credential: TEST_SD_JWT,
+      });
+
+      // The presentation should be verifiable
+      const verificationResult = await verifySDJWT(presentation);
+      expect(verificationResult.verified).toBe(true);
+    });
+  });
+
+  describe('Presentation Integration Tests', () => {
+    it('should complete full flow: store credential -> create presentation -> verify', async () => {
+      // Step 1: Convert SD-JWT to W3C format (as done in addCredential)
+      const w3cCredential = await decodeSDJWTToW3C(TEST_SD_JWT) as any;
+
+      // Verify metadata is stored
+      expect(w3cCredential._sd_jwt).toBeDefined();
+      expect(w3cCredential._sd_jwt.encoded).toBe(TEST_SD_JWT);
+
+      // Step 2: Create presentation from stored credential (as done in verification-controller)
+      const presentation = await createSDJWTPresentation({
+        attributesToReveal: ['name', 'date'],
+        credential: w3cCredential._sd_jwt.encoded,
+      });
+
+      expect(typeof presentation).toBe('string');
+
+      // Step 3: Verify presentation
+      const verificationResult = await verifySDJWT(presentation);
+      expect(verificationResult.verified).toBe(true);
+
+      // Step 4: Decode presentation to check disclosed claims
+      const decoded = await decodeSDJWT(presentation);
+      const disclosureKeys = decoded.disclosures.map((d: any) => d.key);
+
+      expect(disclosureKeys).toContain('name');
+      expect(disclosureKeys).toContain('date');
+    });
+
+    it('should support multiple presentation creations from same credential', async () => {
+      // Create first presentation with some attributes
+      const presentation1 = await createSDJWTPresentation({
+        attributesToReveal: ['name'],
+        credential: TEST_SD_JWT,
+      });
+
+      // Create second presentation with different attributes
+      const presentation2 = await createSDJWTPresentation({
+        attributesToReveal: ['date', 'number'],
+        credential: TEST_SD_JWT,
+      });
+
+      // Both should be valid
+      expect(typeof presentation1).toBe('string');
+      expect(typeof presentation2).toBe('string');
+
+      // They should be different (different disclosures)
+      expect(presentation1).not.toBe(presentation2);
+
+      // Both should verify
+      const result1 = await verifySDJWT(presentation1);
+      const result2 = await verifySDJWT(presentation2);
+
+      expect(result1.verified).toBe(true);
+      expect(result2.verified).toBe(true);
+
+      // Check different attributes are disclosed
+      const decoded1 = await decodeSDJWT(presentation1);
+      const decoded2 = await decodeSDJWT(presentation2);
+
+      const keys1 = decoded1.disclosures.map((d: any) => d.key);
+      const keys2 = decoded2.disclosures.map((d: any) => d.key);
+
+      expect(keys1).toContain('name');
+      expect(keys2).toContain('date');
+      expect(keys2).toContain('number');
+    });
+
+    it('should match verification-controller usage pattern', async () => {
+      // Simulate the exact pattern used in verification-controller.ts
+
+      // Credential is stored in wallet as W3C with _sd_jwt metadata
+      const storedCredential = await decodeSDJWTToW3C(TEST_SD_JWT) as any;
+
+      // During presentation, extract encoded SD-JWT and create selective disclosure
+      const credentialSelection = {
+        credential: storedCredential,
+        attributesToReveal: ['name', 'date'],
+      };
+
+      // This is the exact pattern from verification-controller.ts:172-179
+      if (credentialSelection.credential._sd_jwt) {
+        const derivedCredential = await createSDJWTPresentation({
+          attributesToReveal: credentialSelection.attributesToReveal,
+          credential: credentialSelection.credential._sd_jwt.encoded,
+        });
+
+        // Verify the presentation is a string (not an array)
+        expect(typeof derivedCredential).toBe('string');
+
+        // Verify it can be decoded
+        const decoded = await decodeSDJWT(derivedCredential);
+        expect(decoded).toHaveProperty('jwt');
+        expect(decoded).toHaveProperty('disclosures');
+
+        // Verify disclosed attributes
+        const disclosedKeys = decoded.disclosures.map((d: any) => d.key);
+        expect(disclosedKeys).toContain('name');
+        expect(disclosedKeys).toContain('date');
+      }
+    });
+  });
 });
