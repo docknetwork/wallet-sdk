@@ -1,15 +1,15 @@
 # Cloud Wallet documentation
 
-The Truvera Cloud Wallet provides SaaS hosted secure storage of a user's identity data. The contents of an individual cloud wallet are accessed through a wallet application. The Cloud Wallet APIs support synchronization between the cloud storage and local storage of a wallet application. In addition to standard mobile or web wallet applications, the Cloud Wallet also allows credentials to be used in existing web sites through embedded widgets. The Cloud Wallet is especially useful for non-human identity use cases, such as organizational identity wallets and wallets for AI agents.
+The Truvera Cloud Wallet provides SaaS hosted secure storage of a user's identity data. The contents of an individual cloud wallet are accessed through a wallet application. The Truvera Cloud Wallet APIs support synchronization between the cloud storage and local storage of a wallet application. In addition to standard mobile or web wallet applications, the Cloud Wallet also allows credentials to be used in existing web sites through embedded widgets. The Cloud Wallet is especially useful for non-human identity use cases, such as organizational identity wallets and wallets for AI agents.
 
 The implementation is in:
 `@docknetwork/wallet-sdk-core/src/cloud-wallet`
 
 ## Feature overview
 
-The Truvera Cloud Wallet service hosts individual wallets for each user. The user's wallet stores encrypted documents that usually contain verifiable credentials. The service includes an [Encrypted Data Vault (EDV)](https://digitalbazaar.github.io/encrypted-data-vaults/) to securely store, sync, and manage documents. The Truvera Platform includes an EDV instance that can be used as part of a Truvera solution, but you can also deploy an EDV instance within your infrastructure if you prefer to host the encrypted user data. In most solutions, documents should be encrypted by the wallet application before being stored in the cloud wallet so that it cannot be read by the organization hosting the EDV.
+The Truvera Cloud Wallet service hosts individual wallets for each user. The user's wallet stores encrypted documents that usually contain verifiable credentials. The service includes an [Encrypted Data Vault (EDV)](https://digitalbazaar.github.io/encrypted-data-vaults/) to securely store, sync, and manage documents. The Truvera Platform includes an EDV instance that can be used as part of a Truvera solution, but you can also deploy an EDV instance within your infrastructure if you prefer to host the encrypted user data. In most solutions, documents should be encrypted by the wallet application before being stored in a cloud wallet so that it cannot be read by the organization hosting the EDV.
 
-Once initialized, the Cloud Wallet automatically synchronizes documents between the EDV and the wallet application, allowing you to add, update, and remove credentials without dealing with the synchronization logic.
+Once initialized, the Cloud Wallet service automatically synchronizes documents between the EDV and the wallet application, allowing you to add, update, and remove credentials without dealing with the synchronization logic.
 
 Each holder's individual cloud wallet is accessed using a key in the holder's possession. This key can be stored in the local storage of a wallet application, or derived from a biometric of the holder's. A recovery mnemonic can be used to recover a lost master key.
 
@@ -46,7 +46,7 @@ const dataStore = await createDataStore({
 
 ### Step 2: Generate wallet key and mnemonic
 
-Next, we generate a key and mnemonic for interacting with the cloud wallet. Use the same Cloud Wallet key across multiple devices to access the same documents. These keys are used to encrypt, decrypt, and locate documents in the EDV.
+Next, we generate a key and mnemonic for interacting with a cloud wallet. Use the same cloud wallet key across multiple devices to access the same documents. These keys are used to encrypt, decrypt, and locate documents in the EDV.
 
 ```ts
 import {generateCloudWalletMasterKey} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
@@ -111,7 +111,7 @@ const document = {
 await wallet.addDocument(document);
 ```
 
-### Issuing credentials to cloud wallet
+### Issuing credentials to a cloud wallet
 
 You can issue credentials directly to a cloud wallet using the Truvera Workspace or the Truvera API. The credential will be automatically distributed to the holder's cloud wallet through the DIDComm protocol, eliminating the need for direct API calls or manual credential handling.
 
@@ -119,7 +119,7 @@ You can issue credentials directly to a cloud wallet using the Truvera Workspace
 
 For the DIDComm automatic distribution to work properly, the **subject ID of the credential must be set to the holder's DID** when issuing the credential. This enables the system to route the credential to the correct wallet.
 
-#### Receiving credentials in cloud wallet
+#### Receiving credentials in a cloud wallet
 
 After a credential has been issued to a holder's DID, the cloud wallet only needs to fetch and process DIDComm messages to receive it:
 
@@ -184,7 +184,7 @@ example();
 
 ## Multi-key authentication
 
-The Cloud Wallet supports multiple authentication methods to unlock the same wallet, providing both security and convenience.
+The Truvera Cloud Wallet supports multiple authentication methods to unlock the same wallet, providing both security and convenience.
 
 ### Available authentication methods
 
