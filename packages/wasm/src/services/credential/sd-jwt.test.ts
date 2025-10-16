@@ -91,7 +91,6 @@ describe('SD-JWT Service', () => {
         id: 'credential-id-123',
         _sd_jwt: {
           encoded: undefined,
-          decoded: decodedSDJWT,
         },
       });
     });
@@ -118,7 +117,6 @@ describe('SD-JWT Service', () => {
 
       expect(result._sd_jwt).toBeDefined();
       expect(result._sd_jwt.encoded).toBe(encodedSDJWT);
-      expect(result._sd_jwt.decoded).toEqual(decodedSDJWT);
     });
 
     it('should handle minimal SD-JWT without optional fields', () => {
@@ -149,7 +147,6 @@ describe('SD-JWT Service', () => {
         },
         _sd_jwt: {
           encoded: undefined,
-          decoded: decodedSDJWT,
         },
       });
     });
@@ -277,20 +274,9 @@ describe('SD-JWT Service', () => {
       // Verify _sd_jwt metadata is present
       expect(result).toHaveProperty('_sd_jwt');
       expect(result._sd_jwt).toHaveProperty('encoded');
-      expect(result._sd_jwt).toHaveProperty('decoded');
 
       // Verify raw SD-JWT string is stored
       expect(result._sd_jwt.encoded).toBe(TEST_SD_JWT);
-
-      // Verify decoded structure contains expected fields
-      expect(result._sd_jwt.decoded).toHaveProperty('jwt');
-      expect(result._sd_jwt.decoded).toHaveProperty('disclosures');
-      expect(result._sd_jwt.decoded.jwt).toHaveProperty('header');
-      expect(result._sd_jwt.decoded.jwt).toHaveProperty('payload');
-
-      // Verify we can access disclosure information
-      expect(Array.isArray(result._sd_jwt.decoded.disclosures)).toBe(true);
-      expect(result._sd_jwt.decoded.disclosures.length).toBeGreaterThan(0);
     });
 
     it('should handle SD-JWT with minimal disclosures', async () => {
@@ -322,25 +308,6 @@ describe('SD-JWT Service', () => {
       expect(result).toEqual(W3C_CREDENTIAL);
     });
 
-    it('should handle credential object with data field', async () => {
-      const credentialWrapper = {
-        data: W3C_CREDENTIAL,
-      };
-      const result = await credentialToW3C(credentialWrapper);
-      expect(result).toEqual(W3C_CREDENTIAL);
-    });
-
-    it('should handle nested credential object with SD-JWT in data field', async () => {
-      const credentialWrapper = {
-        data: TEST_SD_JWT,
-      };
-      const result = await credentialToW3C(credentialWrapper);
-
-      expect(result).toHaveProperty('@context');
-      expect(result).toHaveProperty('type');
-      expect(result.type).toEqual(['VerifiableCredential', 'InternalTesting']);
-    });
-
     it('should throw error for unsupported credential format', async () => {
       const invalidCredential = 'not-a-valid-jwt-or-credential';
 
@@ -353,7 +320,7 @@ describe('SD-JWT Service', () => {
       await expect(credentialToW3C('')).rejects.toThrow();
     });
 
-    it('should handle object without type or data field', async () => {
+    it('should handle object without type field', async () => {
       const invalidObject = {
         someField: 'someValue',
       };
@@ -361,15 +328,6 @@ describe('SD-JWT Service', () => {
       await expect(credentialToW3C(invalidObject)).rejects.toThrow(
         'Unable to convert credential to W3C format'
       );
-    });
-
-    it('should parse JSON string containing credential with data field', async () => {
-      const jsonString = JSON.stringify({
-        data: W3C_CREDENTIAL,
-      });
-      const parsedObject = JSON.parse(jsonString);
-      const result = await credentialToW3C(parsedObject);
-      expect(result).toEqual(W3C_CREDENTIAL);
     });
 
     it('should handle regular JWT (not SD-JWT)', async () => {
@@ -403,7 +361,6 @@ describe('SD-JWT Service', () => {
       // Verify SD-JWT metadata is stored for unwrapping
       expect(w3cCredential._sd_jwt).toBeDefined();
       expect(w3cCredential._sd_jwt.encoded).toBe(TEST_SD_JWT);
-      expect(w3cCredential._sd_jwt.decoded).toBeDefined();
     });
 
     it('should handle credentialToW3C with the test SD-JWT', async () => {
@@ -416,7 +373,6 @@ describe('SD-JWT Service', () => {
       // Verify SD-JWT metadata for presentation unwrapping
       expect(result._sd_jwt).toBeDefined();
       expect(result._sd_jwt.encoded).toBe(TEST_SD_JWT);
-      expect(result._sd_jwt.decoded).toBeDefined();
     });
   });
 

@@ -175,8 +175,6 @@ export function sdJwtToW3C(decodedSDJWT, encodedSDJWT?) {
   w3cCredential._sd_jwt = {
     // Raw encoded SD-JWT string
     encoded: encodedSDJWT,
-    // Decoded SD-JWT structure with all disclosures
-    decoded: decodedSDJWT,
   };
 
   return w3cCredential;
