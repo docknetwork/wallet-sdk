@@ -126,7 +126,6 @@ class CredentialService {
 
 
   createSDJWTPresentation(params) {
-    validation.createSDJWTPresentation(params);
     const {attributesToReveal, credential} = params;
     return createSDJWTPresentation({attributesToReveal, credential});
   }
@@ -210,8 +209,16 @@ class CredentialService {
     const {credentials, keyDoc, challenge, id, domain} = params;
     const vp = new VerifiablePresentation(id);
     let shouldSkipSigning = false;
+    let jwtCredentials = [];
+
     for (const signedVC of credentials) {
-      vp.addCredential(signedVC);
+
+      if (typeof signedVC === 'string') {
+        jwtCredentials.push(signedVC);
+        shouldSkipSigning = true;
+      } else {
+        vp.addCredential(signedVC);
+      }
       shouldSkipSigning = shouldSkipSigning || isAnnonymousCredential(signedVC);
     }
 
@@ -224,7 +231,9 @@ class CredentialService {
     const suite = await getSuiteFromKeyDoc(keyPair);
 
     if (shouldSkipSigning) {
-      return vp.toJSON();
+      const result = vp.toJSON();
+      result.verifiableCredential.push(...jwtCredentials);
+      return result;
     }
 
     return vp.sign(suite, challenge, domain, blockchainService.resolver);
