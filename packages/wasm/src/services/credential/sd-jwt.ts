@@ -29,7 +29,7 @@ export async function createSDJWTPresentation({
   // The list of presented claims must be a subset of the disclosed claims
   const presentationFrame: any = {};
   attributesToReveal.forEach(attribute => {
-    presentationFrame[attribute] = true;
+    presentationFrame[attribute.replace('credentialSubject.', '')] = true;
   });
 
   // Holder creates a presentation using the issued credential and the presentation frame

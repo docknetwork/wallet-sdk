@@ -1,3 +1,4 @@
+import { decodeSDJWT } from '@docknetwork/wallet-sdk-wasm/src/services/credential/sd-jwt';
 import {
   BasicCredential,
   PolygonIDCredential,
@@ -63,7 +64,7 @@ describe('SD JWT Credentials', () => {
       template: proofRequest,
     });
 
-    let attributesToReveal = ['credentialSubject.name'];
+    let attributesToReveal = ['credentialSubject.number'];
 
     controller.selectedCredentials.set(credential.id, {
       credential: credential,
@@ -72,18 +73,12 @@ describe('SD JWT Credentials', () => {
 
     const presentation = await controller.createPresentation();
 
-    console.log(JSON.stringify(presentation, null, 2));
 
-    let certsResponse;
-    try {
-      certsResponse = await controller.submitPresentation(presentation);
-      console.log('CERTS response');
-      console.log(JSON.stringify(certsResponse, null, 2));
-    } catch (err) {
-      certsResponse = err.response.data;
-      console.log('Certs API returned an error');
-      console.log(JSON.stringify(certsResponse, null, 2));
-    }
+    const decoded = await decodeSDJWT(presentation.verifiableCredential[0]);
+
+    expect(decoded.disclosures?.length).toBe(1);
+    expect(decoded.disclosures?.[0].key).toBe('number');
+    expect(decoded.disclosures?.[0].value).toBe(123);
   });
 
   afterAll(() => closeWallet());
