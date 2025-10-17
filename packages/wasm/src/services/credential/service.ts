@@ -39,6 +39,7 @@ import axios from 'axios';
 import {getIsRevoked, getWitnessDetails} from './bbs-revocation';
 import {getPexRequiredAttributes, shouldSkipAttribute} from './pex-helpers';
 import {didService} from '../dids/service';
+import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialToW3C, verifySDJWT, createSDJWTPresentation} from './sd-jwt';
 
 /**
  * PEX (Presentation Exchange) instance for credential filtering
@@ -117,8 +118,18 @@ class CredentialService {
     CredentialService.prototype.deriveVCFromPresentation,
     CredentialService.prototype.isBBSPlusCredential,
     CredentialService.prototype.isKvacCredential,
+    CredentialService.prototype.isSDJWTCredential,
+    CredentialService.prototype.credentialToW3C,
+    CredentialService.prototype.createSDJWTPresentation,
     CredentialService.prototype.acquireOIDCredential,
   ];
+
+
+  createSDJWTPresentation(params) {
+    const {attributesToReveal, credential} = params;
+    return createSDJWTPresentation({attributesToReveal, credential});
+  }
+
   /**
    * Generates a new verifiable credential template
    * @param {Object} [params={}] - Generation parameters
@@ -198,8 +209,16 @@ class CredentialService {
     const {credentials, keyDoc, challenge, id, domain} = params;
     const vp = new VerifiablePresentation(id);
     let shouldSkipSigning = false;
+    let jwtCredentials = [];
+
     for (const signedVC of credentials) {
-      vp.addCredential(signedVC);
+
+      if (typeof signedVC === 'string') {
+        jwtCredentials.push(signedVC);
+        shouldSkipSigning = true;
+      } else {
+        vp.addCredential(signedVC);
+      }
       shouldSkipSigning = shouldSkipSigning || isAnnonymousCredential(signedVC);
     }
 
@@ -212,7 +231,9 @@ class CredentialService {
     const suite = await getSuiteFromKeyDoc(keyPair);
 
     if (shouldSkipSigning) {
-      return vp.toJSON();
+      const result = vp.toJSON();
+      result.verifiableCredential.push(...jwtCredentials);
+      return result;
     }
 
     return vp.sign(suite, challenge, domain, blockchainService.resolver);
@@ -254,7 +275,16 @@ class CredentialService {
    */
   async verifyCredential(params) {
     validation.verifyCredential(params);
-    const {credential, membershipWitness} = params;
+    let {credential, membershipWitness} = params;
+
+    if (credential._sd_jwt)  {
+      credential = credential?._sd_jwt?.encoded;
+    }
+
+    if (typeof credential === 'string' && checkIsSDJWT(credential)) {
+      return verifySDJWT(credential);
+    }
+
     const result = await verifyCredential(credential, {
       resolver: blockchainService.resolver,
       revocationApi: {dock: blockchainService.dock},
@@ -346,6 +376,44 @@ class CredentialService {
   isKvacCredential(params) {
     const {credential} = params;
     return isKvacCredential(credential);
+  }
+
+  /**
+   * Checks if a credential is an SD-JWT (Selective Disclosure JWT) credential
+   * @param {Object} params - Check parameters
+   * @param {string} params.credential - The JWT string to check
+   * @returns {boolean} True if the credential is an SD-JWT credential
+   * @example
+   * const isSDJWT = credentialService.isSDJWTCredential({
+   *   credential: 'eyJ0eXAiOiJ2YytzZC1qd3Q...'
+   * });
+   */
+  isSDJWTCredential(params) {
+    const {credential} = params;
+    return checkIsSDJWT(credential);
+  }
+
+  /**
+   * Converts a credential to W3C Verifiable Credential format
+   * @description Handles both SD-JWT credentials (needs decoding) and regular W3C credentials (returns as-is)
+   * @param {Object} params - Conversion parameters
+   * @param {string|Object} params.credential - Either an SD-JWT string or a credential object
+   * @returns {Promise<Object>} W3C Verifiable Credential format
+   * @throws {Error} If credential cannot be converted to W3C format
+   * @example
+   * // Convert SD-JWT to W3C format
+   * const w3cCredential = await credentialService.credentialToW3C({
+   *   credential: 'eyJ0eXAiOiJ2YytzZC1qd3Q...'
+   * });
+   *
+   * // Returns W3C credential as-is
+   * const w3cCredential = await credentialService.credentialToW3C({
+   *   credential: { '@context': [...], type: [...], ... }
+   * });
+   */
+  async credentialToW3C(params) {
+    const {credential} = params;
+    return convertCredentialToW3C(credential);
   }
 
   /**

@@ -233,6 +233,13 @@ export async function getKeyMappingMasterKey(
     equals: {
       'content.id': identifier
     }
+  }).catch(error => {
+    if (error.message && error.message.includes('does not exist')) {
+      logger.error('KeyMappingVault does not exist, skipping find');
+      return { documents: [] };
+    }
+
+    throw error;
   });
 
   if (!result.documents || result.documents.length === 0) {
