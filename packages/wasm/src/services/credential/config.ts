@@ -12,7 +12,13 @@ export const validation = {
   },
   verifyCredential: params => {
     const {credential} = params;
-    assert(typeof credential === 'object', 'invalid credential');
+    assert(
+      typeof credential === 'object' || typeof credential === 'string',
+      'invalid credential',
+    );
+    if (typeof credential === 'object') {
+      assert(Object.keys(credential).length > 0, 'invalid credential');
+    }
   },
   createBBSPresentation: params => {
     const {credentials} = params;

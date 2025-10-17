@@ -29,6 +29,15 @@ export class CredentialServiceRPC extends RpcService {
   async isKvacCredential(params) {
     return this.call('isKvacCredential', params);
   }
+  async isSDJWTCredential(params) {
+    return this.call('isSDJWTCredential', params);
+  }
+  async credentialToW3C(params) {
+    return this.call('credentialToW3C', params);
+  }
+  async createSDJWTPresentation(params) {
+    return this.call('createSDJWTPresentation', params);
+  }
   async getAccumulatorId(params) {
     return this.call('getAccumulatorId', params);
   }

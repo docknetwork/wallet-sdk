@@ -281,7 +281,7 @@ class CredentialService {
       credential = credential?._sd_jwt?.encoded;
     }
 
-    if (checkIsSDJWT(credential)) {
+    if (typeof credential === 'string' && checkIsSDJWT(credential)) {
       return verifySDJWT(credential);
     }
 
