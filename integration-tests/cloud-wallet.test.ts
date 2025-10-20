@@ -54,12 +54,14 @@ describe('Cloud wallet', () => {
       authKey: EDV_AUTH_KEY,
     }));
 
-    await clearEdvDocuments();
-
     wallet = await createNewWallet({
       dontWaitForNetwork: true,
       dataStore,
     });
+  });
+
+  afterAll(async () => {
+    await clearEdvDocuments();
   });
 
   it('should generate a valid master key with mnemonic', async () => {

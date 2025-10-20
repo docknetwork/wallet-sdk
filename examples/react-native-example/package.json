@@ -11,10 +11,10 @@
     "postinstall": "patch-package && jetifier && rn-nodeify --hack && sh fixdeps.sh"
   },
   "dependencies": {
-    "@docknetwork/wallet-sdk-core": "^1.5.9",
-    "@docknetwork/wallet-sdk-data-store": "^1.5.9",
-    "@docknetwork/wallet-sdk-data-store-typeorm": "^1.5.9",
-    "@docknetwork/wallet-sdk-react-native": "^1.5.9",
+    "@docknetwork/wallet-sdk-core": "^1.5.14",
+    "@docknetwork/wallet-sdk-data-store": "^1.5.14",
+    "@docknetwork/wallet-sdk-data-store-typeorm": "^1.5.14",
+    "@docknetwork/wallet-sdk-react-native": "^1.5.14",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@tradle/react-native-http": "^2.0.1",
     "assert": "^2.1.0",
