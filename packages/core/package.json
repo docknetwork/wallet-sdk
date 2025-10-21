@@ -1,6 +1,6 @@
 {
   "name": "@docknetwork/wallet-sdk-core",
-  "version": "1.5.14",
+  "version": "1.7.0",
   "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
   "repository": {
     "type": "git",
