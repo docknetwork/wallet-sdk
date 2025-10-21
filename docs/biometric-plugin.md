@@ -178,7 +178,7 @@ At the time of verification, the verifier can request the biometric check creden
 The biometric ID should not contain the user's actual biometric information. When enrolling a holder in the biometric service, it might be useful to issue an enrolment credential containing the biometric template, the generated biometric ID and any other needed information to identify a returning user. This credential can be verified to get the user's information before checking their biometric. By storing this information with the holder, it avoids the biometric service having to store that PII outside of the control of the holder. The holder should only share a biometric enrollment credential with the biometric service that issued it.
 
 
-## TrustX Biometric Plugin
+## TrustX biometric plugin
 
 The TrustX biometric plugin uses the TrustX API to perform biometric verification and implements the IDVProvider interface.
 

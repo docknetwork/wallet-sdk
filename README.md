@@ -17,7 +17,7 @@ npm install @docknetwork/wallet-sdk-react-native
 **There are some scripts and additional dependencies required.**
 Please check our [examples](https://github.com/docknetwork/wallet-sdk/tree/master/examples) folder for detailed steps.
 
-## React Native Example
+## React Native example
 The following example will create a wallet and allow the user to add credentials to it, displaying the count of documents added to the wallet.
 Notice that all documents are accessible through the `documents` object.
 
@@ -72,7 +72,7 @@ The [Truvera Documentation Portal](https://docs.truvera.io) aggregates documenta
 For more details you should read [the getting started guide](https://github.com/docknetwork/wallet-sdk/blob/master/docs/getting-started.md).
 
 
-### Key Features
+### Key features
 - [Biometric Plugin](https://github.com/docknetwork/wallet-sdk/blob/master/docs/biometric-plugin.md)
 - [Ecosystem Tools](https://github.com/docknetwork/wallet-sdk/blob/master/docs/ecosystem-tools.md)
 - [Cloud Wallet](https://github.com/docknetwork/wallet-sdk/blob/master/docs/cloud-wallet.md)

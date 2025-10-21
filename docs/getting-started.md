@@ -1,4 +1,4 @@
-# Getting Started with the Truvera Wallet SDK
+# Getting started with the Truvera Wallet SDK
 
 This guide walks you through the process of setting up the Truvera Wallet SDK, creating a wallet, managing decentralized identifiers (DIDs), adding credentials, and verifying them.
 
@@ -12,9 +12,9 @@ npm install @docknetwork/wallet-sdk-core @docknetwork/wallet-sdk-data-store-type
 
 The `@docknetwork/wallet-sdk-core` provides the core wallet functionality, while `@docknetwork/wallet-sdk-data-store-typeorm` handles data persistence using a local SQLite database.
 
-## Usage Example
+## Usage example
 
-### 1. Initialize the Data Store
+### 1. Initialize the data store
 
 Before creating a wallet, you need to set up a data store to manage the persistence of wallet data such as DIDs and credentials. Here’s how to create a local data store:
 
@@ -32,7 +32,7 @@ This code initializes an SQLite database to store wallet data locally on the dev
 
 If you want to store data in the Truvera Cloud Wallet, please refer to the [Cloud Wallet Documentation](cloud-wallet.md) for detailed instructions and configuration options.
 
-### 2. Create a New Wallet
+### 2. Create a new wallet
 
 Once the data store is set up, you can create a wallet. The wallet will act as a container for managing your documents, DIDs, and credentials. 
 
@@ -62,7 +62,7 @@ console.log(defaultDID);
 // Example output: did:key:z6MkrcDhePAr5J44Htf6CLSQpZFUGGec4kPVVmERaY9Seijw
 ```
 
-### 4. Add a Credential to the Wallet
+### 4. Add a credential to the wallet
 
 Once you have a wallet and a DID, you can start managing credentials. In this example, you will import a credential from a URL into the wallet.
 
@@ -87,7 +87,7 @@ console.log(credentials);
 
 In this example, the credential is fetched from a specified URI and imported into the wallet. The `getAuthCode` function is used to handle any authentication, such as providing a password if required.
 
-### 5. Verify a Credential
+### 5. Verify a credential
 
 The Truvera Wallet SDK provides built-in functionality for verifying credentials. This is especially useful when interacting with third parties who need to verify your credentials. The verification controller manages this process. Below is an example of how to start a verification, select which credentials to reveal, create a presentation, and submit it for verification.
 

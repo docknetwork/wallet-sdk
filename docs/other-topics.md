@@ -1,4 +1,4 @@
-# Other Topics
+# Other topics
 
 ## Using WebAssembly
 

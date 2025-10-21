@@ -7,7 +7,7 @@ The functions of an ecosystem are further described in [the Ecosystem Tools sect
 The Truvera Wallet SDK implementation of ecosystem tools is in:
 [packages/core/src/ecosystem-tools.ts](https://github.com/docknetwork/wallet-sdk/blob/5dfbcb197b848802478d2f7a697286a8c3c28823/packages/core/src/ecosystem-tools.ts#L4)
 
-## Usage Example
+## Usage example
 
 Below is an example demonstrating how to use getEcosystems to retrieve ecosystem information based on an issuer's DID.
 
@@ -30,7 +30,7 @@ async function fetchEcosystemDetails() {
 fetchEcosystemDetails();
 ```
 
-## Expected Output
+## Expected output
 
 When you run the above code, you should expect output similar to this:
 
@@ -46,7 +46,7 @@ When you run the above code, you should expect output similar to this:
 
 This JSON output contains the details of the ecosystems associated with the given issuerDID.
 
-## Integration Tests
+## Integration tests
 
 For more examples and usage, please refer to the integration test at:
 https://github.com/docknetwork/wallet-sdk/blob/master/integration-tests/ecosystem-tools.test.ts
