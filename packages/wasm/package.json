@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-wasm",
-    "version": "1.5.14",
+    "version": "1.7.0",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -21,7 +21,7 @@
         "p-limit": "2.3.0",
         "@astronautlabs/jsonpath": "^1.1.2",
         "@docknetwork/universal-wallet": "^2.0.1",
-        "@docknetwork/wallet-sdk-dids": "^1.5.14",
+        "@docknetwork/wallet-sdk-dids": "^1.7.0",
         "@cosmjs/proto-signing": "^0.32.4",
         "@docknetwork/cheqd-blockchain-api": "4.0.5",
         "@docknetwork/cheqd-blockchain-modules": "4.0.5",
