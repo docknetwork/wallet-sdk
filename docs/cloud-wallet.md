@@ -82,6 +82,7 @@ const {pullDocuments} = await initializeCloudWallet({
 // Pull documents from the EDV and sync with the wallet
 await pullDocuments();
 ```
+**The EDV auth key will need to be obtained from the Truvera support team via support@truvera.io**
 
 The `pullDocuments` function synchronizes the EDV and the wallet by comparing documents and updating the data store accordingly. Documents can be credentials or messages.
 
