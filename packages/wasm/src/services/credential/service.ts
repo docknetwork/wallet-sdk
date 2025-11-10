@@ -449,6 +449,8 @@ class CredentialService {
       authorizationRequest: {
         redirectUri: 'dock-wallet://credentials/callback',
         clientId: 'dock.wallet',
+        // Hack: we need the scope property to avoid 'CredentialOffer format is wrong.' error
+        scope: []
       },
     });
 
