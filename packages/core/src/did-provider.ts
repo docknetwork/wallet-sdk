@@ -41,15 +41,12 @@ export async function importDID({
     });
 
     for (const doc of docs) {
-      const existingDocs = await wallet.query({
-        id: doc.id,
-      });
+      const existingDoc = await wallet.getDocumentById(doc.id);
 
-      if (existingDocs.length === 0) {
+      if (!existingDoc) {
         await wallet.addDocument(doc);
       } else if (
-        existingDocs.length > 0 &&
-        existingDocs[0].type === 'DIDResolutionResponse'
+        existingDoc.type === 'DIDResolutionResponse'
       ) {
         throw new Error('DID already exists in wallet');
       }
@@ -71,12 +68,9 @@ export async function importDID({
  */
 async function editDID({wallet, id, name}){
   if (typeof id === 'string' && id.length > 0) {
-    const docs = await wallet.query({
-      id,
-    });
-    if (docs.length === 1) {
-      const doc = docs[0];
-      await wallet.update({
+    const doc = await wallet.getDocumentById(id);
+    if (doc) {
+      await wallet.updateDocument({
         ...doc,
         name,
       });
@@ -92,7 +86,7 @@ async function editDID({wallet, id, name}){
  */
 async function deleteDID({wallet, id}){
   if (typeof id === 'string' && id.length > 0) {
-    return await wallet.remove(id);
+    return await wallet.removeDocument(id);
   } else {
     throw Error('Document ID is not set');
   }
@@ -106,7 +100,7 @@ async function exportDID({wallet, id, password }){
   const existingDoc = await wallet.getDocumentById(id);
   if (existingDoc) {
     const allCorrelationDocuments = (
-      await wallet.resolveCorrelations(id)
+      await wallet.getDocumentCorrelations(id)
     ).filter(doc => doc && doc?.id !== existingDoc.id);
     const documentsToExport = [existingDoc, ...allCorrelationDocuments];
 
