@@ -71,3 +71,68 @@ npm run verification-submission-example
 npm run verification-evaluation-example
 ```
 
+## ⚠️ Experimental ESM Compatibility
+
+The `wallet-sdk` can be made to work in ESM-based environments, but **full ESM support is not yet official**. Only basic functionalities have been tested, and the current setup relies on temporary patches and dependency overrides.
+
+For now, **ESM usage is experimental and not encouraged for production**.
+
+## ESM Setup (Temporary Workarounds)
+
+To run the SDK in an ESM environment, the following changes were required:
+
+### 1. Patch: `@docknetwork/cheqd-blockchain-api`
+
+A patch (via `patch-package`) is needed to replace dynamic CommonJS `require()` calls with native ESM `import()` statements.
+
+File: `patches/@docknetwork+cheqd-blockchain-api+4.0.3.patch`
+
+Core change:
+
+```javascript
+diff --git a/node_modules/@docknetwork/cheqd-blockchain-api/dist/cjs/api/index.cjs b/node_modules/@docknetwork/cheqd-blockchain-api/dist/cjs/api/index.cjs
+index 798767a..75b1d5a 100644
+--- a/node_modules/@docknetwork/cheqd-blockchain-api/dist/cjs/api/index.cjs
++++ b/node_modules/@docknetwork/cheqd-blockchain-api/dist/cjs/api/index.cjs
+@@ -191,10 +188,10 @@ class CheqdAPI extends common.AbstractApiProvider {
+       MsgCreateDidDocPayload,
+       MsgUpdateDidDocPayload,
+       MsgDeactivateDidDocPayload,
+-    } = await Promise.resolve().then(function () { return /*#__PURE__*/_interopNamespace(require('@cheqd/ts-proto/cheqd/did/v2/index.js')); });
+-    const { MsgCreateResourcePayload } = await Promise.resolve().then(function () { return /*#__PURE__*/_interopNamespace(require(
++    } = await import('@cheqd/ts-proto/cheqd/did/v2/index.js');
++    const { MsgCreateResourcePayload } = await import(
+       '@cheqd/ts-proto/cheqd/resource/v2/index.js'
+-    )); });
++    );
+
+     this.Payloads = api_typeUrl.buildTypeUrlObject(
+       [types.CheqdDIDDocument, MsgCreateDidDocPayload],
+```
+
+### 2. Required package.json Overrides
+```json
+  "overrides": {
+    "did-jwt-cjs": {
+      "@scure/base": "1.2.6"
+    },
+    "p-limit": "2.3.0"
+  }
+```
+These overrides resolve mismatched dependency versions that break ESM resolution.
+
+### 3. Additional Dependency Required
+
+Install ky manually:
+```bash
+npm install ky@^0.25.1
+```
+
+### Status
+
+These steps allow the SDK to operate in an ESM environment for basic use cases, but:
+- They rely on unsupported patches
+- They may break with future releases
+- Not all features have been validated in ESM
+
+**Until full ESM support is implemented, CommonJS remains the recommended environment.**
