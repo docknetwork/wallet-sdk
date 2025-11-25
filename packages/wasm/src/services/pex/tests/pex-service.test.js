@@ -729,7 +729,7 @@ describe('Pex Examples', () => {
         },
         'https://ld.truvera.io/credentials/prettyvc',
       ],
-      id: 'https://creds-staging.truvera.io/29224c9c87c87c5edfcbace893d99d009513a0548e855bcb793ea30e1c5f8ce8',
+      id: 'https://creds.truvera.io/29224c9c87c87c5edfcbace893d99d009513a0548e855bcb793ea30e1c5f8ce8',
       type: [
         'VerifiableCredential',
         'BasicCredential',
@@ -766,7 +766,7 @@ describe('Pex Examples', () => {
         },
         'https://ld.truvera.io/credentials/prettyvc',
       ],
-      id: 'https://creds-staging.truvera.io/86bdd6cc4d4915939bc2c11a0f8c7ebd64ef0872da02627ab9d7e6866fe2effb',
+      id: 'https://creds.truvera.io/86bdd6cc4d4915939bc2c11a0f8c7ebd64ef0872da02627ab9d7e6866fe2effb',
       type: [
         'VerifiableCredential',
         'BasicCredential',
@@ -807,7 +807,7 @@ describe('Pex Examples', () => {
         },
         'https://ld.truvera.io/credentials/prettyvc',
       ],
-      id: 'https://creds-staging.truvera.io/4343d71719d56e2a3461f24a522229f2c89a3bef68ad2664e1f48d70002034c4',
+      id: 'https://creds.truvera.io/4343d71719d56e2a3461f24a522229f2c89a3bef68ad2664e1f48d70002034c4',
       type: [
         'VerifiableCredential',
         'UniversityDegree',
