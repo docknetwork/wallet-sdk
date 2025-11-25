@@ -647,4 +647,214 @@ describe('Pex Examples', () => {
       expect(result).not.toBe(template); // Ensure immutability
     });
   });
+
+  describe('isCredentialSelectionValid', () => {
+    const presentationDefinition = {
+      id: 'b4a4bcf5-56a6-4e1c-810f-f2161c295b27',
+      input_descriptors: [
+        {
+          id: 'Credential 1',
+          name: 'api test',
+          group: ['1'],
+          purpose: 'blah blah',
+          constraints: {
+            fields: [
+              {
+                path: ['$.credentialSubject.id'],
+                optional: true,
+              },
+              {
+                path: ['$.expirationDate'],
+                optional: true,
+              },
+              {
+                path: ['$.credentialSchema.id'],
+                filter: {
+                  const:
+                    'https://schema.truvera.io/BasicCredential-V2-1703777584571.json',
+                },
+              },
+            ],
+          },
+        },
+        {
+          id: 'Credential 2',
+          name: 'api test',
+          group: ['2'],
+          purpose: 'blah blah',
+          constraints: {
+            fields: [
+              {
+                path: ['$.credentialSubject.id'],
+                optional: true,
+              },
+              {
+                path: ['$.expirationDate'],
+                optional: true,
+              },
+              {
+                path: ['$.credentialSchema.id'],
+                filter: {
+                  const:
+                    'https://schema.truvera.io/UniversityDegree-V1-1703767509472.json',
+                },
+              },
+            ],
+          },
+        },
+      ],
+      submission_requirements: [
+        {
+          from: '1',
+          name: 'Multi Credential Request',
+          rule: 'pick',
+          count: 1,
+        },
+        {
+          from: '2',
+          name: 'Multi Credential Request',
+          rule: 'pick',
+          count: 1,
+        },
+      ],
+    };
+
+    const basicCredential1 = {
+      '@context': [
+        'https://www.w3.org/2018/credentials/v1',
+        'https://ld.truvera.io/credentials/extensions-v1',
+        {
+          BasicCredential: 'dk:BasicCredential',
+          dk: 'https://ld.truvera.io/credentials#',
+        },
+        'https://ld.truvera.io/credentials/prettyvc',
+      ],
+      id: 'https://creds-staging.truvera.io/29224c9c87c87c5edfcbace893d99d009513a0548e855bcb793ea30e1c5f8ce8',
+      type: [
+        'VerifiableCredential',
+        'BasicCredential',
+        'PrettyVerifiableCredential',
+      ],
+      credentialSubject: {
+        id: 'did:key:z6Mktpass177BSFLMuCpNJzCyrLeAUs16XUmg15VLHCQsnhk',
+        name: 'Another Cred',
+      },
+      issuanceDate: '2025-11-25T13:44:36.365Z',
+      issuer: 'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7',
+      credentialSchema: {
+        id: 'https://schema.truvera.io/BasicCredential-V2-1703777584571.json',
+        type: 'JsonSchemaValidator2018',
+      },
+      name: 'Another Cred',
+      proof: {
+        type: 'Ed25519Signature2018',
+        created: '2025-11-25T13:45:06Z',
+        verificationMethod:
+          'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7#keys-1',
+        proofPurpose: 'assertionMethod',
+        jws: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..x1EjlAHJwJFwKfXtbAegJ8xOycY5m47yvvOQm-0sLzzuvSjbSKerIkphQ8w5J0_MJONb-j1-UE0NWZ9quM4CAQ',
+      },
+    };
+
+    const basicCredential2 = {
+      '@context': [
+        'https://www.w3.org/2018/credentials/v1',
+        'https://ld.truvera.io/credentials/extensions-v1',
+        {
+          BasicCredential: 'dk:BasicCredential',
+          dk: 'https://ld.truvera.io/credentials#',
+        },
+        'https://ld.truvera.io/credentials/prettyvc',
+      ],
+      id: 'https://creds-staging.truvera.io/86bdd6cc4d4915939bc2c11a0f8c7ebd64ef0872da02627ab9d7e6866fe2effb',
+      type: [
+        'VerifiableCredential',
+        'BasicCredential',
+        'PrettyVerifiableCredential',
+      ],
+      credentialSubject: {
+        name: 'test',
+      },
+      issuanceDate: '2025-11-25T13:42:02.877Z',
+      issuer: 'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7',
+      credentialSchema: {
+        id: 'https://schema.truvera.io/BasicCredential-V2-1703777584571.json',
+        type: 'JsonSchemaValidator2018',
+      },
+      name: 'test',
+      proof: {
+        type: 'Ed25519Signature2018',
+        created: '2025-11-25T13:42:42Z',
+        verificationMethod:
+          'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7#keys-1',
+        proofPurpose: 'assertionMethod',
+        jws: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..R-cJhQlBr3TJS6ArSIBwLjLcQO-yuPZ5FUY5zGe6TYIJNm0teHFvgFHjg_-Y9VeuhLZprVNufXyqLoPSkTC7CQ',
+      },
+    };
+
+    const universityDegreeCredential = {
+      '@context': [
+        'https://www.w3.org/2018/credentials/v1',
+        'https://ld.truvera.io/credentials/extensions-v1',
+        {
+          UniversityDegree: 'dk:UniversityDegree',
+          additionalDistinctions: 'dk:additionalDistinctions',
+          awardedDate: 'dk:awardedDate',
+          dateOfBirth: 'dk:dateOfBirth',
+          degreeName: 'dk:degreeName',
+          degreeType: 'dk:degreeType',
+          dk: 'https://ld.truvera.io/credentials#',
+        },
+        'https://ld.truvera.io/credentials/prettyvc',
+      ],
+      id: 'https://creds-staging.truvera.io/4343d71719d56e2a3461f24a522229f2c89a3bef68ad2664e1f48d70002034c4',
+      type: [
+        'VerifiableCredential',
+        'UniversityDegree',
+        'PrettyVerifiableCredential',
+      ],
+      credentialSubject: {
+        id: 'did:key:z6Mktpass177BSFLMuCpNJzCyrLeAUs16XUmg15VLHCQsnhk',
+        degreeName: 'testing',
+        degreeType: 'testing',
+        name: 'Tester',
+        awardedDate: '2025-11-20',
+        dateOfBirth: '2025-11-20',
+        additionalDistinctions: 'test',
+      },
+      issuanceDate: '2025-11-25T13:45:25.699Z',
+      issuer: 'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7',
+      credentialSchema: {
+        id: 'https://schema.truvera.io/UniversityDegree-V1-1703767509472.json',
+        type: 'JsonSchemaValidator2018',
+      },
+      name: 'University Degree',
+      proof: {
+        type: 'Ed25519Signature2018',
+        created: '2025-11-25T13:46:09Z',
+        verificationMethod:
+          'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7#keys-1',
+        proofPurpose: 'assertionMethod',
+        jws: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..lb0SOlbNGZAEnGOqnaFg-fTSSOp-EWCMdMtKkjVasRkPjwAVSSK4VZmjis3Czdacbhl8VL0q3f6Ow4rge3eHDQ',
+      },
+    };
+
+    it('should return true if the credential selection is valid', () => {
+      expect(
+        pexService.isCredentialSelectionValid({
+          credentials: [basicCredential1, universityDegreeCredential],
+          presentationDefinition: presentationDefinition,
+        }),
+      ).toBe(true);
+    });
+
+    it('should return false if the credential selection is invalid', () => {
+      expect(
+        pexService.isCredentialSelectionValid({
+          credentials: [basicCredential1, basicCredential2],
+          presentationDefinition: presentationDefinition,
+        }),
+      ).toBe(false);
+    });
+  });
 });
