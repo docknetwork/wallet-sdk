@@ -24,4 +24,8 @@ export class PEXServiceRPC extends RpcService {
   async presentationFrom(params: CreatePresentationParams) {
     return this.call('presentationFrom', params);
   }
+
+  async isCredentialSelectionValid(params: EvaluateCredentialsParams) {
+    return this.call('isCredentialSelectionValid', params);
+  }
 }
