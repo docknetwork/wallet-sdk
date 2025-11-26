@@ -78,6 +78,7 @@ class PEXService {
     PEXService.prototype.filterCredentials,
     PEXService.prototype.evaluatePresentation,
     PEXService.prototype.presentationFrom,
+    PEXService.prototype.isCredentialSelectionValid,
   ];
 
   filterCredentials(params: FilterCredentialsParams) {
@@ -90,6 +91,18 @@ class PEXService {
     );
 
     return result;
+  }
+
+  isCredentialSelectionValid(params: EvaluateCredentialsParams) {
+    validation.evaluateCredentials(params);
+    const {credentials, presentationDefinition, holderDIDs} = params;
+    const result = pex.selectFrom(
+      removeOptionalAttribute(presentationDefinition),
+      credentials,
+      holderDIDs,
+    );
+
+    return result.errors.length === 0;
   }
 
   evaluatePresentation(params: EvaluatePresentationParams) {
