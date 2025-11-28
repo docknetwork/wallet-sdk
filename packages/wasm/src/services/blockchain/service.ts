@@ -60,7 +60,11 @@ export class BlockchainService {
   cheqdApi;
   cheqdApiUrl;
   isBlockchainReady = false;
-  resolver: any;
+  private _resolver: any;
+
+  get resolver(): any {
+    return this._resolver;
+  }
   /**
    * Event names emitted by the blockchain service
    * @static
@@ -93,7 +97,8 @@ export class BlockchainService {
     this.cheqdModules = new CheqdCoreModules(this.cheqdApi);
     this.modules = new MultiApiCoreModules([this.cheqdModules]);
     this.emitter = new EventEmitter();
-    this.resolver = this.createDIDResolver();
+    // Blockchain is not ready yet, but we can use fallback resolvers
+    this._resolver = this.createDIDResolver();
   }
 
   /**
@@ -161,12 +166,21 @@ export class BlockchainService {
    * @private
    * @returns {CachedDIDResolver} Cached DID resolver instance
    */
-  createDIDResolver() {
-    const router = new AnyDIDResolver([
-      new DIDKeyResolver(),
-      new CoreResolver(this.modules),
+  createDIDResolver(isBlockchainReady: boolean) {
+    let resolvers = [
       new UniversalResolver(universalResolverUrl),
-    ]);
+      new DIDKeyResolver(),
+    ]
+
+    // Add blockchain resolvers if the blockchain is ready
+    if (isBlockchainReady) {
+      resolvers = [
+        new CoreResolver(this.modules),
+        ...resolvers
+      ]
+    }
+
+    const router = new AnyDIDResolver(resolvers);
 
     return new CachedDIDResolver(router);
   }
@@ -226,7 +240,8 @@ export class BlockchainService {
     }
 
 
-    this.resolver = this.createDIDResolver();
+    // Re-create the resolver with the new blockchain connection
+    this._resolver = this.createDIDResolver(true);
 
     if (
       process.env.NODE_ENV !== 'test' ||

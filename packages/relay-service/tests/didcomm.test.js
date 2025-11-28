@@ -26,11 +26,11 @@ const mockDIDResolver = {
 };
 
 blockchainService.createDIDResolver = () => mockDIDResolver;
-blockchainService.resolver = mockDIDResolver;
+blockchainService._resolver = mockDIDResolver;
 
 describe('DIDComm', () => {
   it('expect to decrypt didcomm message', async () => {
-    blockchainService.resolver = mockDIDResolver;
+    blockchainService._resolver = mockDIDResolver;
 
     const keyAgreementKey = await getDerivedAgreementKey(ALICE_KEY_PAIR_DOC);
 
