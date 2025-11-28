@@ -165,12 +165,12 @@ export class BlockchainService {
   createDIDResolver() {
     let resolvers = [
       new UniversalResolver(universalResolverUrl),
+      new DIDKeyResolver(),
     ]
 
     // Add blockchain resolvers if the blockchain is ready
     if (this.isBlockchainReady) {
       resolvers = [
-        new DIDKeyResolver(),
         new CoreResolver(this.modules),
         ...resolvers
       ]
