@@ -26,6 +26,7 @@ module.exports = {
   globalTeardown: './scripts/integration-test-teardown.js',
   setupFiles: ['jest-localstorage-mock'],
   moduleNameMapper: {
+    'ky-universal': 'ky',
     '@digitalbazaar/edv-client': require.resolve(
       '@digitalbazaar/edv-client/main.js',
     ),
@@ -50,6 +51,6 @@ module.exports = {
       '@docknetwork/wallet-sdk-data-store/src',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|multiformats|p-limit|yocto-queue|@cheqd/ts-proto)',
+    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky)',
   ],
 };
