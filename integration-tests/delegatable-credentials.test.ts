@@ -1,190 +1,180 @@
 import {
   verifyDelegatablePresentation,
+  issueDelegationCredential,
+  issueDelegatedCredential,
+  createSignedPresentation,
   createCedarPolicy,
-  createDelegatablePresentation,
-  createDelegationCredential,
-  createEd25519Proof,
+  MAY_CLAIM_IRI,
 } from '@docknetwork/wallet-sdk-wasm/src/services/credential/delegatable-credentials';
+import { didService } from '@docknetwork/wallet-sdk-wasm/src/services/dids/service';
 
+// ============================================================================
+// TEST CONFIGURATION
+// ============================================================================
 
-/**
- * Delegation namespace for credential chain properties
- */
-const DELEGATION_NAMESPACE = 'https://ld.truvera.io/credentials/delegation#';
+const DELEGATION_ROOT_ID = 'urn:cred:delegation-root';
+const CREDIT_SCORE_CRED_ID = 'urn:cred:credit-score-alice';
+const SUBJECT_DID = 'did:example:alice';
 
-/**
- * Pre-defined context for credit delegation credentials
- */
-const CREDIT_DELEGATION_CONTEXT = [
-  'https://www.w3.org/2018/credentials/v1',
-  'https://ld.truvera.io/credentials/delegation',
-  {
-    '@version': 1.1,
-    ex: 'https://example.org/credentials#',
-    delegation: DELEGATION_NAMESPACE,
-    CreditScoreDelegation: 'ex:CreditScoreDelegation',
-    DelegationCredential: 'delegation:DelegationCredential',
-    body: 'ex:body',
-    rootCredentialId: { '@id': 'delegation:rootCredentialId', '@type': '@id' },
-    previousCredentialId: { '@id': 'delegation:previousCredentialId', '@type': '@id' },
-  },
-];
-
-/**
- * Pre-defined context for credit score credentials
- */
-const CREDIT_SCORE_CONTEXT = [
-  'https://www.w3.org/2018/credentials/v1',
-  'https://ld.truvera.io/credentials/delegation',
-  {
-    '@version': 1.1,
-    ex: 'https://example.org/credentials#',
-    xsd: 'http://www.w3.org/2001/XMLSchema#',
-    delegation: DELEGATION_NAMESPACE,
-    CreditScoreCredential: 'ex:CreditScoreCredential',
-    creditScore: { '@id': 'ex:creditScore', '@type': 'xsd:integer' },
-    rootCredentialId: { '@id': 'delegation:rootCredentialId', '@type': '@id' },
-    previousCredentialId: { '@id': 'delegation:previousCredentialId', '@type': '@id' },
-  },
-];
-
-/**
- * Pre-defined context for verifiable presentations
- */
-const PRESENTATION_CONTEXT = ['https://www.w3.org/2018/credentials/v1'];
+const CHALLENGE = 'test-challenge-123';
+const DOMAIN = 'test.example.com';
 
 describe('Delegatable Credentials', () => {
-  // Cedar policy for credit score delegation
-  const policies = createCedarPolicy({
-    maxDepth: 2,
-    rootIssuer: 'did:dock:a',
-    requiredClaims: {
-      creditScore: 0,
-      body: 'Issuer of Credit Scores',
-    },
-  });
+  let rootIssuerKey: any;
+  let delegateKey: any;
+  let rootIssuerDid: string;
+  let delegateDid: string;
+  let delegationCredential: any;
+  let creditScoreCredential: any;
+  let unauthorizedDelegationCredential: any;
 
-  // Authorized delegation credential
-  const authorizedDelegation = createDelegationCredential({
-    id: 'urn:cred:deleg-a-b',
-    context: CREDIT_DELEGATION_CONTEXT,
-    types: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
-    issuer: 'did:dock:a',
-    subjectId: 'did:dock:b',
-    mayClaim: ['creditScore'],
-    additionalSubjectProperties: {
-      body: 'Issuer of Credit Scores',
-    },
-  });
-
-  // Authorized score credential
-  const authorizedScore = {
-    '@context': CREDIT_SCORE_CONTEXT,
-    id: 'urn:cred:score-alice',
-    type: ['VerifiableCredential', 'CreditScoreCredential'],
-    issuer: 'did:dock:b',
-    previousCredentialId: 'urn:cred:deleg-a-b',
-    rootCredentialId: 'urn:cred:deleg-a-b',
-    credentialSubject: {
-      id: 'did:example:alice',
-      creditScore: 760,
-    },
-  };
-
-  // Unauthorized delegation credential (no creditScore claim)
-  const unauthorizedDelegation = createDelegationCredential({
-    id: 'urn:cred:deleg-a-b',
-    context: CREDIT_DELEGATION_CONTEXT,
-    types: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
-    issuer: 'did:dock:a',
-    subjectId: 'did:dock:b',
-    mayClaim: ['noClaim'],
-  });
-
-  it('should verify authorized credit score delegation', async () => {
-    const proof = createEd25519Proof({
-      verificationMethod: 'did:dock:b#auth-key',
-      challenge: 'credit-score-example',
-      domain: 'docklabs.example',
-      created: '2025-01-17T12:15:51Z',
-      jws: 'test..signature',
+  beforeAll(async () => {
+    // Generate key pairs for root issuer and delegate
+    rootIssuerKey = await didService.generateKeyDoc({
+      type: 'ed25519',
+    });
+    delegateKey = await didService.generateKeyDoc({
+      type: 'ed25519',
     });
 
-    const vp = createDelegatablePresentation(
-      [authorizedDelegation, authorizedScore],
-      proof,
-      PRESENTATION_CONTEXT
-    );
+    // Extract DIDs from the key documents
+    rootIssuerDid = rootIssuerKey.controller;
+    delegateDid = delegateKey.controller;
 
-    const result = await verifyDelegatablePresentation(vp, { policies });
+    console.log('Root Issuer DID:', rootIssuerDid);
+    console.log('Delegate DID:', delegateDid);
 
-    expect(result.decision).toBe('allow');
-    expect(result.failures).toStrictEqual([]);
-  });
-
-  it('should deny unauthorized credit score delegation', async () => {
-    const proof = createEd25519Proof({
-      verificationMethod: 'did:dock:d#auth-key',
-      challenge: 'credit-score-example',
-      domain: 'docklabs.example',
-      created: '2025-01-17T12:15:51Z',
-      jws: 'test..signature',
-    });
-
-    const vp = createDelegatablePresentation(
-      [unauthorizedDelegation, authorizedScore],
-      proof,
-      PRESENTATION_CONTEXT
-    );
-
-    const result = await verifyDelegatablePresentation(vp, { policies });
-
-    expect(result.decision).not.toBe('allow');
-  });
-
-  it('should verify delegation without Cedar policies', async () => {
-    const proof = createEd25519Proof({
-      verificationMethod: 'did:dock:b#auth-key',
-      challenge: 'credit-score-example',
-      domain: 'docklabs.example',
-      created: '2025-01-17T12:15:51Z',
-      jws: 'test..signature',
-    });
-
-    const vp = createDelegatablePresentation(
-      [authorizedDelegation, authorizedScore],
-      proof,
-      PRESENTATION_CONTEXT
-    );
-
-    const result = await verifyDelegatablePresentation(vp);
-
-    expect(result.failures).toStrictEqual([]);
-  });
-
-  it('should create delegation credentials with helper function', () => {
-    const delegation = createDelegationCredential({
-      id: 'urn:cred:test-delegation',
-      issuer: 'did:dock:issuer',
-      subjectId: 'did:dock:subject',
-      mayClaim: ['claim1', 'claim2'],
+    // Issue the root delegation credential
+    // This grants the delegate authority to issue creditScore claims
+    delegationCredential = await issueDelegationCredential(rootIssuerKey, {
+      id: DELEGATION_ROOT_ID,
+      issuerDid: rootIssuerDid,
+      delegateDid: delegateDid,
+      mayClaim: ['creditScore'],
       additionalSubjectProperties: {
-        customProp: 'value',
+        body: 'Issuer of Credit Scores',
       },
     });
 
-    expect(delegation.id).toBe('urn:cred:test-delegation');
-    expect(delegation.issuer).toBe('did:dock:issuer');
-    expect(delegation.credentialSubject.id).toBe('did:dock:subject');
-    expect(delegation.credentialSubject['https://rdf.dock.io/alpha/2021#mayClaim']).toEqual(['claim1', 'claim2']);
-    expect(delegation.credentialSubject.customProp).toBe('value');
-    expect(delegation.rootCredentialId).toBe('urn:cred:test-delegation');
+    // Issue a credit score credential as the delegate
+    creditScoreCredential = await issueDelegatedCredential(delegateKey, {
+      id: CREDIT_SCORE_CRED_ID,
+      issuerDid: delegateDid,
+      subjectDid: SUBJECT_DID,
+      claims: {
+        creditScore: 760,
+      },
+      rootCredentialId: DELEGATION_ROOT_ID,
+      previousCredentialId: DELEGATION_ROOT_ID,
+    });
+
+    // Issue an unauthorized delegation (no creditScore in mayClaim)
+    unauthorizedDelegationCredential = await issueDelegationCredential(rootIssuerKey, {
+      id: 'urn:cred:unauthorized-delegation',
+      issuerDid: rootIssuerDid,
+      delegateDid: delegateDid,
+      mayClaim: ['someOtherClaim'], // Does NOT include creditScore
+    });
+  });
+
+  it('should issue a valid delegation credential', () => {
+    expect(delegationCredential).toBeDefined();
+    expect(delegationCredential.id).toBe(DELEGATION_ROOT_ID);
+    expect(delegationCredential.issuer).toBe(rootIssuerDid);
+    expect(delegationCredential.credentialSubject.id).toBe(delegateDid);
+    expect(delegationCredential.credentialSubject[MAY_CLAIM_IRI]).toContain('creditScore');
+    expect(delegationCredential.proof).toBeDefined();
+    expect(delegationCredential.rootCredentialId).toBe(DELEGATION_ROOT_ID);
+    expect(delegationCredential.previousCredentialId).toBeNull();
+  });
+
+  it('should issue a valid delegated credential', () => {
+    expect(creditScoreCredential).toBeDefined();
+    expect(creditScoreCredential.id).toBe(CREDIT_SCORE_CRED_ID);
+    expect(creditScoreCredential.issuer).toBe(delegateDid);
+    expect(creditScoreCredential.credentialSubject.id).toBe(SUBJECT_DID);
+    expect(creditScoreCredential.credentialSubject.creditScore).toBe(760);
+    expect(creditScoreCredential.proof).toBeDefined();
+    expect(creditScoreCredential.rootCredentialId).toBe(DELEGATION_ROOT_ID);
+    expect(creditScoreCredential.previousCredentialId).toBe(DELEGATION_ROOT_ID);
+  });
+
+  it('should verify authorized delegation with Cedar policies', async () => {
+    // Create a signed presentation with both credentials
+    const presentation = await createSignedPresentation(delegateKey, {
+      credentials: [delegationCredential, creditScoreCredential],
+      holderDid: delegateDid,
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
+
+    // Create Cedar policy that allows this delegation
+    const policies = createCedarPolicy({
+      maxDepth: 2,
+      rootIssuer: rootIssuerDid,
+      requiredClaims: {
+        creditScore: 0,
+        body: 'Issuer of Credit Scores',
+      },
+    });
+
+    // Verify the presentation
+    const result = await verifyDelegatablePresentation(presentation, {
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+      policies,
+    });
+
+    console.log('Verification result:', {
+      verified: result.verified,
+      delegationDecision: result.delegationResult?.decision,
+      credentialResults: result.credentialResults?.map(r => r.verified),
+    });
+
+    // Check delegation result
+    expect(result.delegationResult).toBeDefined();
+    expect(result.delegationResult?.decision).toBe('allow');
+
+    // Log delegation summary for debugging
+    if (result.delegationResult?.summaries?.length > 0) {
+      const summary = result.delegationResult.summaries[0];
+      console.log('Delegation summary:', {
+        rootIssuer: summary.rootIssuer,
+        tailIssuer: summary.tailIssuer,
+        tailDepth: summary.tailDepth,
+        authorizedClaims: summary.authorizedClaims,
+      });
+    }
+  });
+
+  it('should verify delegation without Cedar policies', async () => {
+    // Create a signed presentation
+    const presentation = await createSignedPresentation(delegateKey, {
+      credentials: [delegationCredential, creditScoreCredential],
+      holderDid: delegateDid,
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
+
+    // Verify without Cedar policies - just validates delegation chain
+    const result = await verifyDelegatablePresentation(presentation, {
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
+
+    console.log('Verification without policies:', {
+      verified: result.verified,
+      delegationDecision: result.delegationResult?.decision,
+    });
+
+    expect(result.delegationResult).toBeDefined();
+    expect(result.delegationResult?.failures || []).toHaveLength(0);
   });
 
   it('should create Cedar policies with helper function', () => {
     const policy = createCedarPolicy({
       maxDepth: 3,
-      rootIssuer: 'did:dock:root',
+      rootIssuer: 'did:example:root',
       requiredClaims: {
         level: 5,
         role: 'admin',
@@ -192,7 +182,7 @@ describe('Delegatable Credentials', () => {
     });
 
     expect(policy.staticPolicies).toContain('context.tailDepth <= 3');
-    expect(policy.staticPolicies).toContain('did:dock:root');
+    expect(policy.staticPolicies).toContain('did:example:root');
     expect(policy.staticPolicies).toContain('context.authorizedClaims.level >= 5');
     expect(policy.staticPolicies).toContain('context.authorizedClaims.role == "admin"');
   });

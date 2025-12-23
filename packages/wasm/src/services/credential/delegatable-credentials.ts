@@ -1,22 +1,44 @@
 // @ts-nocheck
-import jsonld from 'jsonld';
 import * as cedar from '@cedar-policy/cedar-wasm/nodejs';
 import {
-  verifyVPWithDelegation,
-  authorizeEvaluationsWithCedar,
-} from '@docknetwork/vc-delegation-engine';
+  verifyPresentation,
+  issueCredential,
+  signPresentation,
+  documentLoader,
+  getSuiteFromKeyDoc,
+} from '@docknetwork/credential-sdk/vc';
+import { MAY_CLAIM_IRI } from '@docknetwork/vc-delegation-engine';
+import { getKeypairFromDoc } from '@docknetwork/universal-wallet/methods/keypairs';
+import { blockchainService } from '../blockchain/service';
 
-export interface DocumentLoaderResult {
-  contextUrl: string | null;
-  documentUrl: string;
-  document: any;
+/**
+ * Prepares a key document for signing by creating a proper keypair with signer capability
+ * @param keyDoc - The key document with id, controller, type, and key material
+ * @returns A key document with an active signer
+ */
+function prepareKeyForSigning(keyDoc: KeyPair): any {
+  const kp = getKeypairFromDoc(keyDoc);
+  // Get the signer from the keypair - this returns an object with id and sign method
+  const signer = kp.signer();
+  // Set the id on the signer to match the verification method
+  signer.id = keyDoc.id;
+  return {
+    ...keyDoc,
+    keypair: kp,
+    signer,
+  };
 }
 
 export interface VerificationResult {
-  decision: string;
-  failures?: any[];
-  evaluations?: any[];
-  authorizations?: any[];
+  verified: boolean;
+  credentialResults?: any[];
+  delegationResult?: {
+    decision: string;
+    summaries?: any[];
+    authorizations?: any[];
+    failures?: any[];
+  };
+  error?: any;
 }
 
 export interface CedarPolicies {
@@ -35,102 +57,279 @@ export interface DelegationCredential {
   id: string;
   type: string[];
   issuer: string;
+  issuanceDate: string;
   previousCredentialId: string | null;
   rootCredentialId: string;
   credentialSubject: {
     id: string;
     [key: string]: any;
   };
+  proof?: any;
+}
+
+export interface VerifyDelegationOptions {
+  challenge?: string;
+  domain?: string;
+  unsignedPresentation?: boolean;
+  failOnUnauthorizedClaims?: boolean;
+  policies?: CedarPolicies;
+}
+
+export interface KeyPair {
+  type: string;
+  id?: string;
+  controller?: string;
+  publicKeyJwk?: any;
+  privateKeyJwk?: any;
+  publicKeyBase58?: string;
+  privateKeyBase58?: string;
 }
 
 /**
- * Default document loader that fetches JSON-LD contexts from URLs
- * Falls back to minimal context structure for unavailable URLs
+ * W3C Credentials V1 context URL
  */
-export async function defaultDocumentLoader(
-  url: string
-): Promise<DocumentLoaderResult> {
-  const urlString = url.toString();
+export const W3C_CREDENTIALS_V1 = 'https://www.w3.org/2018/credentials/v1';
 
-  // Try to fetch from the web first
-  if (urlString.startsWith('http://') || urlString.startsWith('https://')) {
-    try {
-      const response = await fetch(urlString);
-      if (response.ok) {
-        const document = await response.json();
-        return {
-          contextUrl: null,
-          documentUrl: urlString,
-          document,
-        };
-      }
-    } catch (error) {
-      // Fall through to return empty context
-    }
+/**
+ * Delegation context URL (for documentation purposes - we embed the context inline)
+ */
+export const DELEGATION_CONTEXT_URL = 'https://ld.truvera.io/credentials/delegation';
+
+/**
+ * Re-export MAY_CLAIM_IRI for use in credentials
+ */
+export { MAY_CLAIM_IRI };
+
+/**
+ * Embedded delegation context terms
+ * This defines the JSON-LD terms needed for delegation credentials
+ */
+const DELEGATION_CONTEXT_TERMS = {
+  '@version': 1.1,
+  '@protected': true,
+  delegation: 'https://rdf.dock.io/credentials/delegation#',
+  DelegationCredential: 'delegation:DelegationCredential',
+  mayClaim: { '@id': MAY_CLAIM_IRI, '@container': '@set' },
+  rootCredentialId: { '@id': 'delegation:rootCredentialId', '@type': '@id' },
+  previousCredentialId: { '@id': 'delegation:previousCredentialId', '@type': '@id' },
+};
+
+/**
+ * Pre-defined context for delegation credentials
+ */
+export const DELEGATION_CREDENTIAL_CONTEXT = [
+  W3C_CREDENTIALS_V1,
+  {
+    ...DELEGATION_CONTEXT_TERMS,
+    dock: 'https://rdf.dock.io/alpha/2021#',
+    ex: 'https://example.org/credentials#',
+    CreditScoreDelegation: 'ex:CreditScoreDelegation',
+    body: 'ex:body',
+  },
+];
+
+/**
+ * Pre-defined context for credit score credentials
+ */
+export const CREDIT_SCORE_CONTEXT = [
+  W3C_CREDENTIALS_V1,
+  {
+    ...DELEGATION_CONTEXT_TERMS,
+    ex: 'https://example.org/credentials#',
+    xsd: 'http://www.w3.org/2001/XMLSchema#',
+    CreditScoreCredential: 'ex:CreditScoreCredential',
+    creditScore: { '@id': 'ex:creditScore', '@type': 'xsd:integer' },
+  },
+];
+
+/**
+ * Pre-defined context for verifiable presentations
+ */
+export const PRESENTATION_CONTEXT = [W3C_CREDENTIALS_V1];
+
+/**
+ * Issues a delegation credential that grants authority to a delegate
+ * @param keyPair - The key pair to sign the credential
+ * @param params - Delegation parameters
+ * @returns Signed delegation credential
+ */
+export async function issueDelegationCredential(
+  keyPair: KeyPair,
+  params: {
+    id: string;
+    issuerDid: string;
+    delegateDid: string;
+    mayClaim: string[];
+    context?: any[];
+    types?: string[];
+    additionalSubjectProperties?: Record<string, any>;
+    previousCredentialId?: string | null;
+    rootCredentialId?: string;
   }
+): Promise<DelegationCredential> {
+  const {
+    id,
+    issuerDid,
+    delegateDid,
+    mayClaim,
+    context = DELEGATION_CREDENTIAL_CONTEXT,
+    types = ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
+    additionalSubjectProperties = {},
+    previousCredentialId = null,
+    rootCredentialId,
+  } = params;
 
-  // Return minimal context structure for known URLs
-  return {
-    contextUrl: null,
-    documentUrl: urlString,
-    document: {
-      '@context': {
-        '@version': 1.1,
-      },
+  const credential = {
+    '@context': context,
+    id,
+    type: types,
+    issuer: issuerDid,
+    issuanceDate: new Date().toISOString(),
+    credentialSubject: {
+      id: delegateDid,
+      [MAY_CLAIM_IRI]: mayClaim,
+      ...additionalSubjectProperties,
     },
+    rootCredentialId: rootCredentialId || id,
+    previousCredentialId,
   };
+
+  const preparedKey = prepareKeyForSigning(keyPair);
+  return issueCredential(preparedKey, credential);
 }
 
 /**
- * Verifies a verifiable presentation with delegation chain validation
+ * Issues a credential as a delegate (with delegation chain reference)
+ * @param keyPair - The delegate's key pair to sign the credential
+ * @param params - Credential parameters
+ * @returns Signed credential
+ */
+export async function issueDelegatedCredential(
+  keyPair: KeyPair,
+  params: {
+    id: string;
+    issuerDid: string;
+    subjectDid: string;
+    claims: Record<string, any>;
+    rootCredentialId: string;
+    previousCredentialId: string;
+    context?: any[];
+    types?: string[];
+  }
+): Promise<any> {
+  const {
+    id,
+    issuerDid,
+    subjectDid,
+    claims,
+    rootCredentialId,
+    previousCredentialId,
+    context = CREDIT_SCORE_CONTEXT,
+    types = ['VerifiableCredential', 'CreditScoreCredential'],
+  } = params;
+
+  const credential = {
+    '@context': context,
+    id,
+    type: types,
+    issuer: issuerDid,
+    issuanceDate: new Date().toISOString(),
+    credentialSubject: {
+      id: subjectDid,
+      ...claims,
+    },
+    rootCredentialId,
+    previousCredentialId,
+  };
+
+  const preparedKey = prepareKeyForSigning(keyPair);
+  return issueCredential(preparedKey, credential);
+}
+
+/**
+ * Creates and signs a verifiable presentation with delegation credentials
+ * @param keyPair - The key pair to sign the presentation
+ * @param params - Presentation parameters
+ * @returns Signed verifiable presentation
+ */
+export async function createSignedPresentation(
+  keyPair: KeyPair,
+  params: {
+    credentials: any[];
+    holderDid: string;
+    challenge: string;
+    domain: string;
+    context?: any[];
+  }
+): Promise<VerifiablePresentation> {
+  const {
+    credentials,
+    holderDid,
+    challenge,
+    domain,
+    context = PRESENTATION_CONTEXT,
+  } = params;
+
+  const presentation = {
+    '@context': context,
+    type: ['VerifiablePresentation'],
+    holder: holderDid,
+    verifiableCredential: credentials,
+  };
+
+  // Create key document for signing with proper keypair
+  const keyDoc = {
+    ...keyPair,
+    id: keyPair.id || `${holderDid}#keys-1`,
+    controller: keyPair.controller || holderDid,
+  };
+
+  const preparedKey = prepareKeyForSigning(keyDoc);
+  return signPresentation(presentation, preparedKey, challenge, domain);
+}
+
+/**
+ * Verifies a verifiable presentation with optional delegation chain validation
+ * Uses the credential-sdk's verifyPresentation which automatically:
+ * 1. Verifies the presentation signature
+ * 2. Verifies all credentials
+ * 3. Detects delegation credentials
+ * 4. Validates the delegation chain
+ * 5. Applies Cedar policies if provided
+ *
  * @param vp - The verifiable presentation to verify
- * @param options - Optional configuration
- * @param options.documentLoader - Custom document loader function
- * @param options.policies - Cedar policies for authorization
- * @returns Verification result with decision and any failures
+ * @param options - Verification options
+ * @returns Verification result with delegation info if applicable
  */
 export async function verifyDelegatablePresentation(
   vp: VerifiablePresentation,
-  options: {
-    documentLoader?: (url: string) => Promise<DocumentLoaderResult>;
-    policies?: CedarPolicies;
-  } = {}
+  options: VerifyDelegationOptions = {}
 ): Promise<VerificationResult> {
-  const documentLoader = options.documentLoader || defaultDocumentLoader;
+  const {
+    challenge = vp.proof?.challenge || 'default-challenge',
+    domain = vp.proof?.domain || 'default-domain',
+    unsignedPresentation = false,
+    failOnUnauthorizedClaims = true,
+    policies,
+  } = options;
 
-  const expandedPresentation = await jsonld.expand(vp, { documentLoader });
-  const credentialContexts = new Map<string, any>();
+  const verifyOptions: any = {
+    challenge,
+    domain,
+    documentLoader: documentLoader(blockchainService.resolver),
+    unsignedPresentation,
+    failOnUnauthorizedClaims,
+  };
 
-  (vp.verifiableCredential ?? []).forEach((vc: any) => {
-    if (vc && typeof vc.id === 'string' && vc['@context']) {
-      credentialContexts.set(vc.id, vc['@context']);
-    }
-  });
-
-  const result = await verifyVPWithDelegation({
-    expandedPresentation,
-    credentialContexts,
-    documentLoader,
-  });
-
-  if (result.failures && result.failures.length > 0) {
-    return { ...result, decision: 'deny' };
-  }
-
-  let decision = result.decision;
-  let authorizations: any[] = [];
-
-  if (options.policies) {
-    const authorizationOutcome = authorizeEvaluationsWithCedar({
+  // Add Cedar authorization if policies are provided
+  if (policies) {
+    verifyOptions.cedarAuth = {
+      policies,
       cedar,
-      evaluations: result.evaluations,
-      policies: options.policies,
-    });
-    decision = authorizationOutcome.decision;
-    authorizations = authorizationOutcome.authorizations;
+    };
   }
 
-  return { ...result, decision, authorizations };
+  return verifyPresentation(vp, verifyOptions);
 }
 
 /**
@@ -170,136 +369,34 @@ permit(
 }
 
 /**
- * Creates a verifiable presentation for delegation
+ * Creates an unsigned verifiable presentation (for testing)
  * @param credentials - Array of credentials to include
- * @param proof - Proof object for the presentation
- * @param context - Optional additional context
+ * @param proof - Optional proof object
+ * @param context - Optional context
  * @returns Verifiable presentation object
  */
-export function createDelegatablePresentation(
+export function createUnsignedPresentation(
   credentials: any[],
-  proof: any,
-  context: any[] = ['https://www.w3.org/2018/credentials/v1']
+  proof?: any,
+  context: any[] = PRESENTATION_CONTEXT
 ): VerifiablePresentation {
-  return {
+  const vp: VerifiablePresentation = {
     '@context': context,
     type: ['VerifiablePresentation'],
-    proof,
     verifiableCredential: credentials,
   };
+
+  if (proof) {
+    vp.proof = proof;
+  }
+
+  return vp;
 }
 
 /**
- * Delegation namespace for credential chain properties
+ * Re-export cedar for use in tests and external code
  */
-const DELEGATION_NAMESPACE = 'https://ld.truvera.io/credentials/delegation#';
-
-/**
- * Pre-defined context for credit delegation credentials
- */
-export const CREDIT_DELEGATION_CONTEXT = [
-  'https://www.w3.org/2018/credentials/v1',
-  'https://ld.truvera.io/credentials/delegation',
-  {
-    '@version': 1.1,
-    ex: 'https://example.org/credentials#',
-    delegation: DELEGATION_NAMESPACE,
-    CreditScoreDelegation: 'ex:CreditScoreDelegation',
-    DelegationCredential: 'delegation:DelegationCredential',
-    body: 'ex:body',
-    rootCredentialId: { '@id': 'delegation:rootCredentialId', '@type': '@id' },
-    previousCredentialId: { '@id': 'delegation:previousCredentialId', '@type': '@id' },
-  },
-];
-
-/**
- * Pre-defined context for credit score credentials
- */
-export const CREDIT_SCORE_CONTEXT = [
-  'https://www.w3.org/2018/credentials/v1',
-  'https://ld.truvera.io/credentials/delegation',
-  {
-    '@version': 1.1,
-    ex: 'https://example.org/credentials#',
-    xsd: 'http://www.w3.org/2001/XMLSchema#',
-    delegation: DELEGATION_NAMESPACE,
-    CreditScoreCredential: 'ex:CreditScoreCredential',
-    creditScore: { '@id': 'ex:creditScore', '@type': 'xsd:integer' },
-    rootCredentialId: { '@id': 'delegation:rootCredentialId', '@type': '@id' },
-    previousCredentialId: { '@id': 'delegation:previousCredentialId', '@type': '@id' },
-  },
-];
-
-/**
- * Pre-defined context for verifiable presentations
- */
-export const PRESENTATION_CONTEXT = ['https://www.w3.org/2018/credentials/v1'];
-
-/**
- * Creates a delegation credential
- * @param params - Delegation credential parameters
- * @returns Delegation credential object
- */
-export function createDelegationCredential(params: {
-  id: string;
-  context?: any[];
-  types?: string[];
-  issuer: string;
-  subjectId: string;
-  mayClaim: string[];
-  additionalSubjectProperties?: Record<string, any>;
-  previousCredentialId?: string | null;
-  rootCredentialId?: string;
-}): DelegationCredential {
-  const {
-    id,
-    context = CREDIT_DELEGATION_CONTEXT,
-    types = ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
-    issuer,
-    subjectId,
-    mayClaim,
-    additionalSubjectProperties = {},
-    previousCredentialId = null,
-    rootCredentialId,
-  } = params;
-
-  return {
-    '@context': context,
-    id,
-    type: types,
-    issuer,
-    previousCredentialId,
-    rootCredentialId: rootCredentialId || id,
-    credentialSubject: {
-      id: subjectId,
-      'https://rdf.dock.io/alpha/2021#mayClaim': mayClaim,
-      ...additionalSubjectProperties,
-    },
-  };
-}
-
-/**
- * Creates an Ed25519 proof object for presentations
- * @param params - Proof parameters
- * @returns Proof object
- */
-export function createEd25519Proof(params: {
-  verificationMethod: string;
-  challenge: string;
-  domain: string;
-  created?: string;
-  jws?: string;
-}): any {
-  return {
-    type: 'Ed25519Signature2018',
-    created: params.created || new Date().toISOString(),
-    verificationMethod: params.verificationMethod,
-    proofPurpose: 'authentication',
-    challenge: params.challenge,
-    domain: params.domain,
-    jws: params.jws || 'placeholder..signature',
-  };
-}
+export { cedar };
 
 /**
  * Service class for delegatable credentials operations
@@ -308,23 +405,79 @@ class DelegatableCredentialsService {
   name = 'delegatable-credentials';
 
   rpcMethods = [
+    DelegatableCredentialsService.prototype.issueDelegation,
+    DelegatableCredentialsService.prototype.issueDelegatedCredential,
+    DelegatableCredentialsService.prototype.createPresentation,
     DelegatableCredentialsService.prototype.verifyPresentation,
     DelegatableCredentialsService.prototype.createPolicy,
-    DelegatableCredentialsService.prototype.createPresentation,
-    DelegatableCredentialsService.prototype.createDelegation,
   ];
+
+  /**
+   * Issues a delegation credential
+   */
+  async issueDelegation(params: {
+    keyPair: KeyPair;
+    id: string;
+    issuerDid: string;
+    delegateDid: string;
+    mayClaim: string[];
+    context?: any[];
+    types?: string[];
+    additionalSubjectProperties?: Record<string, any>;
+    previousCredentialId?: string | null;
+    rootCredentialId?: string;
+  }): Promise<DelegationCredential> {
+    return issueDelegationCredential(params.keyPair, params);
+  }
+
+  /**
+   * Issues a credential as a delegate
+   */
+  async issueDelegatedCredential(params: {
+    keyPair: KeyPair;
+    id: string;
+    issuerDid: string;
+    subjectDid: string;
+    claims: Record<string, any>;
+    rootCredentialId: string;
+    previousCredentialId: string;
+    context?: any[];
+    types?: string[];
+  }): Promise<any> {
+    return issueDelegatedCredential(params.keyPair, params);
+  }
+
+  /**
+   * Creates and signs a verifiable presentation
+   */
+  async createPresentation(params: {
+    keyPair: KeyPair;
+    credentials: any[];
+    holderDid: string;
+    challenge: string;
+    domain: string;
+    context?: any[];
+  }): Promise<VerifiablePresentation> {
+    return createSignedPresentation(params.keyPair, params);
+  }
 
   /**
    * Verifies a verifiable presentation with delegation chain
    */
   async verifyPresentation(params: {
     presentation: VerifiablePresentation;
+    challenge?: string;
+    domain?: string;
+    unsignedPresentation?: boolean;
+    failOnUnauthorizedClaims?: boolean;
     policies?: CedarPolicies;
-    documentLoader?: (url: string) => Promise<DocumentLoaderResult>;
   }): Promise<VerificationResult> {
     return verifyDelegatablePresentation(params.presentation, {
+      challenge: params.challenge,
+      domain: params.domain,
+      unsignedPresentation: params.unsignedPresentation,
+      failOnUnauthorizedClaims: params.failOnUnauthorizedClaims,
       policies: params.policies,
-      documentLoader: params.documentLoader,
     });
   }
 
@@ -337,38 +490,6 @@ class DelegatableCredentialsService {
     requiredClaims?: Record<string, any>;
   }): CedarPolicies {
     return createCedarPolicy(params);
-  }
-
-  /**
-   * Creates a verifiable presentation for delegation
-   */
-  createPresentation(params: {
-    credentials: any[];
-    proof: any;
-    context?: any[];
-  }): VerifiablePresentation {
-    return createDelegatablePresentation(
-      params.credentials,
-      params.proof,
-      params.context
-    );
-  }
-
-  /**
-   * Creates a delegation credential
-   */
-  createDelegation(params: {
-    id: string;
-    context?: any[];
-    types?: string[];
-    issuer: string;
-    subjectId: string;
-    mayClaim: string[];
-    additionalSubjectProperties?: Record<string, any>;
-    previousCredentialId?: string | null;
-    rootCredentialId?: string;
-  }): DelegationCredential {
-    return createDelegationCredential(params);
   }
 }
 
