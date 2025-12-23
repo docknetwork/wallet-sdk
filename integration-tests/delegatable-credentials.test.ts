@@ -139,6 +139,22 @@ describe('Delegatable Credentials', () => {
     expect(creditScoreCredential.previousCredentialId).toBe(DELEGATION_ROOT_ID);
   });
 
+  it('should create a valid presentation with a delegated credential', async () => {
+    const presentation = await createSignedPresentation(delegateKey, {
+      credentials: [delegationCredential],
+      holderDid: delegateDid,
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
+
+    const result = await verifyDelegatablePresentation(presentation, {
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
+
+    expect(result.verified).toBe(true);
+  });
+
   it('should verify authorized delegation with Cedar policies', async () => {
     // Create a signed presentation with both credentials
     const presentation = await createSignedPresentation(delegateKey, {
