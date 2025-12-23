@@ -174,7 +174,7 @@ export async function issueDelegationCredential(
       [MAY_CLAIM_IRI]: mayClaim,
       ...additionalSubjectProperties,
     },
-    rootCredentialId: rootCredentialId || id,
+    rootCredentialId: undefined,
     previousCredentialId,
   };
 

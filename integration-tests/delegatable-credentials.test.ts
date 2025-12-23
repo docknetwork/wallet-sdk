@@ -124,7 +124,7 @@ describe('Delegatable Credentials', () => {
     expect(delegationCredential.credentialSubject.id).toBe(delegateDid);
     expect(delegationCredential.credentialSubject[MAY_CLAIM_IRI]).toContain('creditScore');
     expect(delegationCredential.proof).toBeDefined();
-    expect(delegationCredential.rootCredentialId).toBe(DELEGATION_ROOT_ID);
+    expect(delegationCredential.rootCredentialId).toBeUndefined();
     expect(delegationCredential.previousCredentialId).toBeNull();
   });
 
