@@ -91,59 +91,43 @@ export interface KeyPair {
 export const W3C_CREDENTIALS_V1 = 'https://www.w3.org/2018/credentials/v1';
 
 /**
- * Delegation context URL (for documentation purposes - we embed the context inline)
- */
-export const DELEGATION_CONTEXT_URL = 'https://ld.truvera.io/credentials/delegation';
-
-/**
  * Re-export MAY_CLAIM_IRI for use in credentials
  */
 export { MAY_CLAIM_IRI };
 
 /**
- * Embedded delegation context terms
- * This defines the JSON-LD terms needed for delegation credentials
+ * Namespace used by the vc-delegation-engine for delegation properties
  */
-const DELEGATION_CONTEXT_TERMS = {
+export const DELEGATION_ENGINE_NS = 'https://ld.truvera.io/credentials/delegation#';
+
+/**
+ * Base delegation context terms required for delegation credentials.
+ * These terms define the JSON-LD mappings needed for the vc-delegation-engine
+ * to properly process delegation chains.
+ *
+ * Use this as a base and extend with your own application-specific terms:
+ * @example
+ * const myContext = [
+ *   W3C_CREDENTIALS_V1,
+ *   {
+ *     ...DELEGATION_CONTEXT_TERMS,
+ *     // Add your custom terms here
+ *     MyCredentialType: 'https://example.org/MyCredentialType',
+ *     myField: 'https://example.org/myField',
+ *   },
+ * ];
+ */
+export const DELEGATION_CONTEXT_TERMS = {
   '@version': 1.1,
   '@protected': true,
-  delegation: 'https://rdf.dock.io/credentials/delegation#',
-  DelegationCredential: 'delegation:DelegationCredential',
+  DelegationCredential: `${DELEGATION_ENGINE_NS}DelegationCredential`,
   mayClaim: { '@id': MAY_CLAIM_IRI, '@container': '@set' },
-  rootCredentialId: { '@id': 'delegation:rootCredentialId', '@type': '@id' },
-  previousCredentialId: { '@id': 'delegation:previousCredentialId', '@type': '@id' },
+  rootCredentialId: { '@id': `${DELEGATION_ENGINE_NS}rootCredentialId`, '@type': '@id' },
+  previousCredentialId: { '@id': `${DELEGATION_ENGINE_NS}previousCredentialId`, '@type': '@id' },
 };
 
 /**
- * Pre-defined context for delegation credentials
- */
-export const DELEGATION_CREDENTIAL_CONTEXT = [
-  W3C_CREDENTIALS_V1,
-  {
-    ...DELEGATION_CONTEXT_TERMS,
-    dock: 'https://rdf.dock.io/alpha/2021#',
-    ex: 'https://example.org/credentials#',
-    CreditScoreDelegation: 'ex:CreditScoreDelegation',
-    body: 'ex:body',
-  },
-];
-
-/**
- * Pre-defined context for credit score credentials
- */
-export const CREDIT_SCORE_CONTEXT = [
-  W3C_CREDENTIALS_V1,
-  {
-    ...DELEGATION_CONTEXT_TERMS,
-    ex: 'https://example.org/credentials#',
-    xsd: 'http://www.w3.org/2001/XMLSchema#',
-    CreditScoreCredential: 'ex:CreditScoreCredential',
-    creditScore: { '@id': 'ex:creditScore', '@type': 'xsd:integer' },
-  },
-];
-
-/**
- * Pre-defined context for verifiable presentations
+ * Default context for verifiable presentations
  */
 export const PRESENTATION_CONTEXT = [W3C_CREDENTIALS_V1];
 
@@ -160,8 +144,8 @@ export async function issueDelegationCredential(
     issuerDid: string;
     delegateDid: string;
     mayClaim: string[];
-    context?: any[];
-    types?: string[];
+    context: any[];
+    types: string[];
     additionalSubjectProperties?: Record<string, any>;
     previousCredentialId?: string | null;
     rootCredentialId?: string;
@@ -172,8 +156,8 @@ export async function issueDelegationCredential(
     issuerDid,
     delegateDid,
     mayClaim,
-    context = DELEGATION_CREDENTIAL_CONTEXT,
-    types = ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
+    context,
+    types,
     additionalSubjectProperties = {},
     previousCredentialId = null,
     rootCredentialId,
@@ -213,8 +197,8 @@ export async function issueDelegatedCredential(
     claims: Record<string, any>;
     rootCredentialId: string;
     previousCredentialId: string;
-    context?: any[];
-    types?: string[];
+    context: any[];
+    types: string[];
   }
 ): Promise<any> {
   const {
@@ -224,8 +208,8 @@ export async function issueDelegatedCredential(
     claims,
     rootCredentialId,
     previousCredentialId,
-    context = CREDIT_SCORE_CONTEXT,
-    types = ['VerifiableCredential', 'CreditScoreCredential'],
+    context,
+    types,
   } = params;
 
   const credential = {
@@ -421,8 +405,8 @@ class DelegatableCredentialsService {
     issuerDid: string;
     delegateDid: string;
     mayClaim: string[];
-    context?: any[];
-    types?: string[];
+    context: any[];
+    types: string[];
     additionalSubjectProperties?: Record<string, any>;
     previousCredentialId?: string | null;
     rootCredentialId?: string;
@@ -441,8 +425,8 @@ class DelegatableCredentialsService {
     claims: Record<string, any>;
     rootCredentialId: string;
     previousCredentialId: string;
-    context?: any[];
-    types?: string[];
+    context: any[];
+    types: string[];
   }): Promise<any> {
     return issueDelegatedCredential(params.keyPair, params);
   }

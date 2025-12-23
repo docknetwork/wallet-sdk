@@ -5,8 +5,42 @@ import {
   createSignedPresentation,
   createCedarPolicy,
   MAY_CLAIM_IRI,
+  W3C_CREDENTIALS_V1,
+  DELEGATION_CONTEXT_TERMS,
 } from '@docknetwork/wallet-sdk-wasm/src/services/credential/delegatable-credentials';
 import { didService } from '@docknetwork/wallet-sdk-wasm/src/services/dids/service';
+
+// ============================================================================
+// TEST-SPECIFIC CONTEXTS (Credit Score Use Case)
+// ============================================================================
+
+/**
+ * Context for credit score delegation credentials
+ * Extends the base delegation terms with credit score specific vocabulary
+ */
+const CREDIT_SCORE_DELEGATION_CONTEXT = [
+  W3C_CREDENTIALS_V1,
+  {
+    ...DELEGATION_CONTEXT_TERMS,
+    ex: 'https://example.org/credentials#',
+    CreditScoreDelegation: 'ex:CreditScoreDelegation',
+    body: 'ex:body',
+  },
+];
+
+/**
+ * Context for credit score credentials issued by delegates
+ */
+const CREDIT_SCORE_CREDENTIAL_CONTEXT = [
+  W3C_CREDENTIALS_V1,
+  {
+    ...DELEGATION_CONTEXT_TERMS,
+    ex: 'https://example.org/credentials#',
+    xsd: 'http://www.w3.org/2001/XMLSchema#',
+    CreditScoreCredential: 'ex:CreditScoreCredential',
+    creditScore: { '@id': 'ex:creditScore', '@type': 'xsd:integer' },
+  },
+];
 
 // ============================================================================
 // TEST CONFIGURATION
@@ -51,6 +85,8 @@ describe('Delegatable Credentials', () => {
       issuerDid: rootIssuerDid,
       delegateDid: delegateDid,
       mayClaim: ['creditScore'],
+      context: CREDIT_SCORE_DELEGATION_CONTEXT,
+      types: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
       additionalSubjectProperties: {
         body: 'Issuer of Credit Scores',
       },
@@ -66,6 +102,8 @@ describe('Delegatable Credentials', () => {
       },
       rootCredentialId: DELEGATION_ROOT_ID,
       previousCredentialId: DELEGATION_ROOT_ID,
+      context: CREDIT_SCORE_CREDENTIAL_CONTEXT,
+      types: ['VerifiableCredential', 'CreditScoreCredential'],
     });
 
     // Issue an unauthorized delegation (no creditScore in mayClaim)
@@ -74,6 +112,8 @@ describe('Delegatable Credentials', () => {
       issuerDid: rootIssuerDid,
       delegateDid: delegateDid,
       mayClaim: ['someOtherClaim'], // Does NOT include creditScore
+      context: CREDIT_SCORE_DELEGATION_CONTEXT,
+      types: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
     });
   });
 
@@ -145,6 +185,59 @@ describe('Delegatable Credentials', () => {
         authorizedClaims: summary.authorizedClaims,
       });
     }
+  });
+
+  it('should deny unauthorized delegation (wrong mayClaim)', async () => {
+    // Create a credential that uses an unauthorized delegation
+    // The unauthorizedDelegationCredential only grants 'someOtherClaim', not 'creditScore'
+    const unauthorizedCreditScore = await issueDelegatedCredential(delegateKey, {
+      id: 'urn:cred:unauthorized-credit-score',
+      issuerDid: delegateDid,
+      subjectDid: SUBJECT_DID,
+      claims: {
+        creditScore: 500,
+      },
+      rootCredentialId: 'urn:cred:unauthorized-delegation',
+      previousCredentialId: 'urn:cred:unauthorized-delegation',
+      context: CREDIT_SCORE_CREDENTIAL_CONTEXT,
+      types: ['VerifiableCredential', 'CreditScoreCredential'],
+    });
+
+    // Create presentation with unauthorized delegation
+    const presentation = await createSignedPresentation(delegateKey, {
+      credentials: [unauthorizedDelegationCredential, unauthorizedCreditScore],
+      holderDid: delegateDid,
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
+
+    // Create Cedar policy that requires creditScore claim authorization
+    const policies = createCedarPolicy({
+      maxDepth: 2,
+      rootIssuer: rootIssuerDid,
+      requiredClaims: {
+        creditScore: 0,
+      },
+    });
+
+    // Verify the presentation - should fail because creditScore is not authorized
+    const result = await verifyDelegatablePresentation(presentation, {
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+      policies,
+    });
+
+    console.log('Unauthorized delegation result:', {
+      verified: result.verified,
+      delegationDecision: result.delegationResult?.decision,
+      failures: result.delegationResult?.failures?.map(f => f.message),
+    });
+
+    // Delegation should be denied because the delegate doesn't have creditScore authority
+    expect(result.delegationResult?.decision).toBe('deny');
+    expect(result.delegationResult?.failures).toBeDefined();
+    expect(result.delegationResult?.failures?.length).toBeGreaterThan(0);
+    expect(result.delegationResult?.failures?.[0]?.code).toBe('UNAUTHORIZED_CLAIM');
   });
 
   it('should verify delegation without Cedar policies', async () => {
