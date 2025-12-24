@@ -32,6 +32,8 @@ module.exports = {
   moduleNameMapper: {
     '@digitalbazaar/minimal-cipher': '@digitalbazaar/minimal-cipher/Cipher',
     '@digitalbazaar/did-method-key': '@digitalbazaar/did-method-key/lib/main',
+    '@digitalbazaar/http-client':
+      '<rootDir>/node_modules/@digitalbazaar/http-client/dist/cjs/index.cjs',
     '@docknetwork/wallet-sdk-wasm/lib/(.*)':
       '@docknetwork/wallet-sdk-wasm/src/$1',
     '@docknetwork/wallet-sdk-data-store/lib/(.*)':

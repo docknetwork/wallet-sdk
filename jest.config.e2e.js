@@ -26,6 +26,7 @@ module.exports = {
   globalTeardown: './scripts/integration-test-teardown.js',
   setupFiles: ['jest-localstorage-mock'],
   moduleNameMapper: {
+    'ky-universal': 'ky',
     '@digitalbazaar/edv-client': require.resolve(
       '@digitalbazaar/edv-client/main.js',
     ),
@@ -40,9 +41,8 @@ module.exports = {
       '@digitalbazaar/ed25519-verification-key-2018/src/Ed25519VerificationKey2018',
     '@digitalbazaar/minimal-cipher': '@digitalbazaar/minimal-cipher/Cipher',
     '@digitalbazaar/did-method-key': '@digitalbazaar/did-method-key/lib/main',
-    '@digitalbazaar/http-client': require.resolve(
-      '@digitalbazaar/http-client/main.js',
-    ),
+    '@digitalbazaar/http-client':
+      '<rootDir>/node_modules/@digitalbazaar/http-client/dist/cjs/index.cjs',
     '@docknetwork/wallet-sdk-wasm/lib/(.*)':
       '@docknetwork/wallet-sdk-wasm/src/$1',
     '@docknetwork/wallet-sdk-data-store/lib/(.*)':
@@ -51,6 +51,6 @@ module.exports = {
       '@docknetwork/wallet-sdk-data-store/src',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|multiformats|p-limit|yocto-queue|@cheqd/ts-proto)',
+    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky)',
   ],
 };
