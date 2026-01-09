@@ -8,8 +8,10 @@ import {
   W3C_CREDENTIALS_V1,
   DELEGATION_CONTEXT_TERMS,
 } from '@docknetwork/wallet-sdk-wasm/src/services/credential/delegatable-credentials';
-import { didService } from '@docknetwork/wallet-sdk-wasm/src/services/dids/service';
-
+import {credentialService} from '@docknetwork/wallet-sdk-wasm/src/services/credential/service';
+import {didService} from '@docknetwork/wallet-sdk-wasm/src/services/dids/service';
+import {pexService} from '@docknetwork/wallet-sdk-wasm/src/services/pex';
+import {v4 as uuidv4} from 'uuid';
 // ============================================================================
 // TEST-SPECIFIC CONTEXTS (Credit Score Use Case)
 // ============================================================================
@@ -80,40 +82,71 @@ describe('Delegatable Credentials', () => {
 
     // Issue the root delegation credential
     // This grants the delegate authority to issue creditScore claims
-    delegationCredential = await issueDelegationCredential(rootIssuerKey, {
-      id: DELEGATION_ROOT_ID,
-      issuerDid: rootIssuerDid,
-      delegateDid: delegateDid,
-      mayClaim: ['creditScore'],
-      context: CREDIT_SCORE_DELEGATION_CONTEXT,
-      types: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
-      additionalSubjectProperties: {
-        body: 'Issuer of Credit Scores',
-      },
-    });
-
-    // Issue a credit score credential as the delegate
-    creditScoreCredential = await issueDelegatedCredential(delegateKey, {
-      id: CREDIT_SCORE_CRED_ID,
-      issuerDid: delegateDid,
-      subjectDid: SUBJECT_DID,
-      claims: {
+    rootCredential = await issueDelegationCredential(issuerKey, {
+      id: generateCredentialId('root-issuer'),
+      issuer: issuerDid,
+      '@context': CREDIT_SCORE_DELEGATION_CONTEXT,
+      issuanceDate: new Date().toISOString(),
+      type: [
+        'VerifiableCredential',
+        'CreditScoreCredential',
+        'DelegationCredential',
+      ],
+      credentialSubject: {
+        id: holderDid,
         creditScore: 760,
       },
-      rootCredentialId: DELEGATION_ROOT_ID,
-      previousCredentialId: DELEGATION_ROOT_ID,
-      context: CREDIT_SCORE_CREDENTIAL_CONTEXT,
-      types: ['VerifiableCredential', 'CreditScoreCredential'],
+      previousCredentialId: null,
+      rootCredentialId: null,
+    });
+
+    // Issue a credit score credential as the agent
+    credDelegatedToAgent = await issueDelegatedCredential(holderKey, {
+      id: generateCredentialId('root-issuer'),
+      '@context': CREDIT_SCORE_CREDENTIAL_CONTEXT,
+      issuer: holderDid,
+      issuanceDate: new Date().toISOString(),
+      type: [
+        'VerifiableCredential',
+        'CreditScoreCredential',
+        'DelegationCredential',
+      ],
+      credentialSubject: {
+        id: agentDid,
+        creditScore: 400,
+        [MAY_CLAIM_IRI]: ['creditScore'],
+      },
+      previousCredentialId: rootCredential.id,
+      rootCredentialId: rootCredential.id,
+    });
+
+    credDelegatedToSubAgent = await issueDelegatedCredential(agentKey, {
+      id: generateCredentialId('agent'),
+      issuanceDate: new Date().toISOString(),
+      issuer: agentDid,
+      credentialSubject: {
+        id: subAgentDid,
+        creditScore: 200,
+        [MAY_CLAIM_IRI]: ['creditScore'],
+      },
+      rootCredentialId: rootCredential.id,
+      previousCredentialId: credDelegatedToAgent.id,
+      '@context': CREDIT_SCORE_CREDENTIAL_CONTEXT,
+      type: ['VerifiableCredential', 'CreditScoreCredential'],
     });
 
     // Issue an unauthorized delegation (no creditScore in mayClaim)
-    unauthorizedDelegationCredential = await issueDelegationCredential(rootIssuerKey, {
+    unauthorizedDelegationCredential = await issueDelegationCredential(issuerKey, {
       id: 'urn:cred:unauthorized-delegation',
-      issuerDid: rootIssuerDid,
-      delegateDid: delegateDid,
-      mayClaim: ['someOtherClaim'], // Does NOT include creditScore
-      context: CREDIT_SCORE_DELEGATION_CONTEXT,
-      types: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
+      issuanceDate: new Date().toISOString(),
+      issuer: issuerDid,
+      credentialSubject: {
+        id: holderDid,
+        creditScore: 760,
+        [MAY_CLAIM_IRI]: ['someOtherClaim'],
+      },
+      '@context': CREDIT_SCORE_DELEGATION_CONTEXT,
+      type: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
     });
   });
 
@@ -154,6 +187,88 @@ describe('Delegatable Credentials', () => {
 
     expect(result.verified).toBe(true);
   });
+
+  it('should handle pex request with delegated credential', async () => {
+
+    const presentationDefinition = {
+      id: 'delegation_test',
+      input_descriptors: [
+        {
+          id: 'root-credential',
+          name: 'Root Credential',
+          purpose: 'Must be the root credential issued by the required issuer',
+          group: ['1'],
+          constraints: {
+            fields: [
+              {
+                path: ['$.type'],
+                filter: {
+                  type: 'array',
+                  contains: {
+                    const: 'CreditScoreCredential',
+                  },
+                },
+              },
+              {
+                path: ['$.issuer', '$.iss'],
+                filter: {
+                  type: 'string',
+                  const: issuerDid,
+                },
+              },
+            ],
+          },
+        },
+        {
+          id: 'other-credentials',
+          name: 'Additional Credentials',
+          purpose:
+            'Any number of additional credentials of the specified type from any issuer',
+          group: ['2'],
+          constraints: {
+            fields: [
+              {
+                path: ['$.type'],
+                filter: {
+                  type: 'array',
+                  contains: {
+                    const: 'CreditScoreCredential',
+                  },
+                },
+              },
+            ],
+          },
+        },
+      ],
+      submission_requirements: [
+        {
+          from: '1',
+          name: 'Root Credential',
+          rule: 'pick',
+          count: 1,
+        },
+        {
+          from: '2',
+          name: 'Additional Credentials',
+          rule: 'pick',
+          min: 0, // Minimum 0 = optional
+        },
+      ],
+    };
+
+    const result = await credentialService.filterCredentials({
+      credentials: [rootCredential, credDelegatedToAgent],
+      presentationDefinition,
+      holderDid: subAgentDid,
+    });
+
+    console.log('PEX Result:', JSON.stringify(result, null, 2));
+
+
+    expect(result.verifiableCredential?.length).toBe(2);
+    expect(result.errors?.length).toBe(0);
+  });
+
 
   it('should verify authorized delegation with Cedar policies', async () => {
     // Create a signed presentation with both credentials
@@ -206,23 +321,25 @@ describe('Delegatable Credentials', () => {
   it('should deny unauthorized delegation (wrong mayClaim)', async () => {
     // Create a credential that uses an unauthorized delegation
     // The unauthorizedDelegationCredential only grants 'someOtherClaim', not 'creditScore'
-    const unauthorizedCreditScore = await issueDelegatedCredential(delegateKey, {
+    const unauthorizedCreditScore = await issueDelegatedCredential(holderKey, {
       id: 'urn:cred:unauthorized-credit-score',
-      issuerDid: delegateDid,
-      subjectDid: SUBJECT_DID,
-      claims: {
+      issuer: holderDid,
+      issuanceDate: new Date().toISOString(),
+      credentialSubject: {
+        id: agentDid,
         creditScore: 500,
+        [MAY_CLAIM_IRI]: ['creditScore'],
       },
-      rootCredentialId: 'urn:cred:unauthorized-delegation',
-      previousCredentialId: 'urn:cred:unauthorized-delegation',
-      context: CREDIT_SCORE_CREDENTIAL_CONTEXT,
-      types: ['VerifiableCredential', 'CreditScoreCredential'],
+      rootCredentialId: unauthorizedDelegationCredential.id,
+      previousCredentialId: unauthorizedDelegationCredential.id,
+      '@context': CREDIT_SCORE_CREDENTIAL_CONTEXT,
+      type: ['VerifiableCredential', 'CreditScoreCredential'],
     });
 
     // Create presentation with unauthorized delegation
-    const presentation = await createSignedPresentation(delegateKey, {
+    const presentation = await createSignedPresentation(agentKey, {
       credentials: [unauthorizedDelegationCredential, unauthorizedCreditScore],
-      holderDid: delegateDid,
+      holderDid: holderDid,
       challenge: CHALLENGE,
       domain: DOMAIN,
     });
@@ -230,7 +347,7 @@ describe('Delegatable Credentials', () => {
     // Create Cedar policy that requires creditScore claim authorization
     const policies = createCedarPolicy({
       maxDepth: 2,
-      rootIssuer: rootIssuerDid,
+      rootIssuer: issuerDid,
       requiredClaims: {
         creditScore: 0,
       },
