@@ -151,33 +151,6 @@ export async function issueDelegationCredential(
     rootCredentialId?: string;
   }
 ): Promise<DelegationCredential> {
-  const {
-    id,
-    issuerDid,
-    delegateDid,
-    mayClaim,
-    context,
-    types,
-    additionalSubjectProperties = {},
-    previousCredentialId = null,
-    rootCredentialId,
-  } = params;
-
-  const credential = {
-    '@context': context,
-    id,
-    type: types,
-    issuer: issuerDid,
-    issuanceDate: new Date().toISOString(),
-    credentialSubject: {
-      id: delegateDid,
-      [MAY_CLAIM_IRI]: mayClaim,
-      ...additionalSubjectProperties,
-    },
-    rootCredentialId: undefined,
-    previousCredentialId,
-  };
-
   const preparedKey = prepareKeyForSigning(keyPair);
   return issueCredential(preparedKey, credential);
 }
