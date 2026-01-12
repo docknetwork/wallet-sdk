@@ -25,8 +25,9 @@ const CREDIT_SCORE_DELEGATION_CONTEXT = [
   {
     ...DELEGATION_CONTEXT_TERMS,
     ex: 'https://example.org/credentials#',
+    xsd: 'http://www.w3.org/2001/XMLSchema#',
     CreditScoreDelegation: 'ex:CreditScoreDelegation',
-    body: 'ex:body',
+    creditScore: {'@id': 'ex:creditScore', '@type': 'xsd:integer'},
   },
 ];
 
@@ -40,45 +41,51 @@ const CREDIT_SCORE_CREDENTIAL_CONTEXT = [
     ex: 'https://example.org/credentials#',
     xsd: 'http://www.w3.org/2001/XMLSchema#',
     CreditScoreCredential: 'ex:CreditScoreCredential',
-    creditScore: { '@id': 'ex:creditScore', '@type': 'xsd:integer' },
+    creditScore: {'@id': 'ex:creditScore', '@type': 'xsd:integer'},
   },
 ];
-
-// ============================================================================
-// TEST CONFIGURATION
-// ============================================================================
-
-const DELEGATION_ROOT_ID = 'urn:cred:delegation-root';
-const CREDIT_SCORE_CRED_ID = 'urn:cred:credit-score-alice';
-const SUBJECT_DID = 'did:example:alice';
 
 const CHALLENGE = 'test-challenge-123';
 const DOMAIN = 'test.example.com';
 
+function generateCredentialId(namespace: string) {
+  return `urn:${namespace}:${uuidv4()}`;
+}
+
 describe('Delegatable Credentials', () => {
-  let rootIssuerKey: any;
-  let delegateKey: any;
-  let rootIssuerDid: string;
-  let delegateDid: string;
-  let delegationCredential: any;
-  let creditScoreCredential: any;
+  let issuerKey: any;
+  let holderKey: any;
+  let agentKey: any;
+  let subAgentKey: any;
+  let issuerDid: string;
+  let holderDid: string;
+  let agentDid: string;
+  let subAgentDid: string;
+  let rootCredential: any;
+  let credDelegatedToAgent: any;
+  let credDelegatedToSubAgent: any;
   let unauthorizedDelegationCredential: any;
 
   beforeAll(async () => {
     // Generate key pairs for root issuer and delegate
-    rootIssuerKey = await didService.generateKeyDoc({
+    issuerKey = await didService.generateKeyDoc({
       type: 'ed25519',
     });
-    delegateKey = await didService.generateKeyDoc({
+    holderKey = await didService.generateKeyDoc({
+      type: 'ed25519',
+    });
+    agentKey = await didService.generateKeyDoc({
+      type: 'ed25519',
+    });
+    subAgentKey = await didService.generateKeyDoc({
       type: 'ed25519',
     });
 
     // Extract DIDs from the key documents
-    rootIssuerDid = rootIssuerKey.controller;
-    delegateDid = delegateKey.controller;
-
-    console.log('Root Issuer DID:', rootIssuerDid);
-    console.log('Delegate DID:', delegateDid);
+    issuerDid = issuerKey.controller;
+    holderDid = holderKey.controller;
+    agentDid = agentKey.controller;
+    subAgentDid = subAgentKey.controller;
 
     // Issue the root delegation credential
     // This grants the delegate authority to issue creditScore claims
@@ -95,6 +102,7 @@ describe('Delegatable Credentials', () => {
       credentialSubject: {
         id: holderDid,
         creditScore: 760,
+        [MAY_CLAIM_IRI]: ['creditScore'],
       },
       previousCredentialId: null,
       rootCredentialId: null,
@@ -151,31 +159,32 @@ describe('Delegatable Credentials', () => {
   });
 
   it('should issue a valid delegation credential', () => {
-    expect(delegationCredential).toBeDefined();
-    expect(delegationCredential.id).toBe(DELEGATION_ROOT_ID);
-    expect(delegationCredential.issuer).toBe(rootIssuerDid);
-    expect(delegationCredential.credentialSubject.id).toBe(delegateDid);
-    expect(delegationCredential.credentialSubject[MAY_CLAIM_IRI]).toContain('creditScore');
-    expect(delegationCredential.proof).toBeDefined();
-    expect(delegationCredential.rootCredentialId).toBeUndefined();
-    expect(delegationCredential.previousCredentialId).toBeNull();
+    expect(rootCredential).toBeDefined();
+    expect(rootCredential.issuer).toBe(issuerDid);
+    expect(rootCredential.credentialSubject.id).toBe(holderDid);
+    expect(rootCredential.credentialSubject[MAY_CLAIM_IRI]).toContain(
+      'creditScore',
+    );
+    expect(rootCredential.proof).toBeDefined();
+    expect(rootCredential.rootCredentialId).toBeNull();
+    expect(rootCredential.previousCredentialId).toBeNull();
   });
 
   it('should issue a valid delegated credential', () => {
-    expect(creditScoreCredential).toBeDefined();
-    expect(creditScoreCredential.id).toBe(CREDIT_SCORE_CRED_ID);
-    expect(creditScoreCredential.issuer).toBe(delegateDid);
-    expect(creditScoreCredential.credentialSubject.id).toBe(SUBJECT_DID);
-    expect(creditScoreCredential.credentialSubject.creditScore).toBe(760);
-    expect(creditScoreCredential.proof).toBeDefined();
-    expect(creditScoreCredential.rootCredentialId).toBe(DELEGATION_ROOT_ID);
-    expect(creditScoreCredential.previousCredentialId).toBe(DELEGATION_ROOT_ID);
+    expect(credDelegatedToAgent).toBeDefined();
+    expect(credDelegatedToAgent.issuer).toBe(holderDid);
+    expect(credDelegatedToAgent.credentialSubject.id).toBe(agentDid);
+    expect(credDelegatedToAgent.credentialSubject.creditScore).toBe(400);
+    expect(credDelegatedToAgent.proof).toBeDefined();
+    expect(credDelegatedToAgent.rootCredentialId).toBe(rootCredential.id);
+    expect(credDelegatedToAgent.previousCredentialId).toBe(rootCredential.id);
+    expect(credDelegatedToAgent.type).toContain('VerifiableCredential');
   });
 
   it('should create a valid presentation with a delegated credential', async () => {
-    const presentation = await createSignedPresentation(delegateKey, {
-      credentials: [delegationCredential],
-      holderDid: delegateDid,
+    const presentation = await createSignedPresentation(agentKey, {
+      credentials: [rootCredential, credDelegatedToAgent],
+      holderDid: agentDid,
       challenge: CHALLENGE,
       domain: DOMAIN,
     });
@@ -272,9 +281,9 @@ describe('Delegatable Credentials', () => {
 
   it('should verify authorized delegation with Cedar policies', async () => {
     // Create a signed presentation with both credentials
-    const presentation = await createSignedPresentation(delegateKey, {
-      credentials: [delegationCredential, creditScoreCredential],
-      holderDid: delegateDid,
+    const presentation = await createSignedPresentation(agentKey, {
+      credentials: [rootCredential, credDelegatedToAgent],
+      holderDid: agentDid,
       challenge: CHALLENGE,
       domain: DOMAIN,
     });
@@ -282,7 +291,7 @@ describe('Delegatable Credentials', () => {
     // Create Cedar policy that allows this delegation
     const policies = createCedarPolicy({
       maxDepth: 2,
-      rootIssuer: rootIssuerDid,
+      rootIssuer: issuerDid,
       requiredClaims: {
         creditScore: 0,
         body: 'Issuer of Credit Scores',
@@ -307,7 +316,10 @@ describe('Delegatable Credentials', () => {
     expect(result.delegationResult?.decision).toBe('allow');
 
     // Log delegation summary for debugging
-    if (result.delegationResult?.summaries?.length > 0) {
+    if (
+      result.delegationResult?.summaries?.length &&
+      result.delegationResult.summaries.length > 0
+    ) {
       const summary = result.delegationResult.summaries[0];
       console.log('Delegation summary:', {
         rootIssuer: summary.rootIssuer,
@@ -375,9 +387,9 @@ describe('Delegatable Credentials', () => {
 
   it('should verify delegation without Cedar policies', async () => {
     // Create a signed presentation
-    const presentation = await createSignedPresentation(delegateKey, {
-      credentials: [delegationCredential, creditScoreCredential],
-      holderDid: delegateDid,
+    const presentation = await createSignedPresentation(agentKey, {
+      credentials: [rootCredential, credDelegatedToAgent],
+      holderDid: agentDid,
       challenge: CHALLENGE,
       domain: DOMAIN,
     });
@@ -409,7 +421,11 @@ describe('Delegatable Credentials', () => {
 
     expect(policy.staticPolicies).toContain('context.tailDepth <= 3');
     expect(policy.staticPolicies).toContain('did:example:root');
-    expect(policy.staticPolicies).toContain('context.authorizedClaims.level >= 5');
-    expect(policy.staticPolicies).toContain('context.authorizedClaims.role == "admin"');
+    expect(policy.staticPolicies).toContain(
+      'context.authorizedClaims.level >= 5',
+    );
+    expect(policy.staticPolicies).toContain(
+      'context.authorizedClaims.role == "admin"',
+    );
   });
 });
