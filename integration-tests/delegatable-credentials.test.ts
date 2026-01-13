@@ -52,6 +52,16 @@ function generateCredentialId(namespace: string) {
   return `urn:${namespace}:${uuidv4()}`;
 }
 
+/**
+ * 
+ * @param presentation 
+ * @returns 
+ */
+function checkPresentationHolder(presentation) {
+  const lastCredential = presentation.verifiableCredential[presentation.verifiableCredential.length - 1];
+  return lastCredential.credentialSubject.id === presentation.holder;
+}
+
 describe('Delegatable Credentials', () => {
   let issuerKey: any;
   let holderKey: any;
@@ -244,7 +254,7 @@ describe('Delegatable Credentials', () => {
                     const: 'CreditScoreCredential',
                   },
                 },
-              },
+              }
             ],
           },
         },
@@ -260,22 +270,33 @@ describe('Delegatable Credentials', () => {
           from: '2',
           name: 'Additional Credentials',
           rule: 'pick',
-          min: 0, // Minimum 0 = optional
+          min: 0,
         },
       ],
     };
 
-    const result = await credentialService.filterCredentials({
+    const filterResult = await credentialService.filterCredentials({
       credentials: [rootCredential, credDelegatedToAgent],
       presentationDefinition,
-      holderDid: subAgentDid,
+      holderDid: agentDid,
     });
 
-    console.log('PEX Result:', JSON.stringify(result, null, 2));
+    const presentation = await createSignedPresentation(agentKey, {
+      credentials: [rootCredential, credDelegatedToAgent],
+      holderDid: agentDid,
+      challenge: CHALLENGE,
+      domain: DOMAIN,
+    });
 
+    const validationResults = await pexService.evaluatePresentation({
+      presentation,
+      presentationDefinition,
+    });
 
-    expect(result.verifiableCredential?.length).toBe(2);
-    expect(result.errors?.length).toBe(0);
+    expect(checkPresentationHolder(presentation)).toBe(true);
+    expect(filterResult.verifiableCredential?.length).toBe(2);
+    expect(filterResult.errors?.length).toBe(0);
+    expect(validationResults.errors?.length).toBe(0);
   });
 
 
