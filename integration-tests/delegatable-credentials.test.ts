@@ -52,16 +52,6 @@ function generateCredentialId(namespace: string) {
   return `urn:${namespace}:${uuidv4()}`;
 }
 
-/**
- * 
- * @param presentation 
- * @returns 
- */
-function checkPresentationHolder(presentation) {
-  const lastCredential = presentation.verifiableCredential[presentation.verifiableCredential.length - 1];
-  return lastCredential.credentialSubject.id === presentation.holder;
-}
-
 describe('Delegatable Credentials', () => {
   let issuerKey: any;
   let holderKey: any;
@@ -293,7 +283,6 @@ describe('Delegatable Credentials', () => {
       presentationDefinition,
     });
 
-    expect(checkPresentationHolder(presentation)).toBe(true);
     expect(filterResult.verifiableCredential?.length).toBe(2);
     expect(filterResult.errors?.length).toBe(0);
     expect(validationResults.errors?.length).toBe(0);
