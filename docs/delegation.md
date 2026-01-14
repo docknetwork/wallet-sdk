@@ -34,7 +34,7 @@ credentialSubject: {
 
 ### Cedar Policies
 
-Cedar policies provide fine-grained authorization control over delegation chains. They can enforce:
+[Cedar](https://docs.cedarpolicy.com/) is a language for defining permissions as policies. Cedar policies provide fine-grained authorization control over delegation chains. They can enforce:
 - Maximum delegation depth
 - Required root issuer
 - Minimum claim values
