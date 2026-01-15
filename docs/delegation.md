@@ -1,6 +1,6 @@
 # Delegatable Credentials
 
-Delegatable credentials enable a credential issuer to delegate their authority to issue specific types of credentials to other entities. This creates a chain of trust where delegates can issue credentials on behalf of the original issuer, within the bounds of their delegated authority.
+Delegatable credentials enable a credential issuer (delegator) to delegate their authority to issue specific types of credentials to other entities (delegees). This creates a chain of trust where delegees can issue credentials on behalf of the original issuer, within the bounds of their delegated authority.
 
 ## Overview
 
