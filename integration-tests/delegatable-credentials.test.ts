@@ -89,8 +89,9 @@ describe('Delegatable Credentials', () => {
 
     // Issue the root delegation credential
     // This grants the delegate authority to issue creditScore claims
+    const rootCredentialId = generateCredentialId('root-issuer');
     rootCredential = await issueDelegationCredential(issuerKey, {
-      id: generateCredentialId('root-issuer'),
+      id: rootCredentialId,
       issuer: issuerDid,
       '@context': CREDIT_SCORE_DELEGATION_CONTEXT,
       issuanceDate: new Date().toISOString(),
@@ -105,7 +106,7 @@ describe('Delegatable Credentials', () => {
         [MAY_CLAIM_IRI]: ['creditScore'],
       },
       previousCredentialId: null,
-      rootCredentialId: null,
+      rootCredentialId: rootCredentialId,
     });
 
     // Issue a credit score credential as the agent
@@ -144,8 +145,9 @@ describe('Delegatable Credentials', () => {
     });
 
     // Issue an unauthorized delegation (no creditScore in mayClaim)
+    const unauthorizedCredentialId = 'urn:cred:unauthorized-delegation';
     unauthorizedDelegationCredential = await issueDelegationCredential(issuerKey, {
-      id: 'urn:cred:unauthorized-delegation',
+      id: unauthorizedCredentialId,
       issuanceDate: new Date().toISOString(),
       issuer: issuerDid,
       credentialSubject: {
@@ -153,6 +155,8 @@ describe('Delegatable Credentials', () => {
         creditScore: 760,
         [MAY_CLAIM_IRI]: ['someOtherClaim'],
       },
+      previousCredentialId: null,
+      rootCredentialId: unauthorizedCredentialId,
       '@context': CREDIT_SCORE_DELEGATION_CONTEXT,
       type: ['VerifiableCredential', 'CreditScoreDelegation', 'DelegationCredential'],
     });
@@ -166,7 +170,7 @@ describe('Delegatable Credentials', () => {
       'creditScore',
     );
     expect(rootCredential.proof).toBeDefined();
-    expect(rootCredential.rootCredentialId).toBeNull();
+    expect(rootCredential.rootCredentialId).toBe(rootCredential.id);
     expect(rootCredential.previousCredentialId).toBeNull();
   });
 
@@ -304,7 +308,6 @@ describe('Delegatable Credentials', () => {
       rootIssuer: issuerDid,
       requiredClaims: {
         creditScore: 0,
-        body: 'Issuer of Credit Scores',
       },
     });
 
