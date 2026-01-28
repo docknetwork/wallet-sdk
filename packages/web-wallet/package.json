@@ -1,5 +1,5 @@
 {
-    "name": "@docknetwork/web-wallet",
+    "name": "@docknetwork/wallet-sdk-web",
     "version": "1.7.0",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
