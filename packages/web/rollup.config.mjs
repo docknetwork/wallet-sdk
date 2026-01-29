@@ -9,6 +9,7 @@ import inject from '@rollup/plugin-inject';
 import alias from '@rollup/plugin-alias';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import terser from '@rollup/plugin-terser';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,14 @@ export default {
       sourcemap: false,
       intro: `const global = window;`,
       exports: 'named',
+    },
+    {
+      file: 'dist/wallet-sdk-web.iife.min.js',
+      format: 'iife',
+      name: 'TruveraWebWallet',
+      sourcemap: false,
+      intro: `const global = window;`,
+      plugins: [terser()],
     }
   ],
   external: [],
