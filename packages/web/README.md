@@ -18,6 +18,14 @@ or via CDN:
 
 The SDK can be used via a global variable (Script Tag) or imported as an ES Module (Bundlers).
 
+> [!IMPORTANT]
+> This SDK is designed for **browser-side use only**.
+
+1.  **Client-Side Only**: Your wallet keys (mnemonic/master key) decrypt your data locally in the browser. **Never** send these keys to a server or store them where they can be accessed by third parties.
+2.  **No Server-Side Operations**: Do not use this SDK to initialize wallets or process keys on a backend server. Server-side handling of user keys creates significant security risks and breaks the non-custodial model.
+3.  **End-to-End Encryption**: User data stored in the Cloud Wallet (EDV) is fully encrypted. The decryption key exists *only* in the user's browser session.
+4.  **Authentication vs Encryption**: The `edvAuthKey` is strictly for authenticating the client with the storage server. It does **not** grant access to the encrypted data content; only the user's keys can do that.
+
 ### 1. Script Tag (Global)
 
 When loaded via `<script>`, the SDK exposes a global variable `TruveraWebWallet`.
@@ -43,6 +51,8 @@ async function main() {
   const wallet = await TruveraWebWallet.initialize({ ... });
 }
 ```
+
+
 
 ### Key Generation (Optional)
 
