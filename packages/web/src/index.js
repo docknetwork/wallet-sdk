@@ -7,11 +7,11 @@ import { createMessageProvider } from '@docknetwork/wallet-sdk-core/src/message-
 import { createVerificationController } from '@docknetwork/wallet-sdk-core/src/verification-controller';
 
 async function initialize({
-    edvUrl,
-    edvAuthKey,
-    networkId,
-    masterKey,
-    mnemonic
+  edvUrl,
+  edvAuthKey,
+  networkId,
+  masterKey,
+  mnemonic
 }) {
 
   if (!masterKey && !mnemonic) {
@@ -35,8 +35,8 @@ async function initialize({
   }
 
   const dataStore = await createDataStore({
-      databasePath: 'dock-wallet',
-      defaultNetwork: networkId || 'testnet',
+    databasePath: 'dock-wallet',
+    defaultNetwork: networkId || 'testnet',
   });
   console.log('Data store created');
 
@@ -47,7 +47,7 @@ async function initialize({
   console.log('DID provider created');
 
   const credentialProvider = await createCredentialProvider({
-      wallet,
+    wallet,
   });
   console.log('Credential provider created');
 
@@ -63,30 +63,43 @@ async function initialize({
   }
 
   const cloudWallet = await initializeCloudWallet({
-      dataStore: dataStore,
-      edvUrl: edvUrl,
-      masterKey: masterKey,
-      authKey: edvAuthKey,
+    dataStore: dataStore,
+    edvUrl: edvUrl,
+    masterKey: masterKey,
+    authKey: edvAuthKey,
   });
   console.log('Cloud wallet created');
 
   console.log(credentialProvider);
 
   try {
-      const documents = await cloudWallet.pullDocuments();
-  } catch(err) {
-      console.error('Error pulling documents', err);
+    const documents = await cloudWallet.pullDocuments();
+  } catch (err) {
+    console.error('Error pulling documents', err);
   }
 
   return {
     // Simplified API for common use cases
     wallet,
+    /**
+     * Get the list of credentials
+     * @returns 
+     */
     getCredentials: async () => {
       return await credentialProvider.getCredentials();
     },
+    /**
+     * Import credential using an offer URI
+     * @param {*} uri 
+     * @returns 
+     */
     addCredential: async (uri) => {
       return await credentialProvider.importCredentialFromURI({ uri, didProvider });
     },
+    /**
+     * Get default DID
+     * @returns 
+     */
     getDID: async () => {
       return await didProvider.getDefaultDID();
     },
@@ -134,7 +147,6 @@ async function initialize({
 
 export {
   initialize,
-  // intenral metdhos for advanced usage
   createDataStore,
   createWallet,
   createCredentialProvider,
@@ -146,3 +158,15 @@ export {
   createVerificationController,
 }
 
+export default {
+  initialize,
+  createDataStore,
+  createWallet,
+  createCredentialProvider,
+  createDIDProvider,
+  createMessageProvider,
+  initializeCloudWallet,
+  generateCloudWalletMasterKey,
+  recoverCloudWalletMasterKey,
+  createVerificationController,
+};

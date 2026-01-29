@@ -14,13 +14,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default {
   input: 'src/index.js',
-  output: {
-    file: 'dist/wallet-sdk-web.iife.js',
-    format: 'iife',
-    name: 'TruveraWebWallet',
-    sourcemap: false,
-    intro: `const global = window;`,
-  },
+  output: [
+    {
+      file: 'dist/wallet-sdk-web.iife.js',
+      format: 'iife',
+      name: 'TruveraWebWallet',
+      sourcemap: false,
+      intro: `const global = window;`,
+    },
+    {
+      file: 'dist/wallet-sdk-web.esm.js',
+      format: 'es',
+      sourcemap: false,
+      intro: `const global = window;`,
+      exports: 'named',
+    }
+  ],
   external: [],
   onwarn(warning, warn) {
     // Suppress warnings for known issues

@@ -9,14 +9,14 @@
 
 <body>
   <!-- Load the Dock Web Wallet bundle -->
-  <script src="./dist/wallet-sdk-web.iife.js"></script>
+  <script src="https://unpkg.com/@docknetwork/wallet-sdk-web@0.0.1/dist/wallet-sdk-web.iife.js"></script>
 
   <script>
     // Log initial load
     window.addEventListener('load', async () => {
       const wallet = await TruveraWebWallet.initialize({
         edvUrl: 'https://edv.dock.io',
-        edvAuthKey: '<your-auth-key>',
+        edvAuthKey: 'DOCKWALLET-TEST',
         networkId: 'testnet',
         mnemonic: 'original there settle romance crazy fringe session wage despair medal bleak need',
       });

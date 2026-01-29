@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-web",
-    "version": "0.0.1",
+    "version": "0.0.4",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -8,6 +8,14 @@
         "directory": "packages/web-wallet"
     },
     "main": "dist/wallet-sdk-web.iife.js",
+    "module": "dist/wallet-sdk-web.esm.js",
+    "exports": {
+        ".": {
+            "import": "./dist/wallet-sdk-web.esm.js",
+            "require": "./dist/wallet-sdk-web.iife.js",
+            "default": "./dist/wallet-sdk-web.iife.js"
+        }
+    },
     "browser": "dist/wallet-sdk-web.iife.js",
     "unpkg": "dist/wallet-sdk-web.iife.js",
     "files": [
