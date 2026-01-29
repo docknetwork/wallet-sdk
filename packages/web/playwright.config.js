@@ -1,7 +1,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
-  testDir: './',
+  testDir: './test',
   testMatch: '**/*.test.js',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -26,8 +26,8 @@ module.exports = defineConfig({
 
   // Web server configuration
   webServer: {
-    command: 'npx http-server . -p 8080 -c-1',
-    port: 8080,
+    command: 'npx http-server . -p 8686 -c-1',
+    port: 8686,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
   },

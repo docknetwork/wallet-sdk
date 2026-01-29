@@ -14,11 +14,12 @@
   <script>
     // Log initial load
     window.addEventListener('load', async () => {
+      const {mnemonic} = await TruveraWebWallet.generateCloudWalletMasterKey();
       const wallet = await TruveraWebWallet.initialize({
         edvUrl: 'https://edv.dock.io',
         edvAuthKey: '<your-auth-key>',
         networkId: 'testnet',
-        mnemonic: 'original there settle romance crazy fringe session wage despair medal bleak need',
+        mnemonic: mnemonic,
       });
       const credentials = await wallet.getCredentials();
 
