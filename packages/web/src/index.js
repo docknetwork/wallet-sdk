@@ -93,24 +93,12 @@ async function initialize({
     throw new Error('Initialization failed: edvUrl is required. Please provide a valid Encrypted Data Vault URL');
   }
 
-  if (typeof edvUrl !== 'string' || !edvUrl.trim()) {
-    throw new Error('Initialization failed: edvUrl must be a non-empty string');
-  }
-
   if (!edvAuthKey) {
     throw new Error('Initialization failed: edvAuthKey is required for EDV authentication');
   }
 
-  if (typeof edvAuthKey !== 'string' || !edvAuthKey.trim()) {
-    throw new Error('Initialization failed: edvAuthKey must be a non-empty string');
-  }
-
-  if (!networkId) {
-    throw new Error('Initialization failed: networkId is required. Must be either "testnet" or "mainnet"');
-  }
-
   if (networkId !== 'testnet' && networkId !== 'mainnet') {
-    throw new Error(`Initialization failed: Invalid networkId "${networkId}". Must be either "testnet" or "mainnet"`);
+    throw new Error('Initialization failed: networkId is required. Must be either "testnet" or "mainnet"');
   }
 
   // Initialize data store
