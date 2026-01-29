@@ -145,19 +145,6 @@ async function initialize({
 
 }
 
-export {
-  initialize,
-  createDataStore,
-  createWallet,
-  createCredentialProvider,
-  createDIDProvider,
-  createMessageProvider,
-  initializeCloudWallet,
-  generateCloudWalletMasterKey,
-  recoverCloudWalletMasterKey,
-  createVerificationController,
-}
-
 export default {
   initialize,
   createDataStore,

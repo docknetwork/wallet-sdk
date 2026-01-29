@@ -1,6 +1,6 @@
 # Truvera Web Wallet SDK
 
-A browser-ready wallet SDK for interacting with the Truvera platform
+A simplified, browser-ready wrapper for the Wallet SDK, specialized for cloud wallet functionality.
 
 ## Installation
 
@@ -36,16 +36,11 @@ When loaded via `<script>`, the SDK exposes a global variable `TruveraWebWallet`
 You can import the SDK in your modern web application.
 
 ```javascript
-// Default import (same API as global)
+// Default import
 import TruveraWebWallet from '@docknetwork/wallet-sdk-web';
-
-// OR Named imports
-import { initialize, createWallet } from '@docknetwork/wallet-sdk-web';
 
 async function main() {
   const wallet = await TruveraWebWallet.initialize({ ... });
-  // or
-  const wallet2 = await initialize({ ... });
 }
 ```
 
