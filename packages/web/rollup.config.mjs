@@ -15,9 +15,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default {
   input: 'src/index.js',
   output: {
-    file: 'dist/web-wallet.iife.js',
+    file: 'dist/wallet-sdk-web.iife.js',
     format: 'iife',
-    name: 'DockWebWallet',
+    name: 'TruveraWebWallet',
     sourcemap: false,
     intro: `const global = window;`,
   },
@@ -116,6 +116,26 @@ export default {
       ],
     }),
 
+    // Babel transpilation - modules: false is KEY!
+    babel({
+      babelHelpers: 'bundled',
+      exclude: /node_modules\/(?!@docknetwork|@digitalbazaar|@cheqd)/,
+      presets: [
+        ['@babel/preset-env', {
+          targets: { browsers: '> 0.25%, not dead' },
+          modules: false, // Critical: let Rollup handle modules
+        }],
+        '@babel/preset-typescript'
+      ],
+      plugins: [
+        ['@babel/plugin-proposal-class-properties', { loose: false }],
+        ['@babel/plugin-proposal-private-methods', { loose: false }],
+        ['@babel/plugin-proposal-private-property-in-object', { loose: false }],
+        '@babel/plugin-transform-flow-strip-types',
+      ],
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs'],
+    }),
+
     // Convert CommonJS modules to ES6 BEFORE resolve
     commonjs({
       transformMixedEsModules: true,
@@ -137,26 +157,6 @@ export default {
       browser: true,
       preferBuiltins: false,
       extensions: ['.mjs', '.js', '.json', '.node', '.ts', '.tsx'],
-    }),
-
-    // Babel transpilation - modules: false is KEY!
-    babel({
-      babelHelpers: 'bundled',
-      exclude: /node_modules\/(?!@docknetwork|@digitalbazaar|@cheqd)/,
-      presets: [
-        ['@babel/preset-env', {
-          targets: { browsers: '> 0.25%, not dead' },
-          modules: false, // Critical: let Rollup handle modules
-        }],
-        '@babel/preset-typescript'
-      ],
-      plugins: [
-        ['@babel/plugin-proposal-class-properties', { loose: false }],
-        ['@babel/plugin-proposal-private-methods', { loose: false }],
-        ['@babel/plugin-proposal-private-property-in-object', { loose: false }],
-        '@babel/plugin-transform-flow-strip-types',
-      ],
-      extensions: ['.js', '.jsx', '.ts', '.tsx', '.mjs'],
     }),
 
     // Environment variables

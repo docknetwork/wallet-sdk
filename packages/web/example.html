@@ -1,50 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dock Web Wallet Example</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dock Web Wallet Example</title>
 </head>
+
 <body>
-    <!-- Load the Dock Web Wallet bundle -->
-    <script src="./dist/wallet-sdk-web.iife.js"></script>
+  <!-- Load the Dock Web Wallet bundle -->
+  <script src="./dist/wallet-sdk-web.iife.js"></script>
 
-    <script>
-        // Log initial load
-        window.addEventListener('load', async () => {
-            const EDV_URL = 'https://edv.dock.io';
-            const EDV_AUTH_KEY = 'DOCKWALLET-TEST';
+  <script>
+    // Log initial load
+    window.addEventListener('load', async () => {
+      const wallet = await TruveraWebWallet.initialize({
+        edvUrl: 'https://edv.dock.io',
+        edvAuthKey: '<your-auth-key>',
+        networkId: 'testnet',
+        mnemonic: 'original there settle romance crazy fringe session wage despair medal bleak need',
+      });
+      const credentials = await wallet.getCredentials();
 
-           console.log(DockWebWallet);
-            const dataStore = await DockWebWallet.createDataStore({
-                databasePath: 'dock-wallet',
-                defaultNetwork: 'testnet',
-            });
-            console.log('Data store created');
-            const wallet = await DockWebWallet.createWallet({ dataStore });
-
-            console.log('Wallet created');
-            const didProvider = DockWebWallet.createDIDProvider({ wallet });
-            console.log('DID provider created');
-            const credentialProvider = await DockWebWallet.createCredentialProvider({
-                wallet,
-            });
-            console.log('Credential provider created');
-            const messageProvider = DockWebWallet.createMessageProvider({ wallet, didProvider });
-
-            console.log('Message provider created');
-            const walletKeys = await DockWebWallet.generateCloudWalletMasterKey();
-            console.log('Master keys created', walletKeys);
-            const cloudWallet = await DockWebWallet.initializeCloudWallet({
-                dataStore: dataStore,
-                edvUrl: EDV_URL,
-                masterKey: walletKeys.masterKey,
-                authKey: EDV_AUTH_KEY,
-            });
-            console.log('Cloud wallet created');
-
-            console.log(cloudWallet);
-        });
-    </script>
+      console.log(credentials);
+    });
+  </script>
 </body>
+
 </html>
