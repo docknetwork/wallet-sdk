@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-web",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -20,7 +20,8 @@
     "unpkg": "dist/wallet-sdk-web.iife.js",
     "files": [
         "dist",
-        "src"
+        "src",
+        "README.md"
     ],
     "scripts": {
         "build": "rollup -c",
