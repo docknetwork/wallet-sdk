@@ -25,13 +25,10 @@
     ],
     "scripts": {
         "build": "rollup -c",
-        "build:webpack": "node scripts/build.js",
         "clean": "rm -rf dist",
         "test": "playwright test",
         "test:ui": "playwright test --ui",
-        "test:debug": "playwright test --debug",
-        "test:headed": "playwright test --headed",
-        "test:report": "playwright show-report test-results/html"
+        "test:headed": "playwright test --headed"
     },
     "devDependencies": {
         "@docknetwork/wallet-sdk-core": "^1.7.0",

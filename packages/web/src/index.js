@@ -8,13 +8,17 @@
  * @module @docknetwork/wallet-sdk-web
  */
 
-import { createDataStore } from '@docknetwork/wallet-sdk-data-store-web/src/index';
-import { initializeCloudWallet, generateCloudWalletMasterKey, recoverCloudWalletMasterKey } from '@docknetwork/wallet-sdk-core/src/cloud-wallet';
-import { createWallet } from '@docknetwork/wallet-sdk-core/src/wallet';
-import { createCredentialProvider } from '@docknetwork/wallet-sdk-core/src/credential-provider';
-import { createDIDProvider } from '@docknetwork/wallet-sdk-core/src/did-provider';
-import { createMessageProvider } from '@docknetwork/wallet-sdk-core/src/message-provider';
-import { createVerificationController } from '@docknetwork/wallet-sdk-core/src/verification-controller';
+import {createDataStore} from '@docknetwork/wallet-sdk-data-store-web/src/index';
+import {
+  initializeCloudWallet,
+  generateCloudWalletMasterKey,
+  recoverCloudWalletMasterKey,
+} from '@docknetwork/wallet-sdk-core/src/cloud-wallet';
+import {createWallet} from '@docknetwork/wallet-sdk-core/src/wallet';
+import {createCredentialProvider} from '@docknetwork/wallet-sdk-core/src/credential-provider';
+import {createDIDProvider} from '@docknetwork/wallet-sdk-core/src/did-provider';
+import {createMessageProvider} from '@docknetwork/wallet-sdk-core/src/message-provider';
+import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
 
 /**
  * Initializes the Dock Wallet SDK with the provided configuration.
@@ -77,28 +81,37 @@ async function initialize({
   masterKey,
   mnemonic,
   networkId,
-  databasePath
+  databasePath,
 }) {
-
   // Validate required parameters
   if (!masterKey && !mnemonic) {
-    throw new Error('Initialization failed: Either masterKey or mnemonic must be provided for wallet access');
+    throw new Error(
+      'Initialization failed: Either masterKey or mnemonic must be provided for wallet access',
+    );
   }
 
   if (masterKey && mnemonic) {
-    throw new Error('Initialization failed: Cannot provide both masterKey and mnemonic. Please use only one authentication method');
+    throw new Error(
+      'Initialization failed: Cannot provide both masterKey and mnemonic. Please use only one authentication method',
+    );
   }
 
   if (!edvUrl) {
-    throw new Error('Initialization failed: edvUrl is required. Please provide a valid Encrypted Data Vault URL');
+    throw new Error(
+      'Initialization failed: edvUrl is required. Please provide a valid Encrypted Data Vault URL',
+    );
   }
 
   if (!edvAuthKey) {
-    throw new Error('Initialization failed: edvAuthKey is required for EDV authentication');
+    throw new Error(
+      'Initialization failed: edvAuthKey is required for EDV authentication',
+    );
   }
 
   if (networkId !== 'testnet' && networkId !== 'mainnet') {
-    throw new Error('Initialization failed: networkId is required. Must be either "testnet" or "mainnet"');
+    throw new Error(
+      'Initialization failed: networkId is required. Must be either "testnet" or "mainnet"',
+    );
   }
 
   // Initialize data store
@@ -115,7 +128,7 @@ async function initialize({
   // Initialize wallet
   let wallet;
   try {
-    wallet = await createWallet({ dataStore });
+    wallet = await createWallet({dataStore});
   } catch (error) {
     throw new Error(`Failed to create wallet: ${error.message}`);
   }
@@ -123,9 +136,9 @@ async function initialize({
   // Initialize providers
   let didProvider, credentialProvider, messageProvider;
   try {
-    didProvider = createDIDProvider({ wallet });
-    credentialProvider = await createCredentialProvider({ wallet });
-    messageProvider = createMessageProvider({ wallet, didProvider });
+    didProvider = createDIDProvider({wallet});
+    credentialProvider = await createCredentialProvider({wallet});
+    messageProvider = createMessageProvider({wallet, didProvider});
   } catch (error) {
     throw new Error(`Failed to initialize wallet providers: ${error.message}`);
   }
@@ -135,7 +148,9 @@ async function initialize({
     try {
       masterKey = await recoverCloudWalletMasterKey(mnemonic);
     } catch (error) {
-      throw new Error(`Failed to recover master key from mnemonic: ${error.message}`);
+      throw new Error(
+        `Failed to recover master key from mnemonic: ${error.message}`,
+      );
     }
   }
 
@@ -156,7 +171,10 @@ async function initialize({
   try {
     await cloudWallet.pullDocuments();
   } catch (error) {
-    console.warn('Warning: Failed to pull documents from cloud wallet. You may need to sync manually.', error.message);
+    console.warn(
+      'Warning: Failed to pull documents from cloud wallet. You may need to sync manually.',
+      error.message,
+    );
   }
 
   return {
@@ -196,15 +214,22 @@ async function initialize({
      * const credential = await wallet.addCredential('openid-credential-offer://...');
      * console.log('Credential imported:', credential.id);
      */
-    addCredential: async (uri) => {
+    addCredential: async uri => {
       if (!uri || typeof uri !== 'string') {
-        throw new Error('Invalid credential offer URI: URI must be a non-empty string');
+        throw new Error(
+          'Invalid credential offer URI: URI must be a non-empty string',
+        );
       }
 
       try {
-        return await credentialProvider.importCredentialFromURI({ uri, didProvider });
+        return await credentialProvider.importCredentialFromURI({
+          uri,
+          didProvider,
+        });
       } catch (error) {
-        throw new Error(`Failed to import credential from URI: ${error.message}`);
+        throw new Error(
+          `Failed to import credential from URI: ${error.message}`,
+        );
       }
     },
 
@@ -263,13 +288,16 @@ async function initialize({
      *   proofRequestUrl: 'https://verifier.example.com/proof-request/abc123'
      * });
      */
-    submitPresentation: async ({
-      credentials,
-      proofRequestUrl,
-    }) => {
+    submitPresentation: async ({credentials, proofRequestUrl}) => {
       // Validate inputs
-      if (!credentials || !Array.isArray(credentials) || credentials.length === 0) {
-        throw new Error('Invalid credentials: Must provide a non-empty array of credentials');
+      if (
+        !credentials ||
+        !Array.isArray(credentials) ||
+        credentials.length === 0
+      ) {
+        throw new Error(
+          'Invalid credentials: Must provide a non-empty array of credentials',
+        );
       }
 
       if (!proofRequestUrl || typeof proofRequestUrl !== 'string') {
@@ -279,10 +307,14 @@ async function initialize({
       // Validate each credential
       for (const credential of credentials) {
         if (!credential.id) {
-          throw new Error('Invalid credential: Each credential must have an id property');
+          throw new Error(
+            'Invalid credential: Each credential must have an id property',
+          );
         }
         if (!credential.attributesToReveal) {
-          throw new Error(`Invalid credential ${credential.id}: Missing attributesToReveal property`);
+          throw new Error(
+            `Invalid credential ${credential.id}: Missing attributesToReveal property`,
+          );
         }
       }
 
@@ -294,13 +326,17 @@ async function initialize({
           didProvider,
         });
       } catch (error) {
-        throw new Error(`Failed to create verification controller: ${error.message}`);
+        throw new Error(
+          `Failed to create verification controller: ${error.message}`,
+        );
       }
 
       try {
-        await verificationController.start({ template: proofRequestUrl });
+        await verificationController.start({template: proofRequestUrl});
       } catch (error) {
-        throw new Error(`Failed to start verification with proof request: ${error.message}`);
+        throw new Error(
+          `Failed to start verification with proof request: ${error.message}`,
+        );
       }
 
       // Select credentials and attributes to reveal
@@ -327,9 +363,8 @@ async function initialize({
       } catch (error) {
         throw new Error(`Failed to submit presentation: ${error.message}`);
       }
-    }
-  }
-
+    },
+  };
 }
 
 /**

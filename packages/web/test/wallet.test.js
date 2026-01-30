@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const {test, expect} = require('@playwright/test');
 
 // Test configuration
 const TEST_CONFIG = {
@@ -8,7 +8,7 @@ const TEST_CONFIG = {
 };
 
 test.describe('Wallet SDK', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({page}) => {
     // Navigate to test page
     await page.goto('http://localhost:8686/test/test-page.html');
 
@@ -17,14 +17,17 @@ test.describe('Wallet SDK', () => {
     console.log('Status before waiting:', statusBefore);
 
     // Wait for the SDK to load with increased timeout
-    await page.waitForSelector('#status:has-text("Ready")', { timeout: 60000 });
+    await page.waitForSelector('#status:has-text("Ready")', {timeout: 60000});
   });
 
-  test('should generate master key, initialize wallet, get DID, and verify empty credentials', async ({ page }) => {
-    const result = await page.evaluate(async (config) => {
+  test('should generate master key, initialize wallet, get DID, and verify empty credentials', async ({
+    page,
+  }) => {
+    const result = await page.evaluate(async config => {
       try {
         // 1. Generate master key with mnemonic
-        const { mnemonic } = await window.TruveraWebWallet.generateCloudWalletMasterKey();
+        const {mnemonic} =
+          await window.TruveraWebWallet.generateCloudWalletMasterKey();
 
         // 2. Initialize wallet with the generated mnemonic
         const wallet = await window.TruveraWebWallet.initialize({
