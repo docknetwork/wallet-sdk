@@ -285,7 +285,7 @@ async function initialize({
      *       attributesToReveal: ['email']
      *     }
      *   ],
-     *   proofRequestUrl: 'https://verifier.example.com/proof-request/abc123'
+     *   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
      * });
      */
     submitPresentation: async ({credentials, proofRequestUrl}) => {
@@ -341,11 +341,17 @@ async function initialize({
 
       // Select credentials and attributes to reveal
       try {
-        for (const credential of credentials) {
-          verificationController.selectedCredentials.set(credential.id, {
-            credential: credential,
-            attributesToReveal: credential.attributesToReveal,
-          });
+        for (const credentialToPresent of credentials) {
+          const credential = await credentialProvider.getById(
+            credentialToPresent.id,
+          );
+          verificationController.selectedCredentials.set(
+            credentialToPresent.id,
+            {
+              credential,
+              attributesToReveal: credentialToPresent.attributesToReveal,
+            },
+          );
         }
       } catch (error) {
         throw new Error(`Failed to select credentials: ${error.message}`);

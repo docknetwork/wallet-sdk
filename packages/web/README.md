@@ -131,15 +131,24 @@ Submit a presentation for specific credentials to a proof request URL.
 
 ```javascript
 const response = await wallet.submitPresentation({
-  credentials: {
-    'credential-id-1': { attributesToReveal: ['name', 'email'] }
-  },
-  proofRequestUrl: 'https://verifier.example.com/proof-request'
+  credentials: [
+    {
+      id: 'credential-123',
+      attributesToReveal: ['name', 'dateOfBirth']
+    },
+    {
+      id: 'credential-456',
+      attributesToReveal: ['email']
+    }
+  ],
+  proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
 });
 ```
 
 **Parameters**:
--   `credentials` (Object): Map of credential IDs to configuration (e.g., `attributesToReveal`).
--   `proofRequestUrl` (string): The URL of the proof request template.
+-   `credentials` (Array<Object>): Array of credential objects to include in the presentation.
+    -   `credentials[].id` (string): The credential ID.
+    -   `credentials[].attributesToReveal` (Array<string>): Array of attribute names to reveal from this credential.
+-   `proofRequestUrl` (string): The URL of the proof request template from the verifier.
 
-**Returns**: `Promise<Object>` - The verification response.
+**Returns**: `Promise<Object>` - The submission response from the verifier.

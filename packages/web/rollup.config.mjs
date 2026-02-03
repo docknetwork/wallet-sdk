@@ -129,6 +129,7 @@ export default {
     alias({
       entries: [
         { find: 'winston', replacement: path.resolve(__dirname, 'winston-mock.js') },
+        { find: 'jsonpath', replacement: path.resolve(__dirname, '../../node_modules/jsonpath/index.js') },
         { find: '@cedar-policy/cedar-wasm/nodejs', replacement: path.resolve(__dirname, '../../node_modules/@cedar-policy/cedar-wasm/web/cedar_wasm.js') },
         { find: '@cedar-policy/cedar-wasm', replacement: path.resolve(__dirname, '../../node_modules/@cedar-policy/cedar-wasm/web/cedar_wasm.js') },
       ],
