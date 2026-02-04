@@ -19,7 +19,7 @@ import {createCredentialProvider} from '@docknetwork/wallet-sdk-core/src/credent
 import {createDIDProvider} from '@docknetwork/wallet-sdk-core/src/did-provider';
 import {createMessageProvider} from '@docknetwork/wallet-sdk-core/src/message-provider';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
-import { blockchainService } from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
+import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
 
 /**
  * Initializes the Dock Wallet SDK with the provided configuration.
@@ -286,7 +286,7 @@ async function initialize({
      * });
      */
     submitPresentation: async ({credentials, proofRequestUrl}) => {
-      // ensure blockchain is connected 
+      // ensure blockchain is connected
       await blockchainService.ensureBlockchainReady();
 
       // Validate inputs
