@@ -133,13 +133,9 @@ Submit a presentation for specific credentials to a proof request URL.
 const response = await wallet.submitPresentation({
   credentials: [
     {
-      id: 'credential-123',
-      attributesToReveal: ['name', 'dateOfBirth']
+      id: 'https://creds-testnet.truvera.io/c7f3e722287d1ea98c136ad5df8066209c5e9b44c6251af0860d62e9a3a21a76',
+      attributesToReveal: ['credentialSubject.fullName', 'credentialSubject.age']
     },
-    {
-      id: 'credential-456',
-      attributesToReveal: ['email']
-    }
   ],
   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
 });
