@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const {test, expect} = require('@playwright/test');
 
 // Test configuration
 const TEST_CONFIG = {
@@ -8,7 +8,7 @@ const TEST_CONFIG = {
 };
 
 test.describe('Wallet SDK', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({page}) => {
     // Navigate to test page
     await page.goto('http://localhost:8686/test/test-page.html');
 
@@ -17,7 +17,7 @@ test.describe('Wallet SDK', () => {
     console.log('Status before waiting:', statusBefore);
 
     // Wait for the SDK to load with increased timeout
-    await page.waitForSelector('#status:has-text("Ready")', { timeout: 60000 });
+    await page.waitForSelector('#status:has-text("Ready")', {timeout: 60000});
   });
 
   test('should generate master key, initialize wallet, get DID, and verify empty credentials', async ({
@@ -26,7 +26,7 @@ test.describe('Wallet SDK', () => {
     const result = await page.evaluate(async config => {
       try {
         // 1. Generate master key with mnemonic
-        const { mnemonic } =
+        const {mnemonic} =
           await window.TruveraWebWallet.generateCloudWalletMasterKey();
 
         // 2. Initialize wallet with the generated mnemonic
@@ -48,16 +48,22 @@ test.describe('Wallet SDK', () => {
 
         console.log('generating presentation...', credential);
 
-        const result = await wallet.submitPresentation({
-          credentials: [{
-            id: credential.id,
-            attributesToReveal: ['credentialSubject.fullName', 'credentialSubject.age']
-          }],
-          proofRequestUrl: 'https://creds-staging.truvera.io/proof/40fcb8fe-b99c-4ea7-91e7-d414b67bd2c5'
+        const presentationResult = await wallet.submitPresentation({
+          credentials: [
+            {
+              id: credential.id,
+              attributesToReveal: [
+                'credentialSubject.fullName',
+                'credentialSubject.age',
+              ],
+            },
+          ],
+          proofRequestUrl:
+            'https://creds-staging.truvera.io/proof/40fcb8fe-b99c-4ea7-91e7-d414b67bd2c5',
         });
 
         return {
-          presentationResult: result,
+          presentationResult: presentationResult,
           success: true,
           mnemonic: mnemonic,
           hasMnemonic: !!mnemonic,
