@@ -1,14 +1,14 @@
-import {JSONPath} from '@astronautlabs/jsonpath';
+import { JSONPath } from '@astronautlabs/jsonpath';
 
 export const EPSILON_NUMBER = 0.001;
 export const EPSILON_INT = 1;
 
 export const MAX_DATE_PLACEHOLDER = 884541351600000;
 export const MIN_DATE_PLACEHOLDER = -17592186044415;
-export const MAX_INTEGER = 100 ** 9;
-export const MIN_INTEGER = -4294967295;
-export const MAX_NUMBER = 100 ** 5;
-export const MIN_NUMBER = -4294967294;
+export const MAX_INTEGER = Number.MAX_SAFE_INTEGER;
+export const MIN_INTEGER = Number.MIN_SAFE_INTEGER;
+export const MAX_NUMBER = Number.MAX_SAFE_INTEGER;
+export const MIN_NUMBER = Number.MIN_SAFE_INTEGER;
 
 /*
   PEX Filter rules:
@@ -32,7 +32,7 @@ function toMaxDecimalPlaces(n, maxDecimalPlaces) {
   return +n.toFixed(maxDecimalPlaces);
 }
 
-function getAttributeName({field, selectedCredentials, index}) {
+function getAttributeName({ field, selectedCredentials, index }) {
   let attributeName;
   if (Array.isArray(field.path) && field.path.length > 1) {
     const selectedCredential = selectedCredentials[index];
@@ -157,7 +157,7 @@ export function pexToBounds(
         decodedSchema,
         schemaPath,
         1,
-      )[0] || {type};
+      )[0] || { type };
 
       let max =
         maximum === undefined
@@ -196,16 +196,16 @@ export function pexToBounds(
               ? MAX_NUMBER
               : attributeSchema.maximum
             : exclusiveMaximum === undefined
-            ? max
-            : max - epsilon;
+              ? max
+              : max - epsilon;
         min =
           min === undefined
             ? attributeSchema.minimum === undefined
               ? MIN_NUMBER
               : attributeSchema.minimum
             : exclusiveMinimum === undefined
-            ? min
-            : min + epsilon;
+              ? min
+              : min + epsilon;
 
         // Because of floating point math sucks, sometimes we can get extra decimal points
         // the bounds must also match the same decimal points as the input
@@ -219,16 +219,16 @@ export function pexToBounds(
               ? MAX_INTEGER
               : attributeSchema.maximum
             : exclusiveMaximum === undefined
-            ? max
-            : max - EPSILON_INT;
+              ? max
+              : max - EPSILON_INT;
         min =
           min === undefined
             ? attributeSchema.minimum === undefined
               ? MIN_INTEGER
               : attributeSchema.minimum
             : exclusiveMinimum === undefined
-            ? min
-            : min + EPSILON_INT;
+              ? min
+              : min + EPSILON_INT;
 
         // Ensure that input values are not decimals otherwise crypto-wasm-ts will complain
         min = Math.floor(min);
@@ -260,7 +260,7 @@ export function pexToBounds(
     descriptorBounds.push(bounds);
   });
 
-  fieldsToRemove.forEach(({fields, field}) => {
+  fieldsToRemove.forEach(({ fields, field }) => {
     const idx = fields.indexOf(field);
     if (idx !== -1) {
       fields.splice(idx, 1);
@@ -298,8 +298,8 @@ export function getPexRequiredAttributes(pexRequest, selectedCredentials = []) {
 
             const paths = Array.isArray(field.path)
               ? field.path.flatMap(singlePath =>
-                  JSONPath.paths(selectedCredentials[index], singlePath),
-                )
+                JSONPath.paths(selectedCredentials[index], singlePath),
+              )
               : JSONPath.paths(selectedCredentials[index], field.path);
 
             return paths.length !== 0;
@@ -308,7 +308,7 @@ export function getPexRequiredAttributes(pexRequest, selectedCredentials = []) {
             return false;
           }
         })
-        .map(field => getAttributeName({field, selectedCredentials, index}))
+        .map(field => getAttributeName({ field, selectedCredentials, index }))
         .filter(attributeName => {
           return !shouldSkipAttribute(attributeName);
         });
