@@ -139,45 +139,8 @@ export const PRESENTATION_CONTEXT = [W3C_CREDENTIALS_V1];
  */
 export async function issueDelegationCredential(
   keyPair: KeyPair,
-  params: {
-    id: string;
-    issuerDid: string;
-    delegateDid: string;
-    mayClaim: string[];
-    context: any[];
-    types: string[];
-    additionalSubjectProperties?: Record<string, any>;
-    previousCredentialId?: string | null;
-    rootCredentialId?: string;
-  }
+  credential: any
 ): Promise<DelegationCredential> {
-  const {
-    id,
-    issuerDid,
-    delegateDid,
-    mayClaim,
-    context,
-    types,
-    additionalSubjectProperties = {},
-    previousCredentialId = null,
-    rootCredentialId,
-  } = params;
-
-  const credential = {
-    '@context': context,
-    id,
-    type: types,
-    issuer: issuerDid,
-    issuanceDate: new Date().toISOString(),
-    credentialSubject: {
-      id: delegateDid,
-      [MAY_CLAIM_IRI]: mayClaim,
-      ...additionalSubjectProperties,
-    },
-    rootCredentialId: undefined,
-    previousCredentialId,
-  };
-
   const preparedKey = prepareKeyForSigning(keyPair);
   return issueCredential(preparedKey, credential);
 }
@@ -190,42 +153,8 @@ export async function issueDelegationCredential(
  */
 export async function issueDelegatedCredential(
   keyPair: KeyPair,
-  params: {
-    id: string;
-    issuerDid: string;
-    subjectDid: string;
-    claims: Record<string, any>;
-    rootCredentialId: string;
-    previousCredentialId: string;
-    context: any[];
-    types: string[];
-  }
+  credential: any
 ): Promise<any> {
-  const {
-    id,
-    issuerDid,
-    subjectDid,
-    claims,
-    rootCredentialId,
-    previousCredentialId,
-    context,
-    types,
-  } = params;
-
-  const credential = {
-    '@context': context,
-    id,
-    type: types,
-    issuer: issuerDid,
-    issuanceDate: new Date().toISOString(),
-    credentialSubject: {
-      id: subjectDid,
-      ...claims,
-    },
-    rootCredentialId,
-    previousCredentialId,
-  };
-
   const preparedKey = prepareKeyForSigning(keyPair);
   return issueCredential(preparedKey, credential);
 }
