@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wallet SDK Test Page</title>
+</head>
+<body>
+  <h1>Wallet SDK Test Page</h1>
+  <div id="status">Loading...</div>
+  <div id="output"></div>
+
+  <!-- Load the Wallet SDK bundle from local dist -->
+  <script src="/dist/wallet-sdk-web.iife.js"></script>
+
+  <script>
+    // Make TruveraWebWallet available globally for tests
+    window.WalletSDK = window.TruveraWebWallet;
+
+    // Set status to ready when loaded
+    window.addEventListener('load', () => {
+      if (window.TruveraWebWallet && typeof window.TruveraWebWallet.initialize === 'function') {
+        document.getElementById('status').textContent = 'Ready';
+        console.log('SDK loaded successfully');
+      } else {
+        document.getElementById('status').textContent = 'Error: SDK not loaded';
+        console.error('SDK failed to load. TruveraWebWallet:', window.TruveraWebWallet);
+      }
+    });
+
+    // Helper function to log test results
+    window.logResult = function(message) {
+      const output = document.getElementById('output');
+      const p = document.createElement('p');
+      p.textContent = message;
+      output.appendChild(p);
+    };
+  </script>
+</body>
+</html>

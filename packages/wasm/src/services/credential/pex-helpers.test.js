@@ -302,7 +302,7 @@ describe('pex helpers', () => {
           {
             attributeName: 'credentialSubject.age',
             min: 0,
-            max: 10000000000,
+            max: Number.MAX_SAFE_INTEGER,
             proofRequestMax: undefined,
             proofRequestMin: 0,
             format: undefined,
@@ -357,7 +357,7 @@ describe('pex helpers', () => {
           {
             attributeName: 'credentialSubject.age',
             min: 0,
-            max: 10000000000,
+            max: Number.MAX_SAFE_INTEGER,
             proofRequestMax: undefined,
             proofRequestMin: 0,
             format: undefined,

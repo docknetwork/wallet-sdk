@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Truvera Web Wallet Example</title>
+</head>
+
+<body>
+  <!-- Load the Truvera Web Wallet bundle -->
+  <script src="https://unpkg.com/@docknetwork/wallet-sdk-web/dist/wallet-sdk-web.iife.js"></script>
+
+  <script>
+    // Log initial load
+    window.addEventListener('load', async () => {
+      const {mnemonic} = await TruveraWebWallet.generateCloudWalletMasterKey();
+      const wallet = await TruveraWebWallet.initialize({
+        edvUrl: 'https://edv.dock.io',
+        edvAuthKey: '<your-auth-key>',
+        networkId: 'testnet',
+        mnemonic: mnemonic,
+      });
+      const credentials = await wallet.getCredentials();
+
+      console.log(credentials);
+    });
+  </script>
+</body>
+
+</html>
