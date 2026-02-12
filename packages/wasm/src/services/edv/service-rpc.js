@@ -40,18 +40,25 @@ export class EDVServiceRpc extends RpcService {
   }
 
   deriveBiometricKey(biometricData: Buffer, identifier: string) {
-    return this.call('deriveBiometricKey', { biometricData, identifier });
+    return this.call('deriveBiometricKey', {biometricData, identifier});
   }
 
   deriveBiometricEncryptionKey(biometricData: Buffer, identifier: string) {
-    return this.call('deriveBiometricEncryptionKey', { biometricData, identifier });
+    return this.call('deriveBiometricEncryptionKey', {
+      biometricData,
+      identifier,
+    });
   }
 
   encryptMasterKey(masterKey: Uint8Array, encryptionKey: Buffer, iv: Buffer) {
-    return this.call('encryptMasterKey', { masterKey, encryptionKey, iv });
+    return this.call('encryptMasterKey', {masterKey, encryptionKey, iv});
   }
 
-  decryptMasterKey(encryptedKey: Uint8Array, decryptionKey: Buffer, iv: Buffer) {
-    return this.call('decryptMasterKey', { encryptedKey, decryptionKey, iv });
+  decryptMasterKey(
+    encryptedKey: Uint8Array,
+    decryptionKey: Buffer,
+    iv: Buffer,
+  ) {
+    return this.call('decryptMasterKey', {encryptedKey, decryptionKey, iv});
   }
 }

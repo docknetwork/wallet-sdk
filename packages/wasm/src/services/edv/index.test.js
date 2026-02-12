@@ -98,7 +98,10 @@ describe('EDVService', () => {
         const biometricData = Buffer.from('mock-biometric-data');
         const identifier = 'user@example.com';
 
-        const result = await service.deriveBiometricEncryptionKey(biometricData, identifier);
+        const result = await service.deriveBiometricEncryptionKey(
+          biometricData,
+          identifier,
+        );
 
         expect(result).toBeDefined();
         expect(result.key).toBeDefined();
@@ -113,8 +116,14 @@ describe('EDVService', () => {
         const biometricData = Buffer.from('mock-biometric-data');
         const identifier = 'user@example.com';
 
-        const result1 = await service.deriveBiometricEncryptionKey(biometricData, identifier);
-        const result2 = await service.deriveBiometricEncryptionKey(biometricData, identifier);
+        const result1 = await service.deriveBiometricEncryptionKey(
+          biometricData,
+          identifier,
+        );
+        const result2 = await service.deriveBiometricEncryptionKey(
+          biometricData,
+          identifier,
+        );
 
         expect(result1.key.equals(result2.key)).toBe(true);
         // IVs should be different (random)
@@ -128,12 +137,20 @@ describe('EDVService', () => {
         const encryptionKey = Buffer.from(new Uint8Array(32).fill(1));
         const iv = Buffer.from(new Uint8Array(16).fill(2));
 
-        const encrypted = await service.encryptMasterKey(masterKey, encryptionKey, iv);
+        const encrypted = await service.encryptMasterKey(
+          masterKey,
+          encryptionKey,
+          iv,
+        );
         expect(encrypted).toBeDefined();
         expect(encrypted instanceof Uint8Array).toBe(true);
         expect(encrypted.length).toBeGreaterThan(0);
 
-        const decrypted = await service.decryptMasterKey(encrypted, encryptionKey, iv);
+        const decrypted = await service.decryptMasterKey(
+          encrypted,
+          encryptionKey,
+          iv,
+        );
         expect(decrypted).toBeDefined();
         expect(decrypted instanceof Uint8Array).toBe(true);
         expect(new Uint8Array(decrypted)).toEqual(masterKey);
@@ -145,10 +162,15 @@ describe('EDVService', () => {
         const wrongKey = Buffer.from(new Uint8Array(32).fill(99));
         const iv = Buffer.from(new Uint8Array(16).fill(2));
 
-        const encrypted = await service.encryptMasterKey(masterKey, encryptionKey, iv);
+        const encrypted = await service.encryptMasterKey(
+          masterKey,
+          encryptionKey,
+          iv,
+        );
 
-        await expect(service.decryptMasterKey(encrypted, wrongKey, iv))
-          .rejects.toThrow('Decryption failed: Invalid key or corrupted data');
+        await expect(
+          service.decryptMasterKey(encrypted, wrongKey, iv),
+        ).rejects.toThrow('Decryption failed: Invalid key or corrupted data');
       });
 
       it('should fail to decrypt with wrong IV', async () => {
@@ -157,10 +179,15 @@ describe('EDVService', () => {
         const iv = Buffer.from(new Uint8Array(16).fill(2));
         const wrongIv = Buffer.from(new Uint8Array(16).fill(99));
 
-        const encrypted = await service.encryptMasterKey(masterKey, encryptionKey, iv);
+        const encrypted = await service.encryptMasterKey(
+          masterKey,
+          encryptionKey,
+          iv,
+        );
 
-        await expect(service.decryptMasterKey(encrypted, encryptionKey, wrongIv))
-          .rejects.toThrow('Decryption failed: Invalid key or corrupted data');
+        await expect(
+          service.decryptMasterKey(encrypted, encryptionKey, wrongIv),
+        ).rejects.toThrow('Decryption failed: Invalid key or corrupted data');
       });
 
       it('should produce different ciphertext for same plaintext with different IVs', async () => {
@@ -169,8 +196,16 @@ describe('EDVService', () => {
         const iv1 = Buffer.from(new Uint8Array(16).fill(2));
         const iv2 = Buffer.from(new Uint8Array(16).fill(3));
 
-        const encrypted1 = await service.encryptMasterKey(masterKey, encryptionKey, iv1);
-        const encrypted2 = await service.encryptMasterKey(masterKey, encryptionKey, iv2);
+        const encrypted1 = await service.encryptMasterKey(
+          masterKey,
+          encryptionKey,
+          iv1,
+        );
+        const encrypted2 = await service.encryptMasterKey(
+          masterKey,
+          encryptionKey,
+          iv2,
+        );
 
         expect(encrypted1).not.toEqual(encrypted2);
       });
@@ -180,8 +215,16 @@ describe('EDVService', () => {
         const encryptionKey = Buffer.from(new Uint8Array(32).fill(1));
         const iv = Buffer.from(new Uint8Array(16).fill(2));
 
-        const encrypted = await service.encryptMasterKey(masterKey, encryptionKey, iv);
-        const decrypted = await service.decryptMasterKey(encrypted, encryptionKey, iv);
+        const encrypted = await service.encryptMasterKey(
+          masterKey,
+          encryptionKey,
+          iv,
+        );
+        const decrypted = await service.decryptMasterKey(
+          encrypted,
+          encryptionKey,
+          iv,
+        );
 
         expect(new Uint8Array(decrypted)).toEqual(masterKey);
       });
@@ -194,7 +237,10 @@ describe('EDVService', () => {
         const masterKey = new Uint8Array(32).fill(123);
 
         // Derive encryption key and IV from biometric data
-        const { key, iv } = await service.deriveBiometricEncryptionKey(biometricData, identifier);
+        const {key, iv} = await service.deriveBiometricEncryptionKey(
+          biometricData,
+          identifier,
+        );
 
         // Encrypt master key
         const encrypted = await service.encryptMasterKey(masterKey, key, iv);
@@ -213,14 +259,21 @@ describe('EDVService', () => {
         const masterKey = new Uint8Array(32).fill(123);
 
         // Encrypt with first biometric data
-        const { key: key1, iv } = await service.deriveBiometricEncryptionKey(biometricData1, identifier);
+        const {key: key1, iv} = await service.deriveBiometricEncryptionKey(
+          biometricData1,
+          identifier,
+        );
         const encrypted = await service.encryptMasterKey(masterKey, key1, iv);
 
         // Try to decrypt with second biometric data (should fail)
-        const { key: key2 } = await service.deriveBiometricEncryptionKey(biometricData2, identifier);
+        const {key: key2} = await service.deriveBiometricEncryptionKey(
+          biometricData2,
+          identifier,
+        );
 
-        await expect(service.decryptMasterKey(encrypted, key2, iv))
-          .rejects.toThrow('Decryption failed: Invalid key or corrupted data');
+        await expect(
+          service.decryptMasterKey(encrypted, key2, iv),
+        ).rejects.toThrow('Decryption failed: Invalid key or corrupted data');
       });
     });
   });

@@ -31,7 +31,9 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     rules: [
       {
         test: /\.(m|c)?(j|t)s$/,
-        exclude: [/\/node_modules\/(?!@docknetwork|@digitalbazaar|@cheqd\/ts-proto)/],
+        exclude: [
+          /\/node_modules\/(?!@docknetwork|@digitalbazaar|@cheqd\/ts-proto)/,
+        ],
         use: {
           loader: require.resolve('babel-loader'),
           options: {
