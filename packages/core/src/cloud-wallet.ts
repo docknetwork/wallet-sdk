@@ -10,15 +10,11 @@ import {
 } from '@docknetwork/wallet-sdk-data-store/src/types';
 import { logger } from '@docknetwork/wallet-sdk-data-store/src/logger';
 import { edvService, EDVService } from '@docknetwork/wallet-sdk-wasm/src/services/edv/service';
-import hkdf from 'futoin-hkdf';
-import crypto from '@docknetwork/universal-wallet/crypto';
 import { utilCryptoService } from '@docknetwork/wallet-sdk-wasm/src/services/util-crypto';
 
 export const SYNC_MARKER_TYPE = 'SyncMarkerDocument';
 export const MNEMONIC_WORD_COUNT = 12;
 export const KEY_MAPPING_TYPE = 'KeyMappingDocument';
-export const HKDF_LENGTH = 32;
-export const HKDF_HASH = 'SHA-256';
 const MASTER_KEY_SUFFIX = 'master-key';
 
 /**
@@ -31,9 +27,7 @@ export function deriveBiometricKey(
   biometricData: Buffer,
   identifier: string,
 ): Buffer {
-  const salt = identifier;
-
-  return hkdf(biometricData, HKDF_LENGTH, { salt, hash: HKDF_HASH });
+  return edvService.deriveBiometricKey(biometricData, identifier);
 }
 
 /**
@@ -61,15 +55,7 @@ export async function deriveBiometricEncryptionKey(
   biometricData: Buffer,
   identifier: string
 ): Promise<{ key: Buffer; iv: Buffer }> {
-  const key = deriveBiometricKey(biometricData, identifier);
-
-  const randomBytes = crypto.getRandomValues(new Uint8Array(16));
-  const iv = Buffer.from(randomBytes);
-
-  return {
-    key,
-    iv
-  };
+  return edvService.deriveBiometricEncryptionKey(biometricData, identifier);
 }
 
 /**
@@ -84,24 +70,7 @@ export async function encryptMasterKey(
   encryptionKey: Buffer,
   iv: Buffer
 ): Promise<Uint8Array> {
-  const keyData = new Uint8Array(encryptionKey);
-  const ivData = new Uint8Array(iv);
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: ivData },
-    key,
-    masterKey
-  );
-
-  return new Uint8Array(encryptedBuffer);
+  return edvService.encryptMasterKey(masterKey, encryptionKey, iv);
 }
 
 /**
@@ -116,28 +85,7 @@ export async function decryptMasterKey(
   decryptionKey: Buffer,
   iv: Buffer
 ): Promise<Uint8Array> {
-  try {
-    const keyData = new Uint8Array(decryptionKey);
-    const ivData = new Uint8Array(iv);
-
-    const key = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivData },
-      key,
-      encryptedKey
-    );
-
-    return new Uint8Array(decryptedBuffer);
-  } catch (error) {
-    throw new Error('Decryption failed: Invalid key or corrupted data');
-  }
+  return edvService.decryptMasterKey(encryptedKey, decryptionKey, iv);
 }
 
 /**

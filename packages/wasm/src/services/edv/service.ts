@@ -17,6 +17,11 @@ import {getKeypairFromDoc} from '@docknetwork/universal-wallet/methods/keypairs'
 import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {didService} from '@docknetwork/wallet-sdk-wasm/src/services/dids/service';
 import {Ed25519Keypair} from '@docknetwork/credential-sdk/keypairs';
+import hkdf from 'futoin-hkdf';
+import crypto from '@docknetwork/universal-wallet/crypto';
+
+export const HKDF_LENGTH = 32;
+export const HKDF_HASH = 'SHA-256';
 
 /**
  * Service class for managing Encrypted Data Vaults
@@ -39,6 +44,10 @@ export class EDVService {
     EDVService.prototype.update,
     EDVService.prototype.insert,
     EDVService.prototype.delete,
+    EDVService.prototype.deriveBiometricKey,
+    EDVService.prototype.deriveBiometricEncryptionKey,
+    EDVService.prototype.encryptMasterKey,
+    EDVService.prototype.decryptMasterKey,
   ];
 
   /**
@@ -268,6 +277,116 @@ export class EDVService {
    */
   delete(params: any) {
     return this.storageInterface.delete(params);
+  }
+
+  /**
+   * Derives a key from biometric data using HKDF
+   * @param {Buffer} biometricData - Biometric data from provider
+   * @param {string} identifier - User's identifier as salt (email, phone number, etc.)
+   * @returns {Buffer} Derived key
+   * @example
+   * const key = edvService.deriveBiometricKey(biometricData, 'user@example.com');
+   */
+  deriveBiometricKey(biometricData: Buffer, identifier: string): Buffer {
+    const salt = identifier;
+    return hkdf(biometricData, HKDF_LENGTH, { salt, hash: HKDF_HASH });
+  }
+
+  /**
+   * Generates a key for encrypting/decrypting the master key
+   * @param {Buffer} biometricData - Biometric data from provider
+   * @param {string} identifier - User's identifier as salt (email, phone number, etc.)
+   * @returns {Promise<Object>} Encryption key and IV for AES encryption
+   * @returns {Buffer} returns.key - Encryption key
+   * @returns {Buffer} returns.iv - Initialization vector
+   * @example
+   * const { key, iv } = await edvService.deriveBiometricEncryptionKey(biometricData, 'user@example.com');
+   */
+  async deriveBiometricEncryptionKey(
+    biometricData: Buffer,
+    identifier: string
+  ): Promise<{ key: Buffer; iv: Buffer }> {
+    const key = this.deriveBiometricKey(biometricData, identifier);
+    const randomBytes = crypto.getRandomValues(new Uint8Array(16));
+    const iv = Buffer.from(randomBytes);
+
+    return {
+      key,
+      iv
+    };
+  }
+
+  /**
+   * Encrypts the master key using a key derived from biometric data
+   * @param {Uint8Array} masterKey - The CloudWalletVault master key to encrypt
+   * @param {Buffer} encryptionKey - Key derived from biometric data
+   * @param {Buffer} iv - Initialization vector
+   * @returns {Promise<Uint8Array>} Encrypted master key
+   * @example
+   * const encrypted = await edvService.encryptMasterKey(masterKey, encryptionKey, iv);
+   */
+  async encryptMasterKey(
+    masterKey: Uint8Array,
+    encryptionKey: Buffer,
+    iv: Buffer
+  ): Promise<Uint8Array> {
+    const keyData = new Uint8Array(encryptionKey);
+    const ivData = new Uint8Array(iv);
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt']
+    );
+
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: ivData },
+      key,
+      masterKey
+    );
+
+    return new Uint8Array(encryptedBuffer);
+  }
+
+  /**
+   * Decrypts the master key using biometric-derived key
+   * @param {Uint8Array} encryptedKey - The encrypted master key
+   * @param {Buffer} decryptionKey - Key derived from biometric data
+   * @param {Buffer} iv - Initialization vector
+   * @returns {Promise<Uint8Array>} The decrypted master key
+   * @throws {Error} If decryption fails
+   * @example
+   * const masterKey = await edvService.decryptMasterKey(encryptedKey, decryptionKey, iv);
+   */
+  async decryptMasterKey(
+    encryptedKey: Uint8Array,
+    decryptionKey: Buffer,
+    iv: Buffer
+  ): Promise<Uint8Array> {
+    try {
+      const keyData = new Uint8Array(decryptionKey);
+      const ivData = new Uint8Array(iv);
+
+      const key = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivData },
+        key,
+        encryptedKey
+      );
+
+      return new Uint8Array(decryptedBuffer);
+    } catch (error) {
+      throw new Error('Decryption failed: Invalid key or corrupted data');
+    }
   }
 }
 
