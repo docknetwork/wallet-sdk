@@ -10,6 +10,9 @@ const getWebpackConfig = ({entry, path, filename}) => ({
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.json', '.mjs', '.cjs'],
+    alias: {
+      '@cheqd/ts-proto': '@cheqd/ts-proto-cjs',
+    },
     fallback: {
       crypto: require.resolve('crypto-browserify'),
       stream: require.resolve('stream-browserify'),
@@ -28,7 +31,9 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     rules: [
       {
         test: /\.(m|c)?(j|t)s$/,
-        exclude: [/\/node_modules\/(?!@docknetwork|@digitalbazaar|@cheqd)/],
+        exclude: [
+          /\/node_modules\/(?!@docknetwork|@digitalbazaar|@cheqd\/ts-proto)/,
+        ],
         use: {
           loader: require.resolve('babel-loader'),
           options: {
