@@ -7,6 +7,82 @@ import {
 import {Logger} from '@docknetwork/wallet-sdk-wasm/src/core/logger';
 import rnRpcServer from './rn-rpc-server';
 
+export class MessageDispatcher {
+  constructor(getWebView) {
+    this.getWebView = getWebView;
+    this.queue = [];
+    this.intervalId = null;
+    this.isProcessing = false;
+
+    this._startProcessor();
+  }
+
+  dispatch(type, body) {
+    const webView = this.getWebView(body);
+
+    if (!webView) {
+      console.warn('WebView unavailable, queuing message');
+      this.queue.push({type, body});
+      return;
+    }
+
+    this._send(webView, type, body);
+  }
+
+  _send(webView, type, body) {
+    const {__isSandbox, ...cleanBody} = body;
+
+    webView.injectJavaScript(`
+      (function(){
+        (navigator.appVersion.includes("Android") ? document : window).dispatchEvent(
+          new MessageEvent('message', {data: ${JSON.stringify({type, body: cleanBody})}})
+        );
+      })();
+    `);
+  }
+
+  _processQueue() {
+    if (this.isProcessing || this.queue.length === 0) {
+      return;
+    }
+
+    this.isProcessing = true;
+
+    const pending = [];
+
+    while (this.queue.length > 0) {
+      const {type, body} = this.queue.shift();
+      const webView = this.getWebView(body);
+
+      if (!webView) {
+        pending.push({type, body});
+        continue;
+      }
+
+      this._send(webView, type, body);
+    }
+
+    if (pending.length > 0) {
+      console.warn(`${pending.length} message(s) still queued`);
+      this.queue = pending;
+    }
+
+    this.isProcessing = false;
+  }
+
+  _startProcessor() {
+    this.intervalId = setInterval(() => this._processQueue(), 5000);
+  }
+
+  destroy() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    this.queue = [];
+  }
+}
+
 export class WebviewEventHandler {
   constructor({webViewRef, sandboxWebViewRef, onReady}) {
     assert(!!webViewRef, 'webViewRef is required');
@@ -14,6 +90,16 @@ export class WebviewEventHandler {
     this.webViewRef = webViewRef;
     this.sandboxWebViewRef = sandboxWebViewRef;
     this.onReady = onReady;
+
+    this.dispatcher = new MessageDispatcher((body) => {
+      const isSandbox = body?.__isSandbox;
+      const ref = isSandbox ? this.sandboxWebViewRef : this.webViewRef;
+      return ref.current;
+    });
+  }
+
+  destroy() {
+    this.dispatcher.destroy();
   }
 
   getEventMapping() {
@@ -48,24 +134,18 @@ export class WebviewEventHandler {
   }
 
   _dispatchEvent(type, body) {
-    const isSandboxMessage = body?.method?.indexOf('sandbox-') === 0;
-    const webview = isSandboxMessage
-      ? this.sandboxWebViewRef.current
-      : this.webViewRef.current;
+    const isSandbox = body?.method?.startsWith('sandbox-');
 
-    if (isSandboxMessage) {
-      body.method = body.method.replace('sandbox-', '');
+    const processedBody = {
+      ...body,
+      __isSandbox: isSandbox,
+    };
+
+    if (isSandbox) {
+      processedBody.method = body.method.replace('sandbox-', '');
     }
 
-    webview.injectJavaScript(`
-      (function(){
-        (navigator.appVersion.includes("Android") ? document : window).dispatchEvent(new MessageEvent('message', {data: ${JSON.stringify(
-          {
-            type: type,
-            body: body,
-          },
-        )}}));
-      })();`);
+    this.dispatcher.dispatch(type, processedBody);
   }
 
   _handleRpcReady() {
