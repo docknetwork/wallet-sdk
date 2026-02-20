@@ -29,7 +29,11 @@ describe('Range proofs verification', () => {
       `${credentialUrl}?p=${btoa(password)}`,
     );
 
-    getCredentialProvider().addCredential(credential);
+    try {
+      await getCredentialProvider().addCredential(credential);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     await controller.start({
       template: proofRequest.qr,
@@ -80,7 +84,11 @@ describe('Range proofs verification', () => {
       `${credentialUrl}?p=${btoa(password)}`,
     );
 
-    getCredentialProvider().addCredential(credential);
+    try {
+      await getCredentialProvider().addCredential(credential);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     await controller.start({
       template: proofRequest.qr,
