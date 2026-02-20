@@ -122,15 +122,24 @@ export async function getDocumentsByType(type) {
   return wallet.getDocumentsByType(type);
 }
 
-export async function closeWallet(wallet?: IWallet) {
-  if (!wallet) {
-    wallet = await getWallet();
+export async function closeWallet(walletToClose?: IWallet) {
+  if (!walletToClose) {
+    walletToClose = await getWallet();
+  }
+
+  if (messageProvider) {
+    messageProvider.stop();
+  }
+
+  if (walletToClose.networkCheckInterval) {
+    clearInterval(walletToClose.networkCheckInterval);
+    walletToClose.networkCheckInterval = undefined;
   }
 
   return new Promise(res => {
     setTimeout(async () => {
       try {
-        wallet.dataStore.db.destroy();
+        walletToClose.dataStore.db.destroy();
         await blockchainService.disconnect();
       } catch (err) {
         console.error(err);
