@@ -9,7 +9,7 @@ import {
   DataStoreEvents,
 } from '@docknetwork/wallet-sdk-data-store/src/types';
 import { logger } from '@docknetwork/wallet-sdk-data-store/src/logger';
-import { edvService, EDVService } from '@docknetwork/wallet-sdk-wasm/src/services/edv/service';
+import { edvService } from '@docknetwork/wallet-sdk-wasm/src/services/edv';
 import { utilCryptoService } from '@docknetwork/wallet-sdk-wasm/src/services/util-crypto';
 
 export const SYNC_MARKER_TYPE = 'SyncMarkerDocument';
@@ -101,14 +101,14 @@ export async function initializeKeyMappingVault(
   authKey: string,
   biometricData: Buffer,
   identifier: string
-): Promise<EDVService> {
+): Promise<typeof edvService> {
   const {
     hmacKey,
     agreementKey,
     verificationKey
   } = await deriveKeyMappingVaultKeys(biometricData, identifier);
 
-  const keyMappingEdvService = new EDVService();
+  const keyMappingEdvService = edvService;
   await keyMappingEdvService.initialize({
     hmacKey,
     agreementKey,
@@ -173,7 +173,7 @@ export async function enrollUserWithBiometrics(
  * @returns The decrypted master key for CloudWalletVault
  */
 export async function getKeyMappingMasterKey(
-  keyMappingEdv: EDVService,
+  keyMappingEdv: typeof edvService,
   identifier: string,
   decryptionKey: Buffer,
 ): Promise<Uint8Array> {
