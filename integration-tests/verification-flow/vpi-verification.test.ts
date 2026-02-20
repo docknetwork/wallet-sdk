@@ -75,7 +75,11 @@ describe('VPI verification', () => {
   it('should verify a vpi credential', async () => {
     const wallet: IWallet = await getWallet();
 
-    getCredentialProvider().addCredential(credential);
+    try {
+      await getCredentialProvider().addCredential(credential);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,

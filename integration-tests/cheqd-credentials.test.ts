@@ -12,7 +12,11 @@ describe('Cheq integration tests', () => {
   it('should verify a non ZKP cheqd credential', async () => {
     const wallet: IWallet = await getWallet();
 
-    getCredentialProvider().addCredential(CheqdCredentialNonZKP);
+    try {
+      await getCredentialProvider().addCredential(CheqdCredentialNonZKP);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,

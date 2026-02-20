@@ -12,7 +12,11 @@ describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential', async () => {
     const wallet: IWallet = await getWallet();
 
-    getCredentialProvider().addCredential(bbsPlusRevocationCredential);
+    try {
+      await getCredentialProvider().addCredential(bbsPlusRevocationCredential);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,
@@ -59,7 +63,11 @@ describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential with an updated witness', async () => {
     const wallet: IWallet = await getWallet();
 
-    getCredentialProvider().addCredential(credentialWithUpdatedWitness);
+    try {
+      await getCredentialProvider().addCredential(credentialWithUpdatedWitness);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,

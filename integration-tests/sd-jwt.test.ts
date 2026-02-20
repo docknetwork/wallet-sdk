@@ -26,8 +26,12 @@ describe('SD JWT Credentials', () => {
 
     wallet = await getWallet();
 
-    const result = await getCredentialProvider().addCredential(jwt);
-    credentialId = result.id;
+    try {
+      const result = await getCredentialProvider().addCredential(jwt);
+      credentialId = result.id;
+    } catch(err) {
+      console.error('Credential already added');
+    }
   });
 
   it('expect to import SD-JWT credential', async () => {

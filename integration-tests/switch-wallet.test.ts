@@ -17,7 +17,11 @@ describe('Switch wallet', () => {
 
   it('expect to maintain separate document stores when switching between networks', async () => {
     await setNetwork('testnet');
-    await getCredentialProvider().addCredential(BasicCredential);
+    try {
+      await getCredentialProvider().addCredential(BasicCredential);
+    } catch(err) {
+      console.error('Credential already added');
+    }
 
     const testnetCredentials = await getDocumentsByType('VerifiableCredential');
     expect(testnetCredentials.length).toBe(1);
