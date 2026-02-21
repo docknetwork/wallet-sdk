@@ -21,7 +21,6 @@ export class MessageDispatcher {
     const webView = this.getWebView(body);
 
     if (!webView) {
-      console.warn('WebView unavailable, queuing message');
       this.queue.push({type, body});
       return;
     }
@@ -52,18 +51,22 @@ export class MessageDispatcher {
 
     while (this.queue.length > 0) {
       const {type, body} = this.queue.shift();
-      const webView = this.getWebView(body);
 
-      if (!webView) {
-        pending.push({type, body});
-        continue;
+      try {
+        const webView = this.getWebView(body);
+
+        if (!webView) {
+          pending.push({type, body});
+          continue;
+        }
+
+        this._send(webView, type, body);
+      } catch (err) {
+        console.warn('Failed to process queued message, discarding:', err.message);
       }
-
-      this._send(webView, type, body);
     }
 
     if (pending.length > 0) {
-      console.warn(`${pending.length} message(s) still queued`);
       this.queue = pending;
     }
 

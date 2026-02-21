@@ -1,7 +1,7 @@
 import { IWallet } from '@docknetwork/wallet-sdk-core/lib/types';
 import { createVerificationController } from '@docknetwork/wallet-sdk-core/src/verification-controller';
 import { CheqdCredentialNonZKP, CheqdCredentialZKP } from './data/credentials/cheqd-credentials';
-import { closeWallet, createNewWallet, getCredentialProvider, getWallet } from './helpers';
+import { addCredentialIfNotExists, closeWallet, createNewWallet, getCredentialProvider, getWallet } from './helpers';
 import { ProofTemplateIds, createProofRequest } from './helpers/certs-helpers';
 
 describe('Cheq integration tests', () => {
@@ -12,11 +12,7 @@ describe('Cheq integration tests', () => {
   it('should verify a non ZKP cheqd credential', async () => {
     const wallet: IWallet = await getWallet();
 
-    try {
-      await getCredentialProvider().addCredential(CheqdCredentialNonZKP);
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    await addCredentialIfNotExists(CheqdCredentialNonZKP);
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,

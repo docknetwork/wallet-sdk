@@ -1,7 +1,7 @@
 import {IWallet} from '@docknetwork/wallet-sdk-core/lib/types';
 import {
+  addCredentialIfNotExists,
   closeWallet,
-  getCredentialProvider,
   getWallet,
 } from '../helpers/wallet-helpers';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
@@ -29,11 +29,7 @@ describe('Range proofs verification', () => {
       `${credentialUrl}?p=${btoa(password)}`,
     );
 
-    try {
-      await getCredentialProvider().addCredential(credential);
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    await addCredentialIfNotExists(credential);
 
     await controller.start({
       template: proofRequest.qr,
@@ -84,11 +80,7 @@ describe('Range proofs verification', () => {
       `${credentialUrl}?p=${btoa(password)}`,
     );
 
-    try {
-      await getCredentialProvider().addCredential(credential);
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    await addCredentialIfNotExists(credential);
 
     await controller.start({
       template: proofRequest.qr,
@@ -143,11 +135,7 @@ describe('Range proofs verification', () => {
       `${credentialUrl}?p=${btoa(password)}`,
     );
 
-    try {
-      await getCredentialProvider().addCredential(credential);
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    await addCredentialIfNotExists(credential);
 
     // pexToBounds should skip issuanceDate
     // There is an SDK limitation that prevents us from sharing the actual issuanceDate

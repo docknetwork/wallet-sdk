@@ -86,6 +86,14 @@ export function getCredentialProvider(): ICredentialProvider {
   return credentialProvider;
 }
 
+export async function addCredentialIfNotExists(credential: any) {
+  try {
+    return await credentialProvider.addCredential(credential);
+  } catch (err) {
+    if (!err.message?.includes('already exists')) throw err;
+  }
+}
+
 export async function setNetwork(networkId) {
   return Promise.resolve(wallet.setNetwork(networkId));
 }

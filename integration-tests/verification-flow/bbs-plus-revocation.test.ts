@@ -1,5 +1,6 @@
 import {IWallet} from '@docknetwork/wallet-sdk-core/lib/types';
 import {
+  addCredentialIfNotExists,
   closeWallet,
   getCredentialProvider,
   getWallet,
@@ -12,11 +13,7 @@ describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential', async () => {
     const wallet: IWallet = await getWallet();
 
-    try {
-      await getCredentialProvider().addCredential(bbsPlusRevocationCredential);
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    await addCredentialIfNotExists(bbsPlusRevocationCredential);
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,
@@ -63,11 +60,7 @@ describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential with an updated witness', async () => {
     const wallet: IWallet = await getWallet();
 
-    try {
-      await getCredentialProvider().addCredential(credentialWithUpdatedWitness);
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    await addCredentialIfNotExists(credentialWithUpdatedWitness);
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,

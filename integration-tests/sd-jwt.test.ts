@@ -6,6 +6,7 @@ import {
   UniversityDegreeCredentialBBS,
 } from './data/credentials';
 import {
+  addCredentialIfNotExists,
   cleanup,
   closeWallet,
   getCredentialProvider,
@@ -26,12 +27,8 @@ describe('SD JWT Credentials', () => {
 
     wallet = await getWallet();
 
-    try {
-      const result = await getCredentialProvider().addCredential(jwt);
-      credentialId = result.id;
-    } catch(err) {
-      console.error('Credential already added');
-    }
+    const result = await addCredentialIfNotExists(jwt);
+    credentialId = result?.id;
   });
 
   it('expect to import SD-JWT credential', async () => {

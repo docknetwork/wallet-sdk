@@ -53,7 +53,6 @@ describe('MessageDispatcher', () => {
 
     it('should queue message when WebView is unavailable', () => {
       getWebView.mockReturnValue(null);
-      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
       const type = 'test-type';
       const body = {data: 'test-data'};
@@ -63,16 +62,21 @@ describe('MessageDispatcher', () => {
       expect(mockWebView.injectJavaScript).not.toHaveBeenCalled();
       expect(dispatcher.queue).toHaveLength(1);
       expect(dispatcher.queue[0]).toEqual({type, body});
-      expect(consoleWarn).toHaveBeenCalledWith('WebView unavailable, queuing message');
+    });
 
-      consoleWarn.mockRestore();
+    it('should throw if getWebView throws', () => {
+      getWebView.mockImplementation(() => {
+        throw new Error('unexpected error');
+      });
+
+      expect(() => dispatcher.dispatch('type', {data: 'test'})).toThrow('unexpected error');
+      expect(dispatcher.queue).toHaveLength(0);
     });
   });
 
   describe('queue processing', () => {
     it('should process queued messages when WebView becomes available', () => {
       getWebView.mockReturnValue(null);
-      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
       // Queue some messages
       dispatcher.dispatch('type1', {data: 'message1'});
@@ -88,13 +92,10 @@ describe('MessageDispatcher', () => {
 
       expect(mockWebView.injectJavaScript).toHaveBeenCalledTimes(2);
       expect(dispatcher.queue).toHaveLength(0);
-
-      consoleWarn.mockRestore();
     });
 
     it('should keep messages queued if WebView is still unavailable', () => {
       getWebView.mockReturnValue(null);
-      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
       dispatcher.dispatch('type1', {data: 'message1'});
       dispatcher.dispatch('type2', {data: 'message2'});
@@ -106,14 +107,64 @@ describe('MessageDispatcher', () => {
 
       expect(mockWebView.injectJavaScript).not.toHaveBeenCalled();
       expect(dispatcher.queue).toHaveLength(2);
-      expect(consoleWarn).toHaveBeenCalledWith('2 message(s) still queued');
+    });
+
+    it('should handle WebView becoming unavailable mid-processing', () => {
+      getWebView.mockReturnValue(null);
+
+      // Queue messages while WebView is unavailable
+      dispatcher.dispatch('type1', {data: 'message1'});
+      dispatcher.dispatch('type2', {data: 'message2'});
+      dispatcher.dispatch('type3', {data: 'message3'});
+      expect(dispatcher.queue).toHaveLength(3);
+
+      // Now set up WebView to become unavailable after first message
+      let callCount = 0;
+      getWebView.mockImplementation(() => {
+        callCount++;
+        return callCount <= 1 ? mockWebView : null;
+      });
+
+      jest.advanceTimersByTime(5000);
+
+      // First message sent, remaining re-queued
+      expect(mockWebView.injectJavaScript).toHaveBeenCalledTimes(1);
+      expect(dispatcher.queue).toHaveLength(2);
+    });
+
+    it('should discard message and continue processing if send throws', () => {
+      getWebView.mockReturnValue(null);
+
+      dispatcher.dispatch('type1', {data: 'message1'});
+      dispatcher.dispatch('type2', {data: 'message2'});
+      expect(dispatcher.queue).toHaveLength(2);
+
+      // First message throws, second succeeds
+      let callCount = 0;
+      getWebView.mockReturnValue(mockWebView);
+      mockWebView.injectJavaScript.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          throw new Error('WebView crashed');
+        }
+      });
+
+      const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      jest.advanceTimersByTime(5000);
+
+      // First message discarded, second sent successfully
+      expect(mockWebView.injectJavaScript).toHaveBeenCalledTimes(2);
+      expect(dispatcher.queue).toHaveLength(0);
+      expect(consoleWarn).toHaveBeenCalledWith(
+        'Failed to process queued message, discarding:',
+        'WebView crashed'
+      );
 
       consoleWarn.mockRestore();
     });
 
     it('should not process queue concurrently', () => {
       getWebView.mockReturnValue(null);
-      jest.spyOn(console, 'warn').mockImplementation();
 
       dispatcher.dispatch('type1', {data: 'message1'});
 
@@ -132,7 +183,6 @@ describe('MessageDispatcher', () => {
 
       // Queue a message when WebView is unavailable
       getWebView.mockReturnValue(null);
-      jest.spyOn(console, 'warn').mockImplementation();
 
       dispatcher.dispatch('type1', {data: 'message1'});
       expect(dispatcher.queue).toHaveLength(1);
@@ -296,15 +346,11 @@ describe('WebviewEventHandler', () => {
       sandboxWebViewRef: {current: null},
     });
 
-    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-
     handler._dispatchEvent('test', {data: 'test'});
 
     expect(handler.dispatcher.queue).toHaveLength(1);
-    expect(consoleWarn).toHaveBeenCalledWith('WebView unavailable, queuing message');
 
     handler.destroy();
-    consoleWarn.mockRestore();
   });
 
   it('should cleanup on destroy', () => {
