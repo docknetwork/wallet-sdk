@@ -9,6 +9,15 @@ process.env.ENCRYPTION_KEY =
 
 jest.retryTimes(2, {logErrorsBeforeRetry: true});
 
+const testAttempts = {};
+beforeEach(async () => {
+  const testName = expect.getState().currentTestName;
+  testAttempts[testName] = (testAttempts[testName] || 0) + 1;
+  if (testAttempts[testName] > 1) {
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+});
+
 jest.mock('@react-native-async-storage/async-storage', () => 'AsyncStorage');
 
 setV1LocalStorage(global.localStorage);
