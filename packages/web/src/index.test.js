@@ -1,55 +1,55 @@
 import WalletSDK from './index';
 
 // Track call order
-let callOrder;
+let mockCallOrder;
 
 jest.mock('@docknetwork/wallet-sdk-data-store-web/src/index', () => ({
   createDataStore: jest.fn().mockImplementation(async () => {
-    callOrder.push('createDataStore');
+    mockCallOrder.push('createDataStore');
     return {mockDataStore: true};
   }),
 }));
 
 jest.mock('@docknetwork/wallet-sdk-core/src/cloud-wallet', () => ({
   initializeCloudWallet: jest.fn().mockImplementation(async () => {
-    callOrder.push('initializeCloudWallet');
+    mockCallOrder.push('initializeCloudWallet');
     return {
       pullDocuments: jest.fn().mockImplementation(async () => {
-        callOrder.push('pullDocuments');
+        mockCallOrder.push('pullDocuments');
       }),
     };
   }),
   generateCloudWalletMasterKey: jest.fn(),
   recoverCloudWalletMasterKey: jest.fn().mockImplementation(async () => {
-    callOrder.push('recoverCloudWalletMasterKey');
+    mockCallOrder.push('recoverCloudWalletMasterKey');
     return 'mock-master-key';
   }),
 }));
 
 jest.mock('@docknetwork/wallet-sdk-core/src/wallet', () => ({
   createWallet: jest.fn().mockImplementation(async () => {
-    callOrder.push('createWallet');
+    mockCallOrder.push('createWallet');
     return {mockWallet: true};
   }),
 }));
 
 jest.mock('@docknetwork/wallet-sdk-core/src/credential-provider', () => ({
   createCredentialProvider: jest.fn().mockImplementation(async () => {
-    callOrder.push('createCredentialProvider');
+    mockCallOrder.push('createCredentialProvider');
     return {mockCredentialProvider: true};
   }),
 }));
 
 jest.mock('@docknetwork/wallet-sdk-core/src/did-provider', () => ({
   createDIDProvider: jest.fn().mockImplementation(() => {
-    callOrder.push('createDIDProvider');
+    mockCallOrder.push('createDIDProvider');
     return {mockDIDProvider: true};
   }),
 }));
 
 jest.mock('@docknetwork/wallet-sdk-core/src/message-provider', () => ({
   createMessageProvider: jest.fn().mockImplementation(() => {
-    callOrder.push('createMessageProvider');
+    mockCallOrder.push('createMessageProvider');
     return {mockMessageProvider: true};
   }),
 }));
@@ -77,14 +77,14 @@ const validConfig = {
 
 describe('WalletSDK initialize', () => {
   beforeEach(() => {
-    callOrder = [];
+    mockCallOrder = [];
     jest.clearAllMocks();
   });
 
   it('should create data store, pull cloud documents, then create wallet', async () => {
     await WalletSDK.initialize(validConfig);
 
-    expect(callOrder).toEqual([
+    expect(mockCallOrder).toEqual([
       'createDataStore',
       'recoverCloudWalletMasterKey',
       'initializeCloudWallet',
@@ -99,8 +99,8 @@ describe('WalletSDK initialize', () => {
   it('should pull cloud documents before creating wallet to avoid duplicate DIDs', async () => {
     await WalletSDK.initialize(validConfig);
 
-    const pullIndex = callOrder.indexOf('pullDocuments');
-    const walletIndex = callOrder.indexOf('createWallet');
+    const pullIndex = mockCallOrder.indexOf('pullDocuments');
+    const walletIndex = mockCallOrder.indexOf('createWallet');
 
     expect(pullIndex).toBeLessThan(walletIndex);
   });
@@ -108,8 +108,8 @@ describe('WalletSDK initialize', () => {
   it('should create data store before initializing cloud wallet', async () => {
     await WalletSDK.initialize(validConfig);
 
-    const dataStoreIndex = callOrder.indexOf('createDataStore');
-    const cloudWalletIndex = callOrder.indexOf('initializeCloudWallet');
+    const dataStoreIndex = mockCallOrder.indexOf('createDataStore');
+    const cloudWalletIndex = mockCallOrder.indexOf('initializeCloudWallet');
 
     expect(dataStoreIndex).toBeLessThan(cloudWalletIndex);
   });
@@ -135,10 +135,10 @@ describe('WalletSDK initialize', () => {
 
   it('should still create wallet if pullDocuments fails', async () => {
     initializeCloudWallet.mockImplementationOnce(async () => {
-      callOrder.push('initializeCloudWallet');
+      mockCallOrder.push('initializeCloudWallet');
       return {
         pullDocuments: jest.fn().mockImplementation(async () => {
-          callOrder.push('pullDocuments');
+          mockCallOrder.push('pullDocuments');
           throw new Error('Network error');
         }),
       };
@@ -147,7 +147,7 @@ describe('WalletSDK initialize', () => {
     const result = await WalletSDK.initialize(validConfig);
 
     expect(result.wallet).toBeDefined();
-    expect(callOrder).toContain('createWallet');
+    expect(mockCallOrder).toContain('createWallet');
   });
 
   it('should use masterKey directly when provided instead of mnemonic', async () => {
@@ -157,7 +157,7 @@ describe('WalletSDK initialize', () => {
       masterKey: 'direct-master-key',
     });
 
-    expect(callOrder).not.toContain('recoverCloudWalletMasterKey');
+    expect(mockCallOrder).not.toContain('recoverCloudWalletMasterKey');
     expect(initializeCloudWallet).toHaveBeenCalledWith(
       expect.objectContaining({masterKey: 'direct-master-key'}),
     );
