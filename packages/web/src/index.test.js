@@ -54,19 +54,17 @@ jest.mock('@docknetwork/wallet-sdk-core/src/message-provider', () => ({
   }),
 }));
 
-jest.mock(
-  '@docknetwork/wallet-sdk-core/src/verification-controller',
-  () => ({
-    createVerificationController: jest.fn(),
-  }),
-);
+jest.mock('@docknetwork/wallet-sdk-core/src/verification-controller', () => ({
+  createVerificationController: jest.fn(),
+}));
 
 jest.mock('@docknetwork/wallet-sdk-wasm/src/services/blockchain', () => ({
   blockchainService: {ensureBlockchainReady: jest.fn()},
 }));
 
-const {createDataStore} = require('@docknetwork/wallet-sdk-data-store-web/src/index');
-const {initializeCloudWallet} = require('@docknetwork/wallet-sdk-core/src/cloud-wallet');
+const {
+  initializeCloudWallet,
+} = require('@docknetwork/wallet-sdk-core/src/cloud-wallet');
 const {createWallet} = require('@docknetwork/wallet-sdk-core/src/wallet');
 
 const validConfig = {
