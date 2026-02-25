@@ -1,4 +1,4 @@
-import {SUBSTRATE_NETWORKS} from '@docknetwork/wallet-sdk-wasm/src/modules/network-manager';
+import {BLOCKCHAIN_NETWORKS} from '@docknetwork/wallet-sdk-wasm/src/modules/network-manager';
 import {DataStoreConfigs} from './types';
 import {genericDocumentNetworkResolver} from './document-network-resolver';
 
@@ -11,13 +11,13 @@ export const DEFAULT_CONFIGS: DataStoreConfigs = {
       name: 'Mainnet',
       id: 'mainnet',
       credentialHostnames: [/creds\..*\.io/],
-      configs: SUBSTRATE_NETWORKS.mainnet,
+      configs: BLOCKCHAIN_NETWORKS.mainnet,
     },
     {
       name: 'Testnet',
       id: 'testnet',
       credentialHostnames: [/creds-.*\.*\.io/],
-      configs: SUBSTRATE_NETWORKS.testnet,
+      configs: BLOCKCHAIN_NETWORKS.testnet,
     },
   ],
 };
