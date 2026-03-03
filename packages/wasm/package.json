@@ -51,5 +51,8 @@
         "sinon": "^12.0.1",
         "ts-jest": "29.1.0",
         "typescript": "^5.0.4"
+    },
+    "overrides": {
+        "@digitalbazaar/http-client": "^3.4.1"
     }
 }
