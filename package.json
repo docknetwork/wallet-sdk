@@ -7,7 +7,9 @@
   ],
   "overrides": {
     "commander": "11.0.0",
-    "base64url-universal": "1.1.0"
+    "base64url-universal": "1.1.0",
+    "base58-universal": "2.0.0",
+    "@digitalbazaar/http-client": "^3.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",
