@@ -5,12 +5,12 @@ import { captureException } from './helpers';
 import { IWallet, WalletEvents } from './types';
 
 function isBlockchainNetwork(network: Network) {
-  return !!(network.configs.substrateUrl || network.configs.cheqdApiUrl);
+  return !!(network.configs.cheqdApiUrl);
 }
 
 /**
- * Update existing substrate network connection
- * Compare connected substrate connection with the current walle network
+ * Update existing blockchain network connection
+ * Compare connected blockchain connection with the current walle network
  * Disconnect and Establish a new connection if the network is different
  */
 export async function handleBlockchainNetworkChange(
@@ -18,7 +18,7 @@ export async function handleBlockchainNetworkChange(
 ): Promise<void> {
   const currentAddress = await blockchainService.getAddress();
   const networkId = wallet.dataStore.networks.find(
-    network => network.configs.substrateUrl === currentAddress || network.configs.cheqdApiUrl === currentAddress,
+    network => network.configs.cheqdApiUrl === currentAddress,
   )?.id;
   const currentNetworkId = wallet.dataStore.network?.id;
 
@@ -60,7 +60,6 @@ export async function setBlockchainNetwork(wallet: IWallet) {
   
     blockchainService
       .init({
-        substrateUrl: networkConfigs.substrateUrl,
         cheqdApiUrl: networkConfigs.cheqdApiUrl,
         networkId: network.id,
         cheqdMnemonic: cheqdMnemonicDoc.value,

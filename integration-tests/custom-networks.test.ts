@@ -12,7 +12,6 @@ describe('Custom networks', () => {
       credentialHostnames: ['creds.polygon.com'],
       id: 'polygon',
       configs: {
-        addressPrefix: 21,
         cheqdApiUrl: 'https://testnet.cheqd.docknode.io/',
       },
     },
@@ -21,7 +20,6 @@ describe('Custom networks', () => {
       credentialHostnames: ['creds.mumbai.polygon.com'],
       id: 'mumbai',
       configs: {
-        addressPrefix: 21,
         cheqdApiUrl: 'https://testnet.cheqd.docknode.io/',
       },
     },
