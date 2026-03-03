@@ -478,6 +478,11 @@ export interface IMessageProvider {
    * @returns {Promise<void>}
    */
   processMessageRecurrentJob: () => Promise<void>;
+
+  /**
+   * Stops all message fetching and processing timers
+   */
+  stop: () => void;
 }
 
 /**

@@ -1,5 +1,6 @@
 import {IWallet} from '@docknetwork/wallet-sdk-core/lib/types';
 import {
+  addCredentialIfNotExists,
   closeWallet,
   getCredentialProvider,
   getWallet,
@@ -75,7 +76,7 @@ describe('VPI verification', () => {
   it('should verify a vpi credential', async () => {
     const wallet: IWallet = await getWallet();
 
-    getCredentialProvider().addCredential(credential);
+    await addCredentialIfNotExists(credential);
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,

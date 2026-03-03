@@ -86,6 +86,14 @@ export function getCredentialProvider(): ICredentialProvider {
   return credentialProvider;
 }
 
+export async function addCredentialIfNotExists(credential: any) {
+  try {
+    return await credentialProvider.addCredential(credential);
+  } catch (err) {
+    if (!err.message?.includes('already exists')) throw err;
+  }
+}
+
 export async function setNetwork(networkId) {
   return Promise.resolve(wallet.setNetwork(networkId));
 }
@@ -122,15 +130,24 @@ export async function getDocumentsByType(type) {
   return wallet.getDocumentsByType(type);
 }
 
-export async function closeWallet(wallet?: IWallet) {
-  if (!wallet) {
-    wallet = await getWallet();
+export async function closeWallet(walletToClose?: IWallet) {
+  if (!walletToClose) {
+    walletToClose = await getWallet();
+  }
+
+  if (messageProvider) {
+    messageProvider.stop();
+  }
+
+  if (walletToClose.networkCheckInterval) {
+    clearInterval(walletToClose.networkCheckInterval);
+    walletToClose.networkCheckInterval = undefined;
   }
 
   return new Promise(res => {
     setTimeout(async () => {
       try {
-        wallet.dataStore.db.destroy();
+        walletToClose.dataStore.db.destroy();
         await blockchainService.disconnect();
       } catch (err) {
         console.error(err);

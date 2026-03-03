@@ -243,6 +243,8 @@ export function createMessageProvider({
   }
 
   let listenerIntervalId = null;
+  let processMessageTimeoutId = null;
+  let stopped = false;
 
   const processMessageInterval = 3000;
 
@@ -250,7 +252,21 @@ export function createMessageProvider({
     try {
       await processDIDCommMessages();
     } finally {
-      setTimeout(processMessageRecurrentJob, processMessageInterval);
+      if (!stopped) {
+        processMessageTimeoutId = setTimeout(processMessageRecurrentJob, processMessageInterval);
+      }
+    }
+  }
+
+  function stop() {
+    stopped = true;
+    if (listenerIntervalId) {
+      clearInterval(listenerIntervalId);
+      listenerIntervalId = null;
+    }
+    if (processMessageTimeoutId) {
+      clearTimeout(processMessageTimeoutId);
+      processMessageTimeoutId = null;
     }
   }
 
@@ -333,12 +349,20 @@ export function createMessageProvider({
      */
     startAutoFetch(timeout = 2000) {
       clearInterval(listenerIntervalId);
+      stopped = false;
       listenerIntervalId = setInterval(async () => {
-        await fetchMessages();
-        await processDIDCommMessages();
+        try {
+          await fetchMessages();
+          await processDIDCommMessages();
+        } catch (err) {
+          logger.debug(`Auto-fetch error: ${err.message}`);
+        }
       }, timeout);
 
-      return () => clearInterval(listenerIntervalId);
+      return () => {
+        clearInterval(listenerIntervalId);
+        listenerIntervalId = null;
+      };
     },
     /**
      * Clears all cached messages from the wallet
@@ -410,5 +434,6 @@ export function createMessageProvider({
      * console.log('Message marked as read');
      */
     markMessageAsRead,
+    stop,
   } as any;
 }

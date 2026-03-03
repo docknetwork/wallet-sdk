@@ -5,6 +5,7 @@ import {
   UniversityDegreeCredentialBBS,
 } from './data/credentials';
 import {
+  addCredentialIfNotExists,
   cleanup,
   closeWallet,
   getCredentialProvider,
@@ -29,7 +30,7 @@ describe('Credentials', () => {
 
   it('expect to import credentials', async () => {
     for (const credentialJSON of allCredentials) {
-      await getCredentialProvider().addCredential(credentialJSON);
+      await addCredentialIfNotExists(credentialJSON);
       const credential = await getCredentialProvider().getById(
         credentialJSON.id,
       );
@@ -46,7 +47,7 @@ describe('Credentials', () => {
         `${credentialUrl}?p=${btoa(password)}`,
       );
 
-      await getCredentialProvider().addCredential(credential);
+      await addCredentialIfNotExists(credential);
 
       const result: any = await getCredentialProvider().isValid(credential);
 
@@ -54,7 +55,7 @@ describe('Credentials', () => {
     });
 
     it('should get status of bbs revokable credential - cheqd issuer', async () => {
-      await getCredentialProvider().addCredential(CheqdRevocationCredential);
+      await addCredentialIfNotExists(CheqdRevocationCredential);
 
       const result: any = await getCredentialProvider().isValid(
         CheqdRevocationCredential,

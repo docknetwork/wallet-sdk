@@ -1,6 +1,6 @@
 import {
+  addCredentialIfNotExists,
   closeWallet,
-  getCredentialProvider,
   getDocumentsByType,
   getWallet,
   setNetwork,
@@ -17,7 +17,7 @@ describe('Switch wallet', () => {
 
   it('expect to maintain separate document stores when switching between networks', async () => {
     await setNetwork('testnet');
-    await getCredentialProvider().addCredential(BasicCredential);
+    await addCredentialIfNotExists(BasicCredential);
 
     const testnetCredentials = await getDocumentsByType('VerifiableCredential');
     expect(testnetCredentials.length).toBe(1);

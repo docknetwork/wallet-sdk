@@ -1,5 +1,6 @@
 import {IWallet} from '@docknetwork/wallet-sdk-core/lib/types';
 import {
+  addCredentialIfNotExists,
   closeWallet,
   getCredentialProvider,
   getWallet,
@@ -12,7 +13,7 @@ describe('BBS+ revocation cheqd', () => {
   it('should verify a revokable bbs+ credential issued on cheqd', async () => {
     const wallet: IWallet = await getWallet();
 
-    getCredentialProvider().addCredential(cheqdRevocationCredential);
+    await addCredentialIfNotExists(cheqdRevocationCredential);
 
     const proofRequest = await createProofRequest(
       ProofTemplateIds.ANY_CREDENTIAL,
