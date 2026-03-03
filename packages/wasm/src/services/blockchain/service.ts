@@ -231,11 +231,12 @@ export class BlockchainService {
     try {
       await this.cheqdApi.init({
         wallet,
-        url: checkdApiUrl,
+        urls: Array.isArray(checkdApiUrl) ? checkdApiUrl : [checkdApiUrl],
         network: cheqdNetworkId,
       });
       Logger.info(`Cheqd initialized at: ${checkdApiUrl}`);
     } catch (err) {
+      debugger
       Logger.error(`Failed to initialize cheqd at: ${checkdApiUrl}`, err);
     }
 
@@ -314,7 +315,7 @@ export class BlockchainService {
    * @example
    * const apiUrl = await blockchainService.getAddress();
    */
-  async getAddress() {
+  async getAddress(): Promise<string | string[]> {
     return this.cheqdApiUrl;
   }
 
