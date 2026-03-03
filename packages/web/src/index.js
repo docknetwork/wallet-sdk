@@ -126,24 +126,6 @@ async function initialize({
     throw new Error(`Failed to create data store: ${error.message}`);
   }
 
-  // Initialize wallet
-  let wallet;
-  try {
-    wallet = await createWallet({dataStore});
-  } catch (error) {
-    throw new Error(`Failed to create wallet: ${error.message}`);
-  }
-
-  // Initialize providers
-  let didProvider, credentialProvider, messageProvider;
-  try {
-    didProvider = createDIDProvider({wallet});
-    credentialProvider = await createCredentialProvider({wallet});
-    messageProvider = createMessageProvider({wallet, didProvider});
-  } catch (error) {
-    throw new Error(`Failed to initialize wallet providers: ${error.message}`);
-  }
-
   // Recover or set master key
   if (mnemonic) {
     try {
@@ -155,7 +137,9 @@ async function initialize({
     }
   }
 
-  // Initialize cloud wallet
+  // Initialize cloud wallet and pull documents before creating the wallet
+  // This ensures existing DIDs are loaded from the cloud before wallet creation,
+  // preventing duplicate DID creation
   let cloudWallet;
   try {
     cloudWallet = await initializeCloudWallet({
@@ -176,6 +160,24 @@ async function initialize({
       'Warning: Failed to pull documents from cloud wallet. You may need to sync manually.',
       error.message,
     );
+  }
+
+  // Initialize wallet after cloud sync so existing DIDs are found in the data store
+  let wallet;
+  try {
+    wallet = await createWallet({dataStore});
+  } catch (error) {
+    throw new Error(`Failed to create wallet: ${error.message}`);
+  }
+
+  // Initialize providers
+  let didProvider, credentialProvider, messageProvider;
+  try {
+    didProvider = createDIDProvider({wallet});
+    credentialProvider = await createCredentialProvider({wallet});
+    messageProvider = createMessageProvider({wallet, didProvider});
+  } catch (error) {
+    throw new Error(`Failed to initialize wallet providers: ${error.message}`);
   }
 
   return {
