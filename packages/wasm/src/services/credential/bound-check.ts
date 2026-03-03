@@ -107,7 +107,7 @@ export function blobFromBase64(base64String: string): Uint8Array {
     /^data:application\/octet-stream;base64,/,
     '',
   );
-  return base64url.toBuffer(cleanedBase64);
+  return new Uint8Array(base64url.toBuffer(cleanedBase64));
 }
 
 export async function isBase64OrDataUrl(str: string): Promise<boolean> {

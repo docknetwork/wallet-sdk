@@ -1,14 +1,16 @@
 import json from '@rollup/plugin-json';
-import multiInput from 'rollup-plugin-multi-input';
+import _multiInput from 'rollup-plugin-multi-input';
 import commonjs from '@rollup/plugin-commonjs';
 import flow from 'rollup-plugin-flow';
 import typescript from '@rollup/plugin-typescript';
+
+const multiInput = _multiInput.default || _multiInput;
 
 export default async function () {
   return [
     {
       plugins: [
-        multiInput.default(),
+        multiInput(),
         json(),
         flow({
           all: true,
