@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-web",
-    "version": "1.7.6",
+    "version": "1.7.7-alpha.0",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -31,9 +31,9 @@
         "test:headed": "playwright test --headed"
     },
     "devDependencies": {
-        "@docknetwork/wallet-sdk-core": "^1.7.6",
-        "@docknetwork/wallet-sdk-data-store": "^1.7.6",
-        "@docknetwork/wallet-sdk-data-store-web": "^1.7.6",
+        "@docknetwork/wallet-sdk-core": "^1.7.7-alpha.0",
+        "@docknetwork/wallet-sdk-data-store": "^1.7.7-alpha.0",
+        "@docknetwork/wallet-sdk-data-store-web": "^1.7.7-alpha.0",
         "@playwright/test": "^1.58.0",
         "@rollup/plugin-babel": "^6.1.0",
         "@rollup/plugin-commonjs": "^29.0.0",

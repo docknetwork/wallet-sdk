@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-cli",
-    "version": "1.7.6",
+    "version": "1.7.7-alpha.0",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -13,8 +13,8 @@
         "test:revocation": "ts-node src/bbs-revocation.ts"
     },
     "dependencies": {
-        "@docknetwork/wallet-sdk-core": "^1.7.6",
-        "@docknetwork/wallet-sdk-data-store": "^1.7.6",
+        "@docknetwork/wallet-sdk-core": "^1.7.7-alpha.0",
+        "@docknetwork/wallet-sdk-data-store": "^1.7.7-alpha.0",
         "clipboardy": "2.3.0",
         "commander": "11.0.0",
         "inquirer": "8.0.0",
