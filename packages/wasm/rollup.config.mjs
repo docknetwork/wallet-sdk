@@ -19,7 +19,7 @@ export default async function () {
         commonjs(),
         typescript(),
       ],
-      input: ['src/**/*.ts', 'src/**/*.js', '!src/**/*.test.ts', '!src/**/*.test.js'],
+      input: ['src/**/*.ts', 'src/**/*.js', '!src/**/*.test.ts', '!src/**/*.test.js', '!src/**/*.d.ts'],
       output: [
         {
           dir: 'lib',

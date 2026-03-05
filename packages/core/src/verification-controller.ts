@@ -245,7 +245,11 @@ export function createVerificationController({
    *
    * @param presentation
    */
-  function evaluatePresentation(presentation) {
+  function evaluatePresentation(presentation): {
+    isValid: boolean;
+    errors: any[];
+    warnings: any[];
+  } {
     const definition = getPresentationDefinition();
     const result = credentialServiceRPC.evaluatePresentation({
       presentation,
