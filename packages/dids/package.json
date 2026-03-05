@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-dids",
-    "version": "1.7.0",
+    "version": "1.7.6",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -19,8 +19,8 @@
     "devDependencies": {
         "@babel/cli": "^7.17.10",
         "@babel/core": "^7.17.12",
-        "@babel/preset-env": "^7.17.12",
         "@babel/polyfill": "^7.12.1",
+        "@babel/preset-env": "^7.17.12",
         "@babel/preset-react": "^7.17.12"
     }
 }
