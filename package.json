@@ -43,6 +43,7 @@
     "jest-localstorage-mock": "^2.4.14",
     "jest-resolve": "26.6.0",
     "jest-watch-typeahead": "0.6.1",
+    "lerna": "^9.0.5",
     "prompts": "2.4.0",
     "react": "^17.0.2",
     "resolve": "1.18.1",
