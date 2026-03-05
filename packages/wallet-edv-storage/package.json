@@ -1,6 +1,6 @@
 {
   "name": "@docknetwork/wallet-edv-storage",
-  "version": "1.7.0",
+  "version": "1.7.6",
   "main": "./src/index.js",
   "license": "MIT",
   "type": "module",
