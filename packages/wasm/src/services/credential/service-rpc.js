@@ -44,4 +44,7 @@ export class CredentialServiceRPC extends RpcService {
   async acquireOIDCredential(params) {
     return this.call('acquireOIDCredential', params);
   }
+  async generatePresentationFromPex(params) {
+    return this.call('generatePresentationFromPex', params);
+  }
 }

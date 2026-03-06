@@ -33,7 +33,15 @@ import {
   applyEnforceBounds,
   hasProvingKey,
   fetchProvingKey,
+  isBase64OrDataUrl,
+  blobFromBase64,
+  fetchBlobFromUrl,
 } from './bound-check';
+import {
+  generatePresentationFromPexRequest,
+  GeneratePresentationStatus,
+} from '@docknetwork/credential-sdk/pex';
+import {LegoProvingKey} from '@docknetwork/crypto-wasm-ts/lib/legosnark';
 import assert from 'assert';
 import axios from 'axios';
 import {getIsRevoked, getWitnessDetails} from './bbs-revocation';
@@ -122,6 +130,7 @@ class CredentialService {
     CredentialService.prototype.credentialToW3C,
     CredentialService.prototype.createSDJWTPresentation,
     CredentialService.prototype.acquireOIDCredential,
+    CredentialService.prototype.generatePresentationFromPex,
   ];
 
 
@@ -737,6 +746,79 @@ class CredentialService {
     );
 
     return credentialsFromPresentation;
+  }
+
+  async generatePresentationFromPex(params) {
+    validation.generatePresentationFromPex(params);
+    const {
+      credentials,
+      pexRequest,
+      holderKeyDoc,
+      holderDid,
+      challenge,
+      domain,
+      boundCheckSnarkKey,
+      skipSigning,
+    } = params;
+
+    const resolvedWitnesses = await Promise.all(
+      credentials.map(async (c) => {
+        if (!c.witness) {
+          return undefined;
+        }
+        const details = await getWitnessDetails(c.credential, c.witness);
+        const chainModule =
+          c.credential.credentialStatus.id.indexOf('dock:accumulator') === 0
+            ? blockchainService.modules.accumulator.modules[0]
+            : blockchainService.modules.accumulator.modules[
+                blockchainService.modules.accumulator.modules.length - 1
+              ];
+        const accumulatorModuleClass = chainModule.constructor;
+        return {
+          membershipWitness: details.membershipWitness,
+          accumulated: accumulatorModuleClass.accumulatedFromHex(
+            details.accumulator.accumulated,
+            AccumulatorType.VBPos,
+          ),
+          pk: details.pk,
+          params: details.params,
+        };
+      }),
+    );
+
+    const result = await generatePresentationFromPexRequest({
+      credentials: credentials.map(c => c.credential),
+      pexRequest,
+      holderKeyDoc,
+      holderDid,
+      challenge,
+      domain,
+      resolver: blockchainService.resolver,
+      skipSigning: skipSigning || false,
+      loadProvingKey: boundCheckSnarkKey
+        ? async () => {
+            const blob = (await isBase64OrDataUrl(boundCheckSnarkKey))
+              ? blobFromBase64(boundCheckSnarkKey)
+              : await fetchBlobFromUrl(boundCheckSnarkKey);
+            return {
+              provingKey: new LegoProvingKey(blob),
+              provingKeyId: 'key0',
+            };
+          }
+        : undefined,
+      selectiveDisclosure: {
+        credentials: credentials.map((c, i) => ({
+          attributes: [...(c.attributesToReveal || []), 'id'],
+          witness: resolvedWitnesses[i],
+        })),
+      },
+    });
+
+    if (result.status !== GeneratePresentationStatus.SUCCESS) {
+      throw result.error || new Error(`Presentation generation failed: ${result.status}`);
+    }
+
+    return result.presentation;
   }
 
   /**

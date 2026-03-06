@@ -221,6 +221,114 @@ export function createVerificationController({
     return presentation;
   }
 
+  async function createPresentationV2() {
+    assert(!!selectedDID, 'No DID selected');
+    assert(!!selectedCredentials.size, 'No credentials selected');
+
+    const didKeyPairList = await didProvider.getDIDKeyPairs();
+    const keyDoc = didKeyPairList.find(doc => doc.controller === selectedDID);
+    assert(keyDoc, `No key pair found for the selected DID ${selectedDID}`);
+
+    const sdJwtSelections = [];
+    const bbsKvacSelections = [];
+    const regularSelections = [];
+
+    for (const credentialSelection of selectedCredentials.values()) {
+      if (credentialSelection.credential._sd_jwt) {
+        sdJwtSelections.push(credentialSelection);
+      } else {
+        const isBBS = await isBBSPlusCredential(credentialSelection.credential);
+        const isKVAC = await isKvacCredential(credentialSelection.credential);
+        if (isBBS || isKVAC) {
+          bbsKvacSelections.push(credentialSelection);
+        } else {
+          regularSelections.push(credentialSelection);
+        }
+      }
+    }
+
+    if (bbsKvacSelections.length > 0) {
+      const credentialsWithWitness = await Promise.all(
+        bbsKvacSelections.map(async sel => ({
+          credential: sel.credential,
+          witness: await credentialProvider.getMembershipWitness(sel.credential.id),
+          attributesToReveal: sel.attributesToReveal || [],
+        })),
+      );
+
+      if (sdJwtSelections.length === 0 && regularSelections.length === 0) {
+        return credentialServiceRPC.generatePresentationFromPex({
+          credentials: credentialsWithWitness,
+          pexRequest: templateJSON.request,
+          holderKeyDoc: keyDoc,
+          holderDid: selectedDID,
+          challenge: templateJSON.nonce,
+          domain: 'dock.io',
+          boundCheckSnarkKey: templateJSON.boundCheckSnarkKey,
+          skipSigning: true,
+        });
+      }
+
+      const derivedCredentials =
+        await credentialServiceRPC.deriveVCFromPresentation({
+          proofRequest: templateJSON,
+          credentials: credentialsWithWitness.map(c => ({
+            credential: c.credential,
+            witness: c.witness,
+            attributesToReveal: [...(c.attributesToReveal || []), 'id'],
+          })),
+        });
+
+      const allCredentials = [...derivedCredentials];
+
+      for (const sel of sdJwtSelections) {
+        const derived = await credentialServiceRPC.createSDJWTPresentation({
+          attributesToReveal: sel.attributesToReveal,
+          credential: sel.credential._sd_jwt.encoded,
+        });
+        allCredentials.push(derived);
+      }
+
+      for (const sel of regularSelections) {
+        allCredentials.push(sel.credential);
+      }
+
+      return credentialServiceRPC.createPresentation({
+        credentials: allCredentials,
+        challenge: templateJSON.nonce,
+        keyDoc,
+        id: keyDoc.controller.startsWith('did:key:')
+          ? keyDoc.id
+          : `${keyDoc.controller}#keys-1`,
+        domain: 'dock.io',
+      });
+    }
+
+    const credentials = [];
+
+    for (const sel of sdJwtSelections) {
+      const derived = await credentialServiceRPC.createSDJWTPresentation({
+        attributesToReveal: sel.attributesToReveal,
+        credential: sel.credential._sd_jwt.encoded,
+      });
+      credentials.push(derived);
+    }
+
+    for (const sel of regularSelections) {
+      credentials.push(sel.credential);
+    }
+
+    return credentialServiceRPC.createPresentation({
+      credentials,
+      challenge: templateJSON.nonce,
+      keyDoc,
+      id: keyDoc.controller.startsWith('did:key:')
+        ? keyDoc.id
+        : `${keyDoc.controller}#keys-1`,
+      domain: 'dock.io',
+    });
+  }
+
   /**
    * Filtered credentials
    */
@@ -280,6 +388,7 @@ export function createVerificationController({
     loadCredentials,
     getFilteredCredentials,
     createPresentation,
+    createPresentationV2,
     evaluatePresentation,
     getTemplateJSON() {
       return templateJSON;
