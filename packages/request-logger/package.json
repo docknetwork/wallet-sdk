@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-request-logger",
-    "version": "1.7.0",
+    "version": "1.7.6",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -12,6 +12,5 @@
     },
     "dependencies": {
         "uuid": "^9.0.0"
-    },
-    "devDependencies": {}
+    }
 }
