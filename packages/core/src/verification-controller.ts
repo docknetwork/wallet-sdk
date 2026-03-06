@@ -21,10 +21,6 @@ export enum VerificationStatus {
   SelectingCredentials = 'SelectingCredentials',
 }
 
-function isRangeProofTemplate(templateJSON) {
-  return templateJSON.proving_key;
-}
-
 type CredentialId = string;
 type CredentialSelection = {
   credential: any;
@@ -52,7 +48,6 @@ export function createVerificationController({
   let filteredCredentials = [];
   let selectedCredentials: CredentialSelectionMap = new Map();
   let selectedDID = null;
-  let provingKey = null;
 
   if (!credentialProvider) {
     credentialProvider = createCredentialProvider({wallet});
@@ -60,23 +55,6 @@ export function createVerificationController({
 
   if (!didProvider) {
     didProvider = createDIDProvider({wallet});
-  }
-
-  async function fetchProvingKey(templateJSON: any) {
-    if (templateJSON.proving_key) {
-      setState(VerificationStatus.FetchingProvingKey);
-      try {
-        provingKey = await axios
-          .get(templateJSON.proving_key)
-          .then(res => res.data);
-      } catch (err) {
-        setState(VerificationStatus.Error, {
-          message: 'failed_to_fetch_proving_key',
-        });
-
-        throw err;
-      }
-    }
   }
 
   async function start({template}: {template: string | any}) {
@@ -96,7 +74,6 @@ export function createVerificationController({
     selectedDID = dids[0].didDocument.id;
     templateJSON = await getJSON(template);
 
-    await fetchProvingKey(templateJSON);
     await loadCredentials();
 
     setState(VerificationStatus.SelectingCredentials);
@@ -155,73 +132,6 @@ export function createVerificationController({
   }
 
   async function createPresentation() {
-    assert(!!selectedDID, 'No DID selected');
-    assert(!!selectedCredentials.size, 'No credentials selected');
-
-    if (isRangeProofTemplate(templateJSON)) {
-      // TODO: Implement proving key usage for range-proofs
-      assert(!!provingKey, 'No proving key found');
-    }
-
-    const credentials = [];
-
-    for (const credentialSelection of selectedCredentials.values()) {
-      const isBBS = await isBBSPlusCredential(credentialSelection.credential);
-      const isKVAC = await isKvacCredential(credentialSelection.credential);
-
-      if (credentialSelection.credential._sd_jwt) {
-        const derivedCredential =
-          await credentialServiceRPC.createSDJWTPresentation({
-            attributesToReveal: credentialSelection.attributesToReveal,
-            credential: credentialSelection.credential._sd_jwt.encoded,
-          });
-
-        credentials.push(derivedCredential);
-      } else if (isBBS || isKVAC) {
-        // derive credential
-        const derivedCredentials =
-          await credentialServiceRPC.deriveVCFromPresentation({
-            proofRequest: templateJSON,
-            
-            credentials: [
-              {
-                credential: credentialSelection.credential,
-                witness: await credentialProvider.getMembershipWitness(credentialSelection.credential.id),
-                attributesToReveal: [
-                  ...(credentialSelection.attributesToReveal || []),
-                  'id',
-                ],
-              },
-            ],
-          });
-
-        console.log('Credential derived');
-
-        credentials.push(derivedCredentials[0]);
-      } else {
-        credentials.push(credentialSelection.credential);
-      }
-    }
-
-    const didKeyPairList = await didProvider.getDIDKeyPairs();
-    const keyDoc = didKeyPairList.find(doc => doc.controller === selectedDID);
-
-    assert(keyDoc, `No key pair found for the selected DID ${selectedDID}`);
-
-    const presentation = await credentialServiceRPC.createPresentation({
-      credentials,
-      challenge: templateJSON.nonce,
-      keyDoc,
-      id: keyDoc.controller.startsWith('did:key:')
-        ? keyDoc.id
-        : `${keyDoc.controller}#keys-1`,
-      domain: 'dock.io',
-    });
-
-    return presentation;
-  }
-
-  async function createPresentationV2() {
     assert(!!selectedDID, 'No DID selected');
     assert(!!selectedCredentials.size, 'No credentials selected');
 
@@ -388,7 +298,6 @@ export function createVerificationController({
     loadCredentials,
     getFilteredCredentials,
     createPresentation,
-    createPresentationV2,
     evaluatePresentation,
     getTemplateJSON() {
       return templateJSON;

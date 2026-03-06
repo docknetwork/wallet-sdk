@@ -35,10 +35,6 @@ describe('Range proofs verification', () => {
       template: proofRequest.qr,
     });
 
-    // We can keep the attributes to reveal empty
-    // Range proof attributes will be handled automatically during presentation creation
-    // and will not be revealed in the presentation
-    // even if we include them in the attributesToReveal, they will be ignored
     const attributesToReveal = [];
 
     controller.selectedCredentials.set(credential.id, {
@@ -149,7 +145,7 @@ describe('Range proofs verification', () => {
     const presentation = await controller.createPresentation();
 
     // Presentation issuanceDate should not be equal to the credential issuanceDate
-    // The credential SDK will genreate a presentation timestamp instead
+    // The credential SDK will generate a presentation timestamp instead
     expect(presentation.verifiableCredential[0].issuanceDate).not.toBe(
       credential.issuanceDate,
     );
@@ -157,134 +153,5 @@ describe('Range proofs verification', () => {
       credential.credentialSubject.salary,
     );
   });
-  it('V2: should create range proofs presentation without subject', async () => {
-    const wallet: IWallet = await getWallet();
-    const controller = await createVerificationController({
-      wallet,
-    });
-
-    const credentialUrl =
-      'https://creds-testnet.dock.io/697fe144364680179937fa748a5b2483f3ee2743ab751cbad8305338eb53a7a3';
-    const password = '1234';
-    const {data: credential} = await axios.get(
-      `${credentialUrl}?p=${btoa(password)}`,
-    );
-
-    await addCredentialIfNotExists(credential);
-
-    await controller.start({
-      template: proofRequest.qr,
-    });
-
-    const attributesToReveal = [];
-
-    controller.selectedCredentials.set(credential.id, {
-      credential: credential,
-      attributesToReveal,
-    });
-
-    const presentationV1 = await controller.createPresentation();
-    const presentationV2 = await controller.createPresentationV2();
-
-    expect(
-      presentationV2.verifiableCredential[0].credentialSubject,
-    ).toBeUndefined();
-
-    expect(
-      presentationV2.verifiableCredential[0].proof.bounds.credentialSubject
-        .dateOfBirth,
-    ).toEqual(
-      presentationV1.verifiableCredential[0].proof.bounds.credentialSubject
-        .dateOfBirth,
-    );
-  });
-
-  it('V2: should not reveal range proof attributes for KVAC credentials', async () => {
-    const wallet: IWallet = await getWallet();
-    const controller = await createVerificationController({
-      wallet,
-    });
-
-    const credentialUrl =
-      'https://creds-testnet.truvera.io/16c431993e6678af4fc74a9b995250bfe3a2ecf215baa31f0945164ac89fd798';
-    const password = 'test';
-    const {data: credential} = await axios.get(
-      `${credentialUrl}?p=${btoa(password)}`,
-    );
-
-    await addCredentialIfNotExists(credential);
-
-    await controller.start({
-      template: proofRequest.qr,
-    });
-
-    const attributesToReveal = ['credentialSubject.id'];
-
-    controller.selectedCredentials.set(credential.id, {
-      credential: credential,
-      attributesToReveal,
-    });
-
-    const presentationV1 = await controller.createPresentation();
-    const presentationV2 = await controller.createPresentationV2();
-
-    expect(
-      presentationV2.verifiableCredential[0].credentialSubject.dateOfBirth,
-    ).toBeUndefined();
-    expect(
-      presentationV2.verifiableCredential[0].credentialSubject.id,
-    ).toBeDefined();
-
-    expect(
-      presentationV2.verifiableCredential[0].proof.bounds.credentialSubject
-        .dateOfBirth,
-    ).toEqual(
-      presentationV1.verifiableCredential[0].proof.bounds.credentialSubject
-        .dateOfBirth,
-    );
-  });
-
-  it('V2: should not reveal issuanceDate', async () => {
-    const wallet: IWallet = await getWallet();
-    const controller = await createVerificationController({
-      wallet,
-    });
-
-    await controller.start({
-      template: proofRequest.qr,
-    });
-
-    const credentialUrl =
-      'https://creds-testnet.dock.io/697fe144364680179937fa748a5b2483f3ee2743ab751cbad8305338eb53a7a3';
-    const password = '1234';
-    const {data: credential} = await axios.get(
-      `${credentialUrl}?p=${btoa(password)}`,
-    );
-
-    await addCredentialIfNotExists(credential);
-
-    const attributesToReveal = ['issuanceDate', 'credentialSubject.salary'];
-
-    controller.selectedCredentials.set(credential.id, {
-      credential: credential,
-      attributesToReveal,
-    });
-
-    const presentationV1 = await controller.createPresentation();
-    const presentationV2 = await controller.createPresentationV2();
-
-    expect(presentationV2.verifiableCredential[0].issuanceDate).not.toBe(
-      credential.issuanceDate,
-    );
-    expect(presentationV2.verifiableCredential[0].credentialSubject.salary).toBe(
-      credential.credentialSubject.salary,
-    );
-
-    // V2 should match V1 behavior
-    expect(presentationV2.verifiableCredential[0].issuanceDate).not.toBe(
-      presentationV1.verifiableCredential[0].issuanceDate,
-    );
-  });
-
   afterAll(() => closeWallet());
 });
