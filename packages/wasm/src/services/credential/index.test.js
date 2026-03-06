@@ -573,10 +573,12 @@ describe('Credential Service', () => {
 
     const basePexRequest = {
       id: 'test-request',
-      input_descriptors: [{
-        id: 'Credential 1',
-        constraints: {fields: [{path: ['$.type[*]']}]},
-      }],
+      input_descriptors: [
+        {
+          id: 'Credential 1',
+          constraints: {fields: [{path: ['$.type[*]']}]},
+        },
+      ],
     };
 
     const baseCredential = {
@@ -648,7 +650,12 @@ describe('Credential Service', () => {
       });
 
       const result = await service.generatePresentationFromPex({
-        credentials: [{credential: baseCredential, attributesToReveal: ['credentialSubject.name']}],
+        credentials: [
+          {
+            credential: baseCredential,
+            attributesToReveal: ['credentialSubject.name'],
+          },
+        ],
         pexRequest: basePexRequest,
         challenge: 'test-challenge',
         domain: 'dock.io',
@@ -664,10 +671,12 @@ describe('Credential Service', () => {
           domain: 'dock.io',
           skipSigning: true,
           selectiveDisclosure: {
-            credentials: [{
-              attributes: ['credentialSubject.name', 'id'],
-              witness: undefined,
-            }],
+            credentials: [
+              {
+                attributes: ['credentialSubject.name', 'id'],
+                witness: undefined,
+              },
+            ],
           },
         }),
       );
@@ -676,7 +685,9 @@ describe('Credential Service', () => {
     it('should throw when generation status is not SUCCESS', async () => {
       generateSpy.mockResolvedValueOnce({
         status: pexUtils.GeneratePresentationStatus.REQUIREMENTS_NOT_MET,
-        error: new Error('Credentials do not satisfy the presentation definition'),
+        error: new Error(
+          'Credentials do not satisfy the presentation definition',
+        ),
       });
 
       const error = await getPromiseError(() =>
@@ -688,7 +699,9 @@ describe('Credential Service', () => {
         }),
       );
 
-      expect(error.message).toBe('Credentials do not satisfy the presentation definition');
+      expect(error.message).toBe(
+        'Credentials do not satisfy the presentation definition',
+      );
     });
 
     it('should throw generic error when generation fails without error object', async () => {
@@ -705,7 +718,9 @@ describe('Credential Service', () => {
         }),
       );
 
-      expect(error.message).toBe('Presentation generation failed: requirements_not_met');
+      expect(error.message).toBe(
+        'Presentation generation failed: requirements_not_met',
+      );
     });
 
     it('should pass credentials without witness as undefined', async () => {
@@ -722,7 +737,9 @@ describe('Credential Service', () => {
       });
 
       const callArgs = generateSpy.mock.calls[0][0];
-      expect(callArgs.selectiveDisclosure.credentials[0].witness).toBeUndefined();
+      expect(
+        callArgs.selectiveDisclosure.credentials[0].witness,
+      ).toBeUndefined();
     });
 
     it('should not include loadProvingKey when no boundCheckSnarkKey', async () => {
@@ -768,7 +785,10 @@ describe('Credential Service', () => {
 
       await service.generatePresentationFromPex({
         credentials: [
-          {credential: baseCredential, attributesToReveal: ['credentialSubject.name']},
+          {
+            credential: baseCredential,
+            attributesToReveal: ['credentialSubject.name'],
+          },
           {credential: baseCredential},
         ],
         pexRequest: basePexRequest,
@@ -781,7 +801,9 @@ describe('Credential Service', () => {
         'credentialSubject.name',
         'id',
       ]);
-      expect(callArgs.selectiveDisclosure.credentials[1].attributes).toEqual(['id']);
+      expect(callArgs.selectiveDisclosure.credentials[1].attributes).toEqual([
+        'id',
+      ]);
     });
   });
 });
