@@ -56,6 +56,71 @@ import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialT
 const pex: PEX = new PEX();
 
 /**
+ * Resolves the accumulator module class for a credential based on its status ID.
+ */
+function getAccumulatorModuleClass(credential) {
+  const statusId = credential?.credentialStatus?.id;
+  if (!statusId) {
+    throw new Error('Credential is missing credentialStatus.id required for witness resolution');
+  }
+  const chainModule =
+    statusId.indexOf('dock:accumulator') === 0
+      ? blockchainService.modules.accumulator.modules[0]
+      : blockchainService.modules.accumulator.modules[
+          blockchainService.modules.accumulator.modules.length - 1
+        ];
+  return chainModule.constructor;
+}
+
+/**
+ * Resolves the witness for a single credential into the format expected by credential-sdk.
+ * Returns undefined if the credential has no witness.
+ */
+async function resolveWitnessForCredential(credential, witness) {
+  if (!witness) {
+    return undefined;
+  }
+
+  try {
+    const details = await getWitnessDetails(credential, witness);
+    const accumulatorModuleClass = getAccumulatorModuleClass(credential);
+    return {
+      membershipWitness: details.membershipWitness,
+      accumulated: accumulatorModuleClass.accumulatedFromHex(
+        details.accumulator.accumulated,
+        AccumulatorType.VBPos,
+      ),
+      pk: details.pk,
+      params: details.params,
+    };
+  } catch (err) {
+    throw new Error(
+      `Failed to resolve witness for credential ${credential?.id || 'unknown'}: ${err.message}`,
+    );
+  }
+}
+
+/**
+ * Creates a loadProvingKey callback for bound check proofs.
+ * Returns undefined if no boundCheckSnarkKey is provided.
+ */
+function createProvingKeyLoader(boundCheckSnarkKey) {
+  if (!boundCheckSnarkKey) {
+    return undefined;
+  }
+
+  return async () => {
+    const blob = (await isBase64OrDataUrl(boundCheckSnarkKey))
+      ? blobFromBase64(boundCheckSnarkKey)
+      : await fetchBlobFromUrl(boundCheckSnarkKey);
+    return {
+      provingKey: new LegoProvingKey(blob),
+      provingKeyId: 'key0',
+    };
+  };
+}
+
+/**
  * Checks if a credential uses BBS+ signature
  * @param {Object} credential - The credential to check
  * @returns {boolean} True if the credential uses BBS+ signature
@@ -762,28 +827,7 @@ class CredentialService {
     } = params;
 
     const resolvedWitnesses = await Promise.all(
-      credentials.map(async (c) => {
-        if (!c.witness) {
-          return undefined;
-        }
-        const details = await getWitnessDetails(c.credential, c.witness);
-        const chainModule =
-          c.credential.credentialStatus.id.indexOf('dock:accumulator') === 0
-            ? blockchainService.modules.accumulator.modules[0]
-            : blockchainService.modules.accumulator.modules[
-                blockchainService.modules.accumulator.modules.length - 1
-              ];
-        const accumulatorModuleClass = chainModule.constructor;
-        return {
-          membershipWitness: details.membershipWitness,
-          accumulated: accumulatorModuleClass.accumulatedFromHex(
-            details.accumulator.accumulated,
-            AccumulatorType.VBPos,
-          ),
-          pk: details.pk,
-          params: details.params,
-        };
-      }),
+      credentials.map(c => resolveWitnessForCredential(c.credential, c.witness)),
     );
 
     const result = await generatePresentationFromPexRequest({
@@ -795,17 +839,7 @@ class CredentialService {
       domain,
       resolver: blockchainService.resolver,
       skipSigning: skipSigning || false,
-      loadProvingKey: boundCheckSnarkKey
-        ? async () => {
-            const blob = (await isBase64OrDataUrl(boundCheckSnarkKey))
-              ? blobFromBase64(boundCheckSnarkKey)
-              : await fetchBlobFromUrl(boundCheckSnarkKey);
-            return {
-              provingKey: new LegoProvingKey(blob),
-              provingKeyId: 'key0',
-            };
-          }
-        : undefined,
+      loadProvingKey: createProvingKeyLoader(boundCheckSnarkKey),
       selectiveDisclosure: {
         credentials: credentials.map((c, i) => ({
           attributes: [...(c.attributesToReveal || []), 'id'],

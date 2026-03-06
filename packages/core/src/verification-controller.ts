@@ -131,6 +131,40 @@ export function createVerificationController({
     return credentialServiceRPC.isKvacCredential({credential});
   }
 
+  async function deriveNonBbsCredentials(sdJwtSelections, regularSelections) {
+    const credentials = [];
+
+    for (const sel of sdJwtSelections) {
+      const derived = await credentialServiceRPC.createSDJWTPresentation({
+        attributesToReveal: sel.attributesToReveal,
+        credential: sel.credential._sd_jwt.encoded,
+      });
+      credentials.push(derived);
+    }
+
+    for (const sel of regularSelections) {
+      credentials.push(sel.credential);
+    }
+
+    return credentials;
+  }
+
+  function getKeyId(keyDoc) {
+    return keyDoc.controller.startsWith('did:key:')
+      ? keyDoc.id
+      : `${keyDoc.controller}#keys-1`;
+  }
+
+  async function assembleSignedPresentation(credentials, keyDoc) {
+    return credentialServiceRPC.createPresentation({
+      credentials,
+      challenge: templateJSON.nonce,
+      keyDoc,
+      id: getKeyId(keyDoc),
+      domain: 'dock.io',
+    });
+  }
+
   async function createPresentation() {
     assert(!!selectedDID, 'No DID selected');
     assert(!!selectedCredentials.size, 'No credentials selected');
@@ -166,6 +200,7 @@ export function createVerificationController({
         })),
       );
 
+      // Pure BBS+/KVAC: use generatePresentationFromPex end-to-end
       if (sdJwtSelections.length === 0 && regularSelections.length === 0) {
         return credentialServiceRPC.generatePresentationFromPex({
           credentials: credentialsWithWitness,
@@ -179,6 +214,7 @@ export function createVerificationController({
         });
       }
 
+      // Mixed: derive BBS+/KVAC, then combine with SD-JWT and regular
       const derivedCredentials =
         await credentialServiceRPC.deriveVCFromPresentation({
           proofRequest: templateJSON,
@@ -189,54 +225,16 @@ export function createVerificationController({
           })),
         });
 
-      const allCredentials = [...derivedCredentials];
-
-      for (const sel of sdJwtSelections) {
-        const derived = await credentialServiceRPC.createSDJWTPresentation({
-          attributesToReveal: sel.attributesToReveal,
-          credential: sel.credential._sd_jwt.encoded,
-        });
-        allCredentials.push(derived);
-      }
-
-      for (const sel of regularSelections) {
-        allCredentials.push(sel.credential);
-      }
-
-      return credentialServiceRPC.createPresentation({
-        credentials: allCredentials,
-        challenge: templateJSON.nonce,
+      const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
+      return assembleSignedPresentation(
+        [...derivedCredentials, ...nonBbsCredentials],
         keyDoc,
-        id: keyDoc.controller.startsWith('did:key:')
-          ? keyDoc.id
-          : `${keyDoc.controller}#keys-1`,
-        domain: 'dock.io',
-      });
+      );
     }
 
-    const credentials = [];
-
-    for (const sel of sdJwtSelections) {
-      const derived = await credentialServiceRPC.createSDJWTPresentation({
-        attributesToReveal: sel.attributesToReveal,
-        credential: sel.credential._sd_jwt.encoded,
-      });
-      credentials.push(derived);
-    }
-
-    for (const sel of regularSelections) {
-      credentials.push(sel.credential);
-    }
-
-    return credentialServiceRPC.createPresentation({
-      credentials,
-      challenge: templateJSON.nonce,
-      keyDoc,
-      id: keyDoc.controller.startsWith('did:key:')
-        ? keyDoc.id
-        : `${keyDoc.controller}#keys-1`,
-      domain: 'dock.io',
-    });
+    // No BBS+/KVAC: handle SD-JWT and regular only
+    const credentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
+    return assembleSignedPresentation(credentials, keyDoc);
   }
 
   /**
