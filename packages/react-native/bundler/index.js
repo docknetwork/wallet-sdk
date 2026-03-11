@@ -67,7 +67,7 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     asyncWebAssembly: true,
   },
   plugins: [
-    new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+    new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
       resource.request = resource.request.replace(/^node:/, '');
     }),
     new webpack.DefinePlugin({
