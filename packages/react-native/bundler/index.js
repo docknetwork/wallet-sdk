@@ -12,6 +12,8 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     extensions: ['.tsx', '.ts', '.js', '.json', '.mjs', '.cjs'],
     alias: {
       '@cheqd/ts-proto': '@cheqd/ts-proto-cjs',
+      'stream/web': false,
+      'util/types': false,
     },
     fallback: {
       crypto: require.resolve('crypto-browserify'),
@@ -20,6 +22,13 @@ const getWebpackConfig = ({entry, path, filename}) => ({
       buffer: require.resolve('buffer'),
       os: require.resolve('os-browserify'),
       process: require.resolve('process'),
+      async_hooks: false,
+      console: false,
+      diagnostics_channel: false,
+      net: false,
+      perf_hooks: false,
+      tls: false,
+      worker_threads: false,
       https: false,
       http: false,
       fs: false,
@@ -58,6 +67,9 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     asyncWebAssembly: true,
   },
   plugins: [
+    new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+      resource.request = resource.request.replace(/^node:/, '');
+    }),
     new webpack.DefinePlugin({
       'process.env': JSON.stringify(process.env),
     }),
