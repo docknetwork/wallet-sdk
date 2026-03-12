@@ -283,7 +283,12 @@ interface DocumentQueue {
 export async function generateCloudWalletMasterKey(): Promise<{ mnemonic: string; masterKey: Uint8Array }> {
   const mnemonic = await utilCryptoService.mnemonicGenerate(MNEMONIC_WORD_COUNT);
 
-  const masterKey = await utilCryptoService.mnemonicToMiniSecret(mnemonic);
+  const masterKeyResult = await utilCryptoService.mnemonicToMiniSecret(mnemonic);
+
+  // Ensure masterKey is a proper Uint8Array (JSON-RPC serialization converts it to a plain object)
+  const masterKey = masterKeyResult instanceof Uint8Array
+    ? masterKeyResult
+    : new Uint8Array(Object.values(masterKeyResult));
 
   return {
     mnemonic,
@@ -292,9 +297,12 @@ export async function generateCloudWalletMasterKey(): Promise<{ mnemonic: string
 }
 
 export async function recoverCloudWalletMasterKey(mnemonic: string): Promise<Uint8Array> {
-  const masterKey = await utilCryptoService.mnemonicToMiniSecret(mnemonic);
+  const masterKeyResult = await utilCryptoService.mnemonicToMiniSecret(mnemonic);
 
-  return masterKey;
+  // Ensure masterKey is a proper Uint8Array (JSON-RPC serialization converts it to a plain object)
+  return masterKeyResult instanceof Uint8Array
+    ? masterKeyResult
+    : new Uint8Array(Object.values(masterKeyResult));
 }
 
 export async function initializeCloudWallet({
@@ -302,25 +310,21 @@ export async function initializeCloudWallet({
   edvUrl,
   authKey,
   masterKey,
+  mnemonic,
 }: {
   dataStore?: DataStore;
   edvUrl: string;
   authKey: string;
-  masterKey: Uint8Array;
+  masterKey?: Uint8Array;
+  mnemonic?: string;
 }) {
-  const {
-    hmacKey,
-    agreementKey,
-    verificationKey,
-  } = await edvService.deriveKeys(masterKey);
-
-  await edvService.initialize({
-    hmacKey,
-    agreementKey,
-    verificationKey,
-    edvUrl,
-    authKey
-  });
+  if (mnemonic) {
+    await edvService.initializeFromMnemonic({ mnemonic, edvUrl, authKey });
+  } else if (masterKey) {
+    await edvService.initializeFromMasterKey({ masterKey, edvUrl, authKey });
+  } else {
+    throw new Error('Either masterKey or mnemonic is required');
+  }
 
   const documentQueues = new Map<string, DocumentQueue>();
   const activeOperations = new Set<Promise<any>>();
@@ -498,18 +502,24 @@ export async function initializeCloudWallet({
   }
 
   async function pullDocuments() {
+    logger.debug('Pulling documents from EDV');
     const allDocs = await edvService.find({});
+
+    logger.debug(`Documents found in EDV: ${allDocs.documents.length}`);
 
     for (const doc of allDocs.documents) {
       const edvDoc = doc.content;
       const walletDoc = await dataStore.documents.getDocumentById(edvDoc.id);
 
       if (!walletDoc) {
-        const result = await dataStore.documents.addDocument(edvDoc, {
+        logger.debug(`Document ${edvDoc.id} not found in data store, adding to data store`);
+        await dataStore.documents.addDocument(edvDoc, {
           stopPropagation: true,
         });
       }
     }
+
+    return allDocs;
   }
 
   async function clearEdvDocuments() {
