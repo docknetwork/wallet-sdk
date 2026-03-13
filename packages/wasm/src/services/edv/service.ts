@@ -409,17 +409,23 @@ export class EDVService {
    * const masterKey = await edvService.decryptMasterKey(encryptedKey, decryptionKey, iv);
    */
   async decryptMasterKey(
-    encryptedKey: Uint8Array,
-    decryptionKey: Buffer,
-    iv: Buffer
+    encryptedKey: Uint8Array | Record<string, number>,
+    decryptionKey: Buffer | Uint8Array | Record<string, number>,
+    iv: Buffer | Uint8Array | Record<string, number>,
   ): Promise<Uint8Array> {
     try {
       // Ensure typed arrays survive JSON-RPC serialization
       if (!(encryptedKey instanceof Uint8Array)) {
         encryptedKey = new Uint8Array(Object.values(encryptedKey));
       }
-      const keyData = new Uint8Array(Object.values(decryptionKey));
-      const ivData = new Uint8Array(Object.values(iv));
+      if (!(decryptionKey instanceof Uint8Array)) {
+        decryptionKey = new Uint8Array(Object.values(decryptionKey));
+      }
+      if (!(iv instanceof Uint8Array)) {
+        iv = new Uint8Array(Object.values(iv));
+      }
+      const keyData = new Uint8Array(decryptionKey);
+      const ivData = new Uint8Array(iv);
 
       const key = await crypto.subtle.importKey(
         'raw',

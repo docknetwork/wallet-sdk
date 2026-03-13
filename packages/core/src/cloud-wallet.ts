@@ -305,6 +305,19 @@ export async function recoverCloudWalletMasterKey(mnemonic: string): Promise<Uin
     : new Uint8Array(Object.values(masterKeyResult));
 }
 
+/**
+ * Initialize the cloud wallet EDV service.
+ *
+ * Either `masterKey` or `mnemonic` must be provided. When both are supplied,
+ * `masterKey` takes precedence since it is the derived key ready for use.
+ *
+ * @param {Object} params
+ * @param {DataStore} [params.dataStore] - Optional data store
+ * @param {string} params.edvUrl - EDV service URL
+ * @param {string} params.authKey - Authentication key
+ * @param {Uint8Array} [params.masterKey] - Pre-derived master key (takes precedence over mnemonic)
+ * @param {string} [params.mnemonic] - BIP-39 mnemonic used to derive the master key
+ */
 export async function initializeCloudWallet({
   dataStore,
   edvUrl,
@@ -318,10 +331,10 @@ export async function initializeCloudWallet({
   masterKey?: Uint8Array;
   mnemonic?: string;
 }) {
-  if (mnemonic) {
-    await edvService.initializeFromMnemonic({ mnemonic, edvUrl, authKey });
-  } else if (masterKey) {
+  if (masterKey) {
     await edvService.initializeFromMasterKey({ masterKey, edvUrl, authKey });
+  } else if (mnemonic) {
+    await edvService.initializeFromMnemonic({ mnemonic, edvUrl, authKey });
   } else {
     throw new Error('Either masterKey or mnemonic is required');
   }
