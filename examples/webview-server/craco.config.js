@@ -9,9 +9,6 @@ module.exports = {
 
       webpackConfig.devtool = false;
 
-      // Alias jwt-decode to a shim that provides both default (v3) and named (v4) exports
-      webpackConfig.resolve.alias["jwt-decode"] = path.resolve(__dirname, "src/jwt-decode-shim.js");
-
       webpackConfig.module.rules.forEach((rule) => {
         if (rule.oneOf) {
           rule.oneOf.forEach((oneOf) => {
@@ -46,6 +43,19 @@ module.exports = {
           fullySpecified: false,
         },
       });
+
+      // Handle node: protocol imports (e.g. node:crypto) by stripping the prefix
+      webpackConfig.plugins.push(
+        new (require("webpack").NormalModuleReplacementPlugin)(
+          /^node:/,
+          (resource) => {
+            resource.request = resource.request.replace(/^node:/, "");
+          }
+        )
+      );
+
+      // Replace Node.js-only @sd-jwt/crypto-nodejs with browser-compatible shim
+      webpackConfig.resolve.alias["@sd-jwt/crypto-nodejs"] = path.resolve(__dirname, "src/sd-jwt-crypto-shim.js");
 
       // Configure output to put all files in the same directory
       webpackConfig.output.filename = '[name].[contenthash:8].js';
