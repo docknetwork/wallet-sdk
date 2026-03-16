@@ -47,7 +47,8 @@ describe('cloud-wallet', () => {
 
   describe('generateCloudWalletMasterKey', () => {
     it('should generate a mnemonic and master key', async () => {
-      const mockMnemonic = 'test mnemonic phrase with twelve words one two three four five six';
+      const mockMnemonic =
+        'test mnemonic phrase with twelve words one two three four five six';
       const mockMasterKey = new Uint8Array([1, 2, 3, 4]);
 
       mockMnemonicGenerate.mockResolvedValue(mockMnemonic);
@@ -144,7 +145,7 @@ describe('cloud-wallet', () => {
       const dataStore = createMockDataStore();
 
       await expect(
-        initializeCloudWallet({dataStore, edvUrl, authKey})
+        initializeCloudWallet({dataStore, edvUrl, authKey}),
       ).rejects.toThrow('Either masterKey or mnemonic is required');
     });
   });

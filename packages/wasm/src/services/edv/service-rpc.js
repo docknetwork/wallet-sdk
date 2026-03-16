@@ -11,11 +11,19 @@ export class EDVServiceRpc extends RpcService {
     return this.call('initialize', params);
   }
 
-  initializeFromMnemonic(params: { mnemonic: string; edvUrl: string; authKey: string }) {
+  initializeFromMnemonic(params: {
+    mnemonic: string,
+    edvUrl: string,
+    authKey: string,
+  }) {
     return this.call('initializeFromMnemonic', params);
   }
 
-  initializeFromMasterKey(params: { masterKey: any; edvUrl: string; authKey: string }) {
+  initializeFromMasterKey(params: {
+    masterKey: any,
+    edvUrl: string,
+    authKey: string,
+  }) {
     return this.call('initializeFromMasterKey', params);
   }
 

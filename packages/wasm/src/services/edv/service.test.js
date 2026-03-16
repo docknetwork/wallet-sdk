@@ -1,5 +1,7 @@
 // Mock dependencies
-jest.mock('@docknetwork/universal-wallet/storage/edv-http-storage', () => jest.fn());
+jest.mock('@docknetwork/universal-wallet/storage/edv-http-storage', () =>
+  jest.fn(),
+);
 jest.mock('./hmac', () => jest.fn());
 jest.mock('@digitalbazaar/ed25519-verification-key-2018', () => ({
   Ed25519VerificationKey2018: jest.fn(),
@@ -96,16 +98,19 @@ describe('EDVService', () => {
         .spyOn(service, 'initializeFromMasterKey')
         .mockResolvedValue(undefined);
 
-      // Mock utilCryptoService at the instance level by mocking the entire method
-      const originalMethod = service.initializeFromMnemonic.bind(service);
-
       // We can't easily mock the imported utilCryptoService, so we test via
       // initializeFromMasterKey being called correctly
       // Instead, test with a real (but simple) flow using spyOn
-      jest.spyOn(service, 'initializeFromMnemonic').mockImplementation(async ({mnemonic, edvUrl, authKey}) => {
-        // Simulate what the real method does: convert mnemonic to masterKey, then call initializeFromMasterKey
-        return mockInitFromMasterKey({masterKey: mockMasterKey, edvUrl, authKey});
-      });
+      jest
+        .spyOn(service, 'initializeFromMnemonic')
+        .mockImplementation(async ({mnemonic, edvUrl, authKey}) => {
+          // Simulate what the real method does: convert mnemonic to masterKey, then call initializeFromMasterKey
+          return mockInitFromMasterKey({
+            masterKey: mockMasterKey,
+            edvUrl,
+            authKey,
+          });
+        });
 
       await service.initializeFromMnemonic({
         mnemonic: 'test mnemonic',
@@ -125,33 +130,47 @@ describe('EDVService', () => {
     it('should encrypt with proper Uint8Array inputs', async () => {
       const masterKey = new Uint8Array([1, 2, 3]);
       const encryptionKey = Buffer.from([4, 5, 6]);
-      const iv = Buffer.from([7, 8, 9]);
+      const testIv = Buffer.from([7, 8, 9]);
 
       // Mock the encrypt/decrypt methods entirely to avoid crypto mock issues
-      jest.spyOn(service, 'encryptMasterKey').mockImplementation(async (mk, ek, iv) => {
-        // Verify the type conversion happens
-        const convertedMk = mk instanceof Uint8Array ? mk : new Uint8Array(Object.values(mk));
-        expect(convertedMk).toBeInstanceOf(Uint8Array);
-        return new Uint8Array([99, 98, 97]);
-      });
+      jest
+        .spyOn(service, 'encryptMasterKey')
+        .mockImplementation(async (mk, ek, mockIv) => {
+          // Verify the type conversion happens
+          const convertedMk =
+            mk instanceof Uint8Array ? mk : new Uint8Array(Object.values(mk));
+          expect(convertedMk).toBeInstanceOf(Uint8Array);
+          return new Uint8Array([99, 98, 97]);
+        });
 
-      const result = await service.encryptMasterKey(masterKey, encryptionKey, iv);
+      const result = await service.encryptMasterKey(
+        masterKey,
+        encryptionKey,
+        testIv,
+      );
       expect(result).toBeInstanceOf(Uint8Array);
     });
 
     it('should handle serialized plain object masterKey', async () => {
       const serializedMasterKey = {0: 1, 1: 2, 2: 3};
       const encryptionKey = Buffer.from([4, 5, 6]);
-      const iv = Buffer.from([7, 8, 9]);
+      const testIv = Buffer.from([7, 8, 9]);
 
-      jest.spyOn(service, 'encryptMasterKey').mockImplementation(async (mk, ek, iv) => {
-        const convertedMk = mk instanceof Uint8Array ? mk : new Uint8Array(Object.values(mk));
-        expect(convertedMk).toBeInstanceOf(Uint8Array);
-        expect(convertedMk).toEqual(new Uint8Array([1, 2, 3]));
-        return new Uint8Array([99, 98, 97]);
-      });
+      jest
+        .spyOn(service, 'encryptMasterKey')
+        .mockImplementation(async (mk, ek, mockIv) => {
+          const convertedMk =
+            mk instanceof Uint8Array ? mk : new Uint8Array(Object.values(mk));
+          expect(convertedMk).toBeInstanceOf(Uint8Array);
+          expect(convertedMk).toEqual(new Uint8Array([1, 2, 3]));
+          return new Uint8Array([99, 98, 97]);
+        });
 
-      const result = await service.encryptMasterKey(serializedMasterKey, encryptionKey, iv);
+      const result = await service.encryptMasterKey(
+        serializedMasterKey,
+        encryptionKey,
+        testIv,
+      );
       expect(result).toBeInstanceOf(Uint8Array);
     });
   });
@@ -164,15 +183,18 @@ describe('EDVService', () => {
       const serializedIv = {0: 7, 1: 8, 2: 9};
 
       // Verify the conversion works for each input
-      const convertedEncKey = serializedEncryptedKey instanceof Uint8Array
-        ? serializedEncryptedKey
-        : new Uint8Array(Object.values(serializedEncryptedKey));
-      const convertedDecKey = serializedDecryptionKey instanceof Uint8Array
-        ? serializedDecryptionKey
-        : new Uint8Array(Object.values(serializedDecryptionKey));
-      const convertedIv = serializedIv instanceof Uint8Array
-        ? serializedIv
-        : new Uint8Array(Object.values(serializedIv));
+      const convertedEncKey =
+        serializedEncryptedKey instanceof Uint8Array
+          ? serializedEncryptedKey
+          : new Uint8Array(Object.values(serializedEncryptedKey));
+      const convertedDecKey =
+        serializedDecryptionKey instanceof Uint8Array
+          ? serializedDecryptionKey
+          : new Uint8Array(Object.values(serializedDecryptionKey));
+      const convertedIv =
+        serializedIv instanceof Uint8Array
+          ? serializedIv
+          : new Uint8Array(Object.values(serializedIv));
 
       expect(convertedEncKey).toBeInstanceOf(Uint8Array);
       expect(convertedEncKey).toEqual(new Uint8Array([10, 20, 30]));
@@ -185,31 +207,35 @@ describe('EDVService', () => {
     it('should handle mixed input types correctly', async () => {
       const encryptedKey = new Uint8Array([10, 20, 30]);
       const serializedDecryptionKey = {0: 4, 1: 5, 2: 6};
-      const iv = Buffer.from([7, 8, 9]);
+      const testIv = Buffer.from([7, 8, 9]);
 
       // Verify each input is correctly identified and converted
       expect(encryptedKey instanceof Uint8Array).toBe(true);
       expect(serializedDecryptionKey instanceof Uint8Array).toBe(false);
 
-      const convertedDecKey = new Uint8Array(Object.values(serializedDecryptionKey));
+      const convertedDecKey = new Uint8Array(
+        Object.values(serializedDecryptionKey),
+      );
       expect(convertedDecKey).toBeInstanceOf(Uint8Array);
       expect(convertedDecKey).toEqual(new Uint8Array([4, 5, 6]));
 
       // Buffer is a Uint8Array subclass
-      expect(iv instanceof Uint8Array).toBe(true);
+      expect(testIv instanceof Uint8Array).toBe(true);
     });
 
     it('should throw error when decryption fails', async () => {
-      jest.spyOn(service, 'decryptMasterKey').mockRejectedValue(
-        new Error('Decryption failed: Invalid key or corrupted data')
-      );
+      jest
+        .spyOn(service, 'decryptMasterKey')
+        .mockRejectedValue(
+          new Error('Decryption failed: Invalid key or corrupted data'),
+        );
 
       await expect(
         service.decryptMasterKey(
           new Uint8Array([1]),
           Buffer.from([2]),
-          Buffer.from([3])
-        )
+          Buffer.from([3]),
+        ),
       ).rejects.toThrow('Decryption failed');
     });
   });
