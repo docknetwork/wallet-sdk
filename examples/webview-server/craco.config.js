@@ -9,6 +9,9 @@ module.exports = {
 
       webpackConfig.devtool = false;
 
+      // Alias jwt-decode to a shim that provides both default (v3) and named (v4) exports
+      webpackConfig.resolve.alias["jwt-decode"] = path.resolve(__dirname, "src/jwt-decode-shim.js");
+
       webpackConfig.module.rules.forEach((rule) => {
         if (rule.oneOf) {
           rule.oneOf.forEach((oneOf) => {

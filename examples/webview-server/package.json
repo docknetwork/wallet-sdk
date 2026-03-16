@@ -64,6 +64,9 @@
       "last 1 safari version"
     ]
   },
+  "overrides": {
+    "jwt-decode": "^4.0.0"
+  },
   "jest": {
     "transformIgnorePatterns": [
       "node_modules/(?!(@docknetwork)/)"
