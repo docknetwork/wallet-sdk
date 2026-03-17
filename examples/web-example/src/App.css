@@ -85,6 +85,31 @@
   margin-bottom: 40px;
 }
 
+.icon-action-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #4a5568;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-action-btn:hover {
+  background: #cbd5e0;
+  transform: translateY(-1px);
+}
+
+.action-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
 /* DID section */
 .did-section {
   background: rgba(255, 255, 255, 0.95);
@@ -117,6 +142,31 @@
   border-radius: 6px;
   font-size: 14px;
   word-break: break-all;
+}
+
+.did-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #4a5568;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.did-icon-btn:hover {
+  background: #cbd5e0;
+  transform: translateY(-1px);
+}
+
+.did-action-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 /* Credentials section */

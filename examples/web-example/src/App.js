@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Box, Button, Modal, TextField } from "@mui/material";
+import { Box, Button, Menu, MenuItem, Modal, TextField } from "@mui/material";
 import "./App.css";
 import { createVerificationController } from "@docknetwork/wallet-sdk-core/lib/verification-controller";
 import { getVCData } from "@docknetwork/prettyvc";
@@ -120,7 +120,7 @@ function CredentialCard({ document, rawDocument, selectable, selected, onClick }
             <span className="footer-section-label">Issued By</span>
             <div className="issuer-identity">
               {issuerLogoUrl && (
-                <img src={issuerLogoUrl} alt={issuerName} className="issuer-logo" />
+                <img src={issuerLogoUrl} alt={issuerName} title={issuerName} className="issuer-logo" />
               )}
               <span className="issuer-value">{issuerName}</span>
             </div>
@@ -172,6 +172,7 @@ function App() {
   const [selectedCredential, setSelectedCredential] = useState(null);
   const [walletKeys, setWalletKeys] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
 
   // Styles for the modals
   const modalStyle = {
@@ -222,6 +223,16 @@ function App() {
     messageProvider,
     provisionNewWallet,
   } = useCloudWallet(walletKeys);
+
+  const settingsMenuOpen = Boolean(settingsAnchorEl);
+
+  const handleOpenSettingsMenu = (event) => {
+    setSettingsAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseSettingsMenu = () => {
+    setSettingsAnchorEl(null);
+  };
 
 
   const handleImportCredential = async () => {
@@ -374,6 +385,25 @@ function App() {
     setLoading(false);
   };
 
+  const handleClearWallet = () => {
+    const currentKeysStr = localStorage.getItem("keys");
+    const currentKeys = currentKeysStr ? JSON.parse(currentKeysStr) : null;
+    localStorage.clear();
+    if (currentKeys) {
+      localStorage.setItem("keys", JSON.stringify({
+        masterKey: currentKeys.masterKey,
+        mnemonic: currentKeys.mnemonic,
+      }));
+    }
+    window.location.reload();
+  };
+
+  const handleClearEdv = () => {
+    if (cloudWallet) {
+      cloudWallet.clearEdvDocuments();
+    }
+  };
+
   console.log({
     walletKeys,
     loading,
@@ -454,40 +484,51 @@ function App() {
             Verify Credential
           </button>
           <button
-            className="btn secondary"
+            className="icon-action-btn"
             data-testid="refresh-button"
-            onClick={() => {
-              refreshDocuments();
-            }}
+            aria-label="Refresh credentials"
+            title="Refresh"
+            onClick={refreshDocuments}
           >
-            Refresh
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="action-icon" title="Refresh">
+              <path d="M17.65 6.35A7.95 7.95 0 0012 4V1L7 6l5 5V7a5 5 0 11-4.9 6h-2.02A7 7 0 1017.65 6.35z" />
+            </svg>
           </button>
           <button
-            className="btn secondary"
+            className="icon-action-btn"
+            aria-label="Settings"
+            title="Settings"
+            onClick={handleOpenSettingsMenu}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="action-icon" title="Settings">
+              <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.2 7.2 0 00-1.63-.94l-.36-2.54A.5.5 0 0013.9 2h-3.8a.5.5 0 00-.49.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 00-.6.22L2.71 8.48a.5.5 0 00.12.64l2.03 1.58c-.05.31-.08.63-.08.94s.03.63.08.94l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54c.04.24.25.42.49.42h3.8c.24 0 .45-.18.49-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z" />
+            </svg>
+          </button>
+        </div>
+        <Menu
+          anchorEl={settingsAnchorEl}
+          open={settingsMenuOpen}
+          onClose={handleCloseSettingsMenu}
+        >
+          <MenuItem
             onClick={() => {
-              const currentKeysStr = localStorage.getItem("keys");
-              const currentKeys = currentKeysStr ? JSON.parse(currentKeysStr) : null;
-              localStorage.clear();
-              if (currentKeys) {
-                localStorage.setItem("keys", JSON.stringify({
-                  masterKey: currentKeys.masterKey,
-                  mnemonic: currentKeys.mnemonic,
-                }));
-              }
-              window.location.reload();
+              handleCloseSettingsMenu();
+              handleClearWallet();
             }}
           >
             Clear Wallet
-          </button>
+          </MenuItem>
           {cloudWallet && (
-            <button
-              className="btn secondary"
-              onClick={() => cloudWallet.clearEdvDocuments()}
+            <MenuItem
+              onClick={() => {
+                handleCloseSettingsMenu();
+                handleClearEdv();
+              }}
             >
               Clear EDV
-            </button>
+            </MenuItem>
           )}
-        </div>
+        </Menu>
 
         {/* DID Management */}
         <div className="did-section">
@@ -506,23 +547,31 @@ function App() {
                 <strong>Default DID:</strong>
                 <span className="did-value">{defaultDID}</span>
                 <button
-                  className="btn small"
+                  className="did-icon-btn"
                   data-testid="copy-did-button"
+                  aria-label="Copy DID"
+                  title="Copy DID"
                   onClick={() => {
                     navigator.clipboard.writeText(defaultDID);
                   }}
                 >
-                  Copy
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="did-action-icon" title="Copy DID">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                  </svg>
                 </button>
                 <button
-                  className="btn small"
+                  className="did-icon-btn"
                   data-testid="fetch-messages-button"
+                  aria-label="Fetch Messages"
+                  title="Fetch Messages"
                   onClick={async () => {
                     await messageProvider.fetchMessages();
                     await messageProvider.processDIDCommMessages();
                   }}
                 >
-                  Fetch Messages
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="did-action-icon" title="Fetch Messages">
+                    <path d="M20 6h-2V4c0-1.1-.9-2-2-2H8C6.9 2 6 2.9 6 4v2H4c-1.1 0-2 .9-2 2v9c0 1.1.9 2 2 2h4v3l4-3h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-4 0H8V4h8v2z" />
+                  </svg>
                 </button>
               </div>
             </div>
