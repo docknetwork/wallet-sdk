@@ -3,10 +3,12 @@ const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
 
 const getWebpackConfig = ({entry, path, filename}) => ({
   mode: 'development',
+  devtool: false,
   entry,
   output: {
     path,
     filename,
+    charset: false,
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.json', '.mjs', '.cjs'],
@@ -14,17 +16,18 @@ const getWebpackConfig = ({entry, path, filename}) => ({
       '@cheqd/ts-proto': '@cheqd/ts-proto-cjs',
       'stream/web': false,
       'util/types': false,
+      buffer: require.resolve('./buffer-shim.js'),
+      'buffer-polyfill': require.resolve('buffer/'),
     },
     fallback: {
       crypto: require.resolve('crypto-browserify'),
       stream: require.resolve('stream-browserify'),
       assert: require.resolve('assert'),
-      buffer: require.resolve('buffer'),
       os: require.resolve('os-browserify'),
-      process: require.resolve('process'),
-      async_hooks: false,
+      process: require.resolve('./process-shim.js'),
+      async_hooks: require.resolve('./async-hooks-shim.js'),
       console: false,
-      diagnostics_channel: false,
+      diagnostics_channel: require.resolve('./diagnostics-channel-shim.js'),
       net: false,
       perf_hooks: false,
       tls: false,
@@ -70,6 +73,10 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
       resource.request = resource.request.replace(/^node:/, '');
     }),
+    new webpack.BannerPlugin({
+      banner: 'if(typeof window!=="undefined"){window.JS_SHA256_NO_NODE_JS=true;}if(typeof globalThis!=="undefined"){if(!globalThis.process)globalThis.process={};globalThis.process.type="renderer";}',
+      raw: true,
+    }),
     new webpack.DefinePlugin({
       'process.env': JSON.stringify(process.env),
     }),
@@ -78,7 +85,7 @@ const getWebpackConfig = ({entry, path, filename}) => ({
     }),
     new webpack.ProvidePlugin({
       Buffer: ['buffer', 'Buffer'],
-      process: require.resolve('process/browser'),
+      process: require.resolve('./process-shim.js'),
     }),
   ],
 });
