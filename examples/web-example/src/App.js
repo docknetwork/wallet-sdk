@@ -278,7 +278,7 @@ function App() {
     <div className="App">
       <div className="wallet-container">
         <header className="App-header">
-          <h1>Truvera Wallet React Example</h1>
+          <h1>Truvera Demo Web Wallet</h1>
         </header>
 
         {/* Action Buttons */}
