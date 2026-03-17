@@ -456,6 +456,11 @@ function App() {
     <div className="App">
       <div className="wallet-container">
         <header className="App-header">
+          <img
+            src="/truveralogoround.png"
+            alt="Truvera"
+            className="header-logo"
+          />
           <h1>Truvera Demo Web Wallet</h1>
         </header>
 
