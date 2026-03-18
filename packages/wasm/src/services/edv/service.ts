@@ -19,6 +19,7 @@ import {didService} from '@docknetwork/wallet-sdk-wasm/src/services/dids/service
 import {Ed25519Keypair} from '@docknetwork/credential-sdk/keypairs';
 import hkdf from 'futoin-hkdf';
 import crypto from '@docknetwork/universal-wallet/crypto';
+import {utilCryptoService} from '@docknetwork/wallet-sdk-wasm/src/services/util-crypto/service';
 
 export const HKDF_LENGTH = 32;
 export const HKDF_HASH = 'SHA-256';
@@ -40,6 +41,8 @@ export class EDVService {
     EDVService.prototype.deriveKeys,
     EDVService.prototype.getController,
     EDVService.prototype.initialize,
+    EDVService.prototype.initializeFromMnemonic,
+    EDVService.prototype.initializeFromMasterKey,
     EDVService.prototype.find,
     EDVService.prototype.update,
     EDVService.prototype.insert,
@@ -138,6 +141,43 @@ export class EDVService {
     });
   }
 
+  async initializeFromMnemonic({
+    mnemonic,
+    edvUrl,
+    authKey,
+  }: {
+    mnemonic: string;
+    edvUrl: string;
+    authKey: string;
+  }) {
+    const masterKey = await utilCryptoService.mnemonicToMiniSecret(mnemonic);
+    return this.initializeFromMasterKey({ masterKey, edvUrl, authKey });
+  }
+
+  async initializeFromMasterKey({
+    masterKey,
+    edvUrl,
+    authKey,
+  }: {
+    masterKey: Uint8Array;
+    edvUrl: string;
+    authKey: string;
+  }) {
+    if (!(masterKey instanceof Uint8Array)) {
+      masterKey = new Uint8Array(Object.values(masterKey));
+    }
+
+    const { verificationKey, agreementKey, hmacKey } = await this.deriveKeys(masterKey);
+
+    return this.initialize({
+      hmacKey,
+      agreementKey,
+      verificationKey,
+      edvUrl,
+      authKey,
+    });
+  }
+
   /**
    * Generates new cryptographic keys for EDV operations
    * @returns {Promise<Object>} Generated keys
@@ -181,6 +221,10 @@ export class EDVService {
    * const keys = await edvService.deriveKeys(masterKey);
    */
   async deriveKeys(masterKey: Uint8Array) {
+    // Ensure masterKey is a proper Uint8Array (JSON-RPC serialization converts it to a plain object)
+    if (!(masterKey instanceof Uint8Array)) {
+      masterKey = new Uint8Array(Object.values(masterKey));
+    }
     const {keyPair: pair} = new Ed25519Keypair(masterKey, 'seed');
 
     const keyPair = await didService.deriveKeyDoc({ pair });
@@ -330,8 +374,12 @@ export class EDVService {
     encryptionKey: Buffer,
     iv: Buffer
   ): Promise<Uint8Array> {
-    const keyData = new Uint8Array(encryptionKey);
-    const ivData = new Uint8Array(iv);
+    // Ensure typed arrays survive JSON-RPC serialization
+    if (!(masterKey instanceof Uint8Array)) {
+      masterKey = new Uint8Array(Object.values(masterKey));
+    }
+    const keyData = new Uint8Array(Object.values(encryptionKey));
+    const ivData = new Uint8Array(Object.values(iv));
 
     const key = await crypto.subtle.importKey(
       'raw',
@@ -361,11 +409,21 @@ export class EDVService {
    * const masterKey = await edvService.decryptMasterKey(encryptedKey, decryptionKey, iv);
    */
   async decryptMasterKey(
-    encryptedKey: Uint8Array,
-    decryptionKey: Buffer,
-    iv: Buffer
+    encryptedKey: Uint8Array | Record<string, number>,
+    decryptionKey: Buffer | Uint8Array | Record<string, number>,
+    iv: Buffer | Uint8Array | Record<string, number>,
   ): Promise<Uint8Array> {
     try {
+      // Ensure typed arrays survive JSON-RPC serialization
+      if (!(encryptedKey instanceof Uint8Array)) {
+        encryptedKey = new Uint8Array(Object.values(encryptedKey));
+      }
+      if (!(decryptionKey instanceof Uint8Array)) {
+        decryptionKey = new Uint8Array(Object.values(decryptionKey));
+      }
+      if (!(iv instanceof Uint8Array)) {
+        iv = new Uint8Array(Object.values(iv));
+      }
       const keyData = new Uint8Array(decryptionKey);
       const ivData = new Uint8Array(iv);
 

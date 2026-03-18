@@ -7,12 +7,12 @@
     "@babel/plugin-proposal-class-properties": "^7.18.6",
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@craco/craco": "^7.1.0",
-    "@docknetwork/wallet-sdk-core": "1.5.11",
-    "@docknetwork/wallet-sdk-data-store": "1.5.11",
-    "@docknetwork/wallet-sdk-data-store-web": "1.5.11",
-    "@docknetwork/wallet-sdk-relay-service": "^1.5.11",
-    "@docknetwork/wallet-sdk-dids": "^1.5.11",
-    "@docknetwork/wallet-sdk-wasm": "1.5.11",
+    "@docknetwork/wallet-sdk-core": "1.7.6",
+    "@docknetwork/wallet-sdk-data-store": "1.7.6",
+    "@docknetwork/wallet-sdk-data-store-web": "1.7.6",
+    "@docknetwork/wallet-sdk-relay-service": "1.7.6",
+    "@docknetwork/wallet-sdk-dids": "1.7.6",
+    "@docknetwork/wallet-sdk-wasm": "1.7.6",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@mui/material": "^6.1.1",
@@ -26,6 +26,7 @@
     "axios": "^1.7.7",
     "crypto-browserify": "3.12.0",
     "fs": "npm:null",
+    "jwt-decode": "^4.0.0",
     "node-polyfill-webpack-plugin": "^2.0.1",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
@@ -62,6 +63,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "jwt-decode": "^4.0.0"
   },
   "jest": {
     "transformIgnorePatterns": [

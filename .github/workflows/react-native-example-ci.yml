@@ -27,7 +27,7 @@ jobs:
       working-directory: examples/react-native-example
 
     - name: Run tests
-      run: npm test -- --passWithNoTests
+      run: npm test -- --passWithNoTests --forceExit
       working-directory: examples/react-native-example
       env:
         CI: true
