@@ -44,6 +44,19 @@ module.exports = {
         },
       });
 
+      // Handle node: protocol imports (e.g. node:crypto) by stripping the prefix
+      webpackConfig.plugins.push(
+        new (require("webpack").NormalModuleReplacementPlugin)(
+          /^node:/,
+          (resource) => {
+            resource.request = resource.request.replace(/^node:/, "");
+          }
+        )
+      );
+
+      // Replace Node.js-only @sd-jwt/crypto-nodejs with browser-compatible shim
+      webpackConfig.resolve.alias["@sd-jwt/crypto-nodejs"] = path.resolve(__dirname, "src/sd-jwt-crypto-shim.js");
+
       // Configure output to put all files in the same directory
       webpackConfig.output.filename = '[name].[contenthash:8].js';
       webpackConfig.output.chunkFilename = '[name].[contenthash:8].chunk.js';
