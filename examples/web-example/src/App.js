@@ -55,11 +55,82 @@ function formatAttributeValue(value) {
   return String(value);
 }
 
+function isPrimitiveValue(value) {
+  return value === null || value === undefined || typeof value !== 'object';
+}
+
+function AttributeNode({ label, value, depth = 0 }) {
+  const normalizedLabel = label ? humanizeKey(label) : null;
+
+  if (Array.isArray(value)) {
+    if (value.length === 0 || value.every(isPrimitiveValue)) {
+      return (
+        <div className="credential-attribute-row">
+          <span className="attribute-label">{normalizedLabel}</span>
+          <span className="attribute-value">{formatAttributeValue(value)}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`attribute-group depth-${depth}`}>
+        {normalizedLabel && <div className="attribute-group-title">{normalizedLabel}</div>}
+        <div className="attribute-group-body">
+          {value.map((item, index) => (
+            <AttributeNode
+              key={`${normalizedLabel || 'item'}-${index}`}
+              label={`Item ${index + 1}`}
+              value={item}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).filter(([key]) => key !== 'id');
+
+    if (entries.length === 0) {
+      return (
+        <div className="credential-attribute-row">
+          <span className="attribute-label">{normalizedLabel}</span>
+          <span className="attribute-value">—</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`attribute-group depth-${depth}`}>
+        {normalizedLabel && <div className="attribute-group-title">{normalizedLabel}</div>}
+        <div className="attribute-group-body">
+          {entries.map(([key, nestedValue]) => (
+            <AttributeNode
+              key={`${normalizedLabel || 'group'}-${key}`}
+              label={key}
+              value={nestedValue}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="credential-attribute-row">
+      <span className="attribute-label">{normalizedLabel}</span>
+      <span className="attribute-value">{formatAttributeValue(value)}</span>
+    </div>
+  );
+}
+
 function CredentialCard({ document, rawDocument, selectable, selected, onClick }) {
   const [expanded, setExpanded] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const subject = document?.credentialSubject || {};
-  const subjectEntries = Object.entries(subject).filter(([k]) => k !== 'id');
+  const subjectEntries = Object.entries(subject).filter(([key]) => key !== 'id');
   const PREVIEW_COUNT = 4;
   const visibleEntries = expanded ? subjectEntries : subjectEntries.slice(0, PREVIEW_COUNT);
   const hasMore = subjectEntries.length > PREVIEW_COUNT;
@@ -97,10 +168,11 @@ function CredentialCard({ document, rawDocument, selectable, selected, onClick }
         subjectEntries.length > 0 && (
           <div className="credential-attributes">
             {visibleEntries.map(([key, value]) => (
-              <div key={key} className="credential-attribute-row">
-                <span className="attribute-label">{humanizeKey(key)}</span>
-                <span className="attribute-value">{formatAttributeValue(value)}</span>
-              </div>
+              <AttributeNode
+                key={key}
+                label={key}
+                value={value}
+              />
             ))}
             {hasMore && (
               <button
