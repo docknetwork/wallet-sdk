@@ -540,6 +540,7 @@ export async function initializeCloudWallet({
 
     for (const doc of allDocs.documents) {
       await edvService.delete({ document: doc });
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
 
