@@ -146,6 +146,25 @@
   gap: 12px;
 }
 
+.did-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.did-control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.did-messages-group {
+  margin-left: 2px;
+  padding-left: 12px;
+  border-left: 1px solid #cbd5e0;
+}
+
 .did-value {
   font-family: 'Monaco', 'Consolas', monospace;
   background: #f7fafc;
@@ -178,6 +197,16 @@
   width: 18px;
   height: 18px;
   fill: currentColor;
+}
+
+.did-auto-check-toggle {
+  margin: 0;
+  color: #4a5568;
+}
+
+.did-auto-check-toggle .MuiFormControlLabel-label {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* Credentials section */
@@ -593,6 +622,16 @@
   .did-info {
     flex-direction: column;
     text-align: center;
+  }
+
+  .did-controls {
+    justify-content: center;
+  }
+
+  .did-messages-group {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
   }
 
   .did-value {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Box, Button, Menu, MenuItem, Modal, TextField } from "@mui/material";
+import { Box, Button, FormControlLabel, Menu, MenuItem, Modal, Switch, TextField } from "@mui/material";
 import "./App.css";
 import { createVerificationController } from "@docknetwork/wallet-sdk-core/lib/verification-controller";
 import { getVCData } from "@docknetwork/prettyvc";
@@ -57,6 +57,14 @@ function formatAttributeValue(value) {
 
 function isPrimitiveValue(value) {
   return value === null || value === undefined || typeof value !== 'object';
+}
+
+function FetchMessagesIcon({ className, title }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} title={title}>
+      <path d="M20 8h-3V4H7v4H4l8 8 8-8zm-2 10H6v-3H4v5h16v-5h-2v3z" />
+    </svg>
+  );
 }
 
 function AttributeNode({ label, value, depth = 0 }) {
@@ -245,6 +253,7 @@ function App() {
   const [walletKeys, setWalletKeys] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
+  const [autoCheckMessages, setAutoCheckMessages] = useState(false);
 
   // Styles for the modals
   const modalStyle = {
@@ -347,6 +356,15 @@ function App() {
     setDocuments(creds);
   }, [credentialProvider]);
 
+  const handleFetchMessages = useCallback(async () => {
+    if (!messageProvider) {
+      return;
+    }
+
+    await messageProvider.fetchMessages();
+    await messageProvider.processDIDCommMessages();
+  }, [messageProvider]);
+
   useEffect(() => {
     if (credentialProvider) {
       refreshDocuments();
@@ -372,6 +390,20 @@ function App() {
 
     return () => unsubscribe && unsubscribe();
   }, [messageProvider, credentialProvider, refreshDocuments]);
+
+  useEffect(() => {
+    if (!autoCheckMessages || !defaultDID || !messageProvider) {
+      return;
+    }
+
+    void handleFetchMessages();
+
+    const intervalId = window.setInterval(() => {
+      void handleFetchMessages();
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [autoCheckMessages, defaultDID, messageProvider, handleFetchMessages]);
 
   const handleVerifyCredential = async () => {
     if (!wallet || !credentialProvider || !didProvider) {
@@ -623,33 +655,50 @@ function App() {
               <div className="did-info">
                 <strong>Default DID:</strong>
                 <span className="did-value">{defaultDID}</span>
-                <button
-                  className="did-icon-btn"
-                  data-testid="copy-did-button"
-                  aria-label="Copy DID"
-                  title="Copy DID"
-                  onClick={() => {
-                    navigator.clipboard.writeText(defaultDID);
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="did-action-icon" title="Copy DID">
-                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-                  </svg>
-                </button>
-                <button
-                  className="did-icon-btn"
-                  data-testid="fetch-messages-button"
-                  aria-label="Fetch Messages"
-                  title="Fetch Messages"
-                  onClick={async () => {
-                    await messageProvider.fetchMessages();
-                    await messageProvider.processDIDCommMessages();
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="did-action-icon" title="Fetch Messages">
-                    <path d="M20 6h-2V4c0-1.1-.9-2-2-2H8C6.9 2 6 2.9 6 4v2H4c-1.1 0-2 .9-2 2v9c0 1.1.9 2 2 2h4v3l4-3h8c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-4 0H8V4h8v2z" />
-                  </svg>
-                </button>
+                <div className="did-controls">
+                  <div className="did-control-group did-copy-group">
+                    <button
+                      className="did-icon-btn"
+                      data-testid="copy-did-button"
+                      aria-label="Copy DID"
+                      title="Copy DID"
+                      onClick={() => {
+                        navigator.clipboard.writeText(defaultDID);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" className="did-action-icon" title="Copy DID">
+                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="did-control-group did-messages-group">
+                    <button
+                      className="did-icon-btn"
+                      data-testid="fetch-messages-button"
+                      aria-label="Fetch Messages"
+                      title="Fetch Messages"
+                      onClick={() => {
+                        void handleFetchMessages();
+                      }}
+                    >
+                      <FetchMessagesIcon
+                        className="did-action-icon"
+                        title="Fetch Messages"
+                      />
+                    </button>
+                    <FormControlLabel
+                      className="did-auto-check-toggle"
+                      control={(
+                        <Switch
+                          size="small"
+                          checked={autoCheckMessages}
+                          onChange={(event) => setAutoCheckMessages(event.target.checked)}
+                        />
+                      )}
+                      label="Auto-check every 30s"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
