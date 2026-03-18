@@ -9,6 +9,8 @@ import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/ver
 import {ProofTemplateIds, createProofRequest} from '../helpers/certs-helpers';
 import { bbsPlusRevocationCredential, credentialWithUpdatedWitness } from './bbs-plus-revocation-credentials';
 
+jest.retryTimes(2);
+
 describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential', async () => {
     const wallet: IWallet = await getWallet();

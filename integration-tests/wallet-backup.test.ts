@@ -1,6 +1,6 @@
 import {closeWallet, createNewWallet} from './helpers';
 import {WalletBackupJSON, WalletBackupPasssword} from './data/wallet-backup';
-import {blockchainService} from '@docknetwork/wallet-sdk-wasm/lib/services/blockchain';
+import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
 
 describe('Wallet backups', () => {
   it('expect to import wallet from backup', async () => {
