@@ -35,10 +35,6 @@ describe('Range proofs verification', () => {
       template: proofRequest.qr,
     });
 
-    // We can keep the attributes to reveal empty
-    // Range proof attributes will be handled automatically during presentation creation
-    // and will not be revealed in the presentation
-    // even if we include them in the attributesToReveal, they will be ignored
     const attributesToReveal = [];
 
     controller.selectedCredentials.set(credential.id, {
@@ -149,7 +145,7 @@ describe('Range proofs verification', () => {
     const presentation = await controller.createPresentation();
 
     // Presentation issuanceDate should not be equal to the credential issuanceDate
-    // The credential SDK will genreate a presentation timestamp instead
+    // The credential SDK will generate a presentation timestamp instead
     expect(presentation.verifiableCredential[0].issuanceDate).not.toBe(
       credential.issuanceDate,
     );
