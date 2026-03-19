@@ -248,8 +248,11 @@ function App() {
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [credentialUrl, setCredentialUrl] = useState("");
   const [proofRequestUrl, setProofRequestUrl] = useState();
+  const [proofRequestTemplate, setProofRequestTemplate] = useState(null);
   const [verifyStep, setVerifyStep] = useState(1);
   const [selectedCredential, setSelectedCredential] = useState(null);
+  const [matchingCredentialIds, setMatchingCredentialIds] = useState([]);
+  const [loadingMatchingCredentials, setLoadingMatchingCredentials] = useState(false);
   const [walletKeys, setWalletKeys] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
@@ -411,7 +414,7 @@ function App() {
     }
 
     setLoading(true);
-    const { data: proofRequest } = await axios.get(proofRequestUrl);
+    const proofRequest = proofRequestTemplate || (await axios.get(proofRequestUrl)).data;
     const controller = createVerificationController({
       wallet,
       credentialProvider,
@@ -452,8 +455,47 @@ function App() {
     setVerifyModalOpen(false);
     setVerifyStep(1);
     setProofRequestUrl("");
+    setProofRequestTemplate(null);
+    setMatchingCredentialIds([]);
     setSelectedCredential(null);
   };
+
+  const handleLoadMatchingCredentials = async () => {
+    if (!wallet || !credentialProvider || !didProvider || !proofRequestUrl) {
+      return;
+    }
+
+    try {
+      setLoadingMatchingCredentials(true);
+      const proofRequest = (await axios.get(proofRequestUrl)).data;
+      const controller = createVerificationController({
+        wallet,
+        credentialProvider,
+        didProvider,
+      });
+
+      await controller.start({ template: proofRequest });
+      const filteredCredentials = controller.getFilteredCredentials() || [];
+      const filteredIds = filteredCredentials.map((credential) => credential.id);
+
+      setProofRequestTemplate(proofRequest);
+      setMatchingCredentialIds(filteredIds);
+      setSelectedCredential(null);
+      setVerifyStep(2);
+    } catch (err) {
+      console.error("Error loading matching credentials", err);
+      alert("Unable to load matching credentials for this proof request.");
+    } finally {
+      setLoadingMatchingCredentials(false);
+    }
+  };
+
+  const matchingCredentials = formattedCredentials
+    .map((document, idx) => ({
+      document,
+      rawDocument: documents[idx],
+    }))
+    .filter((item) => item.rawDocument && matchingCredentialIds.includes(item.rawDocument.id));
 
   const handleWalletKeyUpload = (event) => {
     const file = event.target.files[0];
@@ -587,6 +629,8 @@ function App() {
               setVerifyModalOpen(true);
               setVerifyStep(1);
               setProofRequestUrl("");
+              setProofRequestTemplate(null);
+              setMatchingCredentialIds([]);
               setSelectedCredential(null);
             }}
           >
@@ -773,6 +817,8 @@ function App() {
           setVerifyModalOpen(false);
           setVerifyStep(1);
           setProofRequestUrl("");
+          setProofRequestTemplate(null);
+          setMatchingCredentialIds([]);
           setSelectedCredential(null);
         }}
       >
@@ -807,10 +853,10 @@ function App() {
                 </button>
                 <button
                   className="btn primary"
-                  onClick={() => setVerifyStep(2)}
-                  disabled={!proofRequestUrl}
+                  onClick={handleLoadMatchingCredentials}
+                  disabled={!proofRequestUrl || loadingMatchingCredentials}
                 >
-                  Next
+                  {loadingMatchingCredentials ? 'Loading...' : 'Next'}
                 </button>
               </div>
             </>
@@ -818,18 +864,24 @@ function App() {
           {verifyStep === 2 && (
             <>
               <h2>Select Credential to Present</h2>
-              <div className="credential-selection">
-                {formattedCredentials.map((document, idx) => (
-                  <CredentialCard
-                    key={document.id}
-                    document={document}
-                    rawDocument={documents[idx] || document}
-                    selectable
-                    selected={selectedCredential?.id === documents[idx]?.id}
-                    onClick={() => setSelectedCredential(documents[idx])}
-                  />
-                ))}
-              </div>
+              {matchingCredentials.length === 0 ? (
+                <div className="no-credentials">
+                  No matching credentials found for this proof request.
+                </div>
+              ) : (
+                <div className="credential-selection">
+                  {matchingCredentials.map((item) => (
+                    <CredentialCard
+                      key={item.document.id}
+                      document={item.document}
+                      rawDocument={item.rawDocument || item.document}
+                      selectable
+                      selected={selectedCredential?.id === item.rawDocument?.id}
+                      onClick={() => setSelectedCredential(item.rawDocument)}
+                    />
+                  ))}
+                </div>
+              )}
               <div className="modal-buttons">
                 <button
                   className="btn secondary"
