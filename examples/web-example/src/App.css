@@ -548,6 +548,22 @@
   margin-top: 32px;
 }
 
+.verify-loading-state {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  color: #4a5568;
+}
+
+.verify-loading-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
 .credential-selection {
   display: grid;
   gap: 12px;

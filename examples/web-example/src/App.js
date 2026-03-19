@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Box, Button, FormControlLabel, Menu, MenuItem, Modal, Switch, TextField } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, FormControlLabel, Menu, MenuItem, Modal, Snackbar, Switch, TextField } from "@mui/material";
 import "./App.css";
 import { createVerificationController } from "@docknetwork/wallet-sdk-core/lib/verification-controller";
 import { getVCData } from "@docknetwork/prettyvc";
@@ -253,6 +253,12 @@ function App() {
   const [selectedCredential, setSelectedCredential] = useState(null);
   const [matchingCredentialIds, setMatchingCredentialIds] = useState([]);
   const [loadingMatchingCredentials, setLoadingMatchingCredentials] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyToast, setVerifyToast] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
   const [walletKeys, setWalletKeys] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
@@ -316,6 +322,16 @@ function App() {
 
   const handleCloseSettingsMenu = () => {
     setSettingsAnchorEl(null);
+  };
+
+  const resetVerifyFlow = () => {
+    setVerifyModalOpen(false);
+    setVerifyStep(1);
+    setProofRequestUrl("");
+    setProofRequestTemplate(null);
+    setMatchingCredentialIds([]);
+    setSelectedCredential(null);
+    setIsVerifying(false);
   };
 
 
@@ -413,30 +429,31 @@ function App() {
       return;
     }
 
-    setLoading(true);
-    const proofRequest = proofRequestTemplate || (await axios.get(proofRequestUrl)).data;
-    const controller = createVerificationController({
-      wallet,
-      credentialProvider,
-      didProvider,
-    });
-
-    const credential = selectedCredential;
-
-    await controller.start({ template: proofRequest });
-
-    const attributesToReveal = ["credentialSubject.name"];
-
-    controller.selectedCredentials.set(credential.id, {
-      credential,
-      attributesToReveal,
-    });
-
-    const presentation = await controller.createPresentation();
-
-    console.log(presentation);
-
     try {
+      setIsVerifying(true);
+
+      const proofRequest = proofRequestTemplate || (await axios.get(proofRequestUrl)).data;
+      const controller = createVerificationController({
+        wallet,
+        credentialProvider,
+        didProvider,
+      });
+
+      const credential = selectedCredential;
+
+      await controller.start({ template: proofRequest });
+
+      const attributesToReveal = ["credentialSubject.name"];
+
+      controller.selectedCredentials.set(credential.id, {
+        credential,
+        attributesToReveal,
+      });
+
+      const presentation = await controller.createPresentation();
+
+      console.log(presentation);
+
       const { data: verificationResult } = await axios
         .post(proofRequest.response_url, presentation)
         .then((res) => res.data);
@@ -445,19 +462,24 @@ function App() {
         verificationResult,
       });
 
-      alert("Verification sent successfully");
+      setVerifyToast({
+        open: true,
+        severity: "success",
+        message: "Verification sent successfully.",
+      });
     } catch (err) {
       console.error("Error sending verification", err);
-      alert("Error sending verification: " + err.response.data.error);
-    }
 
-    setLoading(false);
-    setVerifyModalOpen(false);
-    setVerifyStep(1);
-    setProofRequestUrl("");
-    setProofRequestTemplate(null);
-    setMatchingCredentialIds([]);
-    setSelectedCredential(null);
+      const errorMessage = err?.response?.data?.error || err?.message || "Unable to verify credential.";
+      setVerifyToast({
+        open: true,
+        severity: "error",
+        message: `Verification failed: ${errorMessage}`,
+      });
+    } finally {
+      setIsVerifying(false);
+      resetVerifyFlow();
+    }
   };
 
   const handleLoadMatchingCredentials = async () => {
@@ -632,6 +654,7 @@ function App() {
               setProofRequestTemplate(null);
               setMatchingCredentialIds([]);
               setSelectedCredential(null);
+              setIsVerifying(false);
             }}
           >
             Verify Credential
@@ -814,15 +837,20 @@ function App() {
       <Modal
         open={verifyModalOpen}
         onClose={() => {
-          setVerifyModalOpen(false);
-          setVerifyStep(1);
-          setProofRequestUrl("");
-          setProofRequestTemplate(null);
-          setMatchingCredentialIds([]);
-          setSelectedCredential(null);
+          if (isVerifying) {
+            return;
+          }
+          resetVerifyFlow();
         }}
       >
         <Box sx={modalStyle}>
+          {isVerifying ? (
+            <div className="verify-loading-state">
+              <CircularProgress size={32} />
+              <p>Checking credential and submitting verification...</p>
+            </div>
+          ) : (
+            <>
           {verifyStep === 1 && (
             <>
               <h2>Verify Credential</h2>
@@ -899,8 +927,24 @@ function App() {
               </div>
             </>
           )}
+            </>
+          )}
         </Box>
       </Modal>
+      <Snackbar
+        open={verifyToast.open}
+        autoHideDuration={4000}
+        onClose={() => setVerifyToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          severity={verifyToast.severity}
+          variant="filled"
+          onClose={() => setVerifyToast((prev) => ({ ...prev, open: false }))}
+        >
+          {verifyToast.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
