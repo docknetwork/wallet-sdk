@@ -254,7 +254,13 @@ function App() {
   const [matchingCredentialIds, setMatchingCredentialIds] = useState([]);
   const [loadingMatchingCredentials, setLoadingMatchingCredentials] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [verifyToast, setVerifyToast] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
+  const [importToast, setImportToast] = useState({
     open: false,
     severity: "success",
     message: "",
@@ -334,6 +340,12 @@ function App() {
     setIsVerifying(false);
   };
 
+  const resetImportFlow = () => {
+    setImportModalOpen(false);
+    setCredentialUrl("");
+    setIsImporting(false);
+  };
+
 
   const handleImportCredential = async () => {
     if (!credentialProvider) {
@@ -346,14 +358,30 @@ function App() {
       return;
     }
 
-    await credentialProvider.importCredentialFromURI({
-      uri: credentialUrl,
-      didProvider,
-    });
+    try {
+      setIsImporting(true);
 
-    refreshDocuments();
-    setImportModalOpen(false);
-    setCredentialUrl("");
+      await credentialProvider.importCredentialFromURI({
+        uri: credentialUrl,
+        didProvider,
+      });
+
+      await refreshDocuments();
+      setImportToast({
+        open: true,
+        severity: "success",
+        message: "Credential imported successfully.",
+      });
+      resetImportFlow();
+    } catch (err) {
+      console.error("Error importing credential", err);
+      setImportToast({
+        open: true,
+        severity: "error",
+        message: `Import failed: ${err?.message || "Unable to import credential."}`,
+      });
+      setIsImporting(false);
+    }
   };
 
   const refreshDocuments = useCallback(async () => {
@@ -398,11 +426,20 @@ function App() {
     const unsubscribe = messageProvider.addMessageListener(async (message) => {
       console.log("Message received", message);
 
-      if (message.body.credentials) {
+      const incomingCredentials = Array.isArray(message?.body?.credentials)
+        ? message.body.credentials
+        : [];
+
+      if (incomingCredentials.length) {
         console.log("adding credential to the wallet");
-        message.body.credentials.forEach(async (credential) => {
-          await credentialProvider.addCredential(credential);
-          refreshDocuments();
+        await Promise.all(
+          incomingCredentials.map((credential) => credentialProvider.addCredential(credential))
+        );
+        await refreshDocuments();
+        setImportToast({
+          open: true,
+          severity: "success",
+          message: `Imported ${incomingCredentials.length} credential${incomingCredentials.length === 1 ? "" : "s"} from messages.`,
         });
       }
     });
@@ -640,6 +677,7 @@ function App() {
             onClick={() => {
               setImportModalOpen(true);
               setCredentialUrl("");
+              setIsImporting(false);
             }}
           >
             Import Credential
@@ -794,42 +832,59 @@ function App() {
       </div>
 
       {/* Import Credential Modal */}
-      <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)}>
+      <Modal
+        open={importModalOpen}
+        onClose={() => {
+          if (isImporting) {
+            return;
+          }
+          resetImportFlow();
+        }}
+      >
         <Box sx={modalStyle}>
-          <h2>Import Credential</h2>
-          <div className="form-group">
-            <label htmlFor="credentialUrl">Credential Offer URL:</label>
-            <TextField
-              id="credentialUrl"
-              fullWidth
-              value={credentialUrl}
-              onChange={(e) => setCredentialUrl(e.target.value)}
-              placeholder="Enter credential offer URL"
-              InputProps={{
-                sx: {
-                  borderRadius: '8px',
-                  '&.Mui-focused': {
-                    boxShadow: '0 0 0 3px rgba(76, 81, 191, 0.1)',
-                  },
-                },
-              }}
-            />
-          </div>
-          <div className="modal-buttons">
-            <button
-              className="btn secondary"
-              onClick={() => setImportModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn primary"
-              onClick={handleImportCredential}
-              disabled={!credentialUrl}
-            >
-              Import
-            </button>
-          </div>
+          {isImporting ? (
+            <div className="verify-loading-state">
+              <CircularProgress size={32} />
+              <p>Importing credential offer and processing response...</p>
+            </div>
+          ) : (
+            <>
+              <h2>Import Credential</h2>
+              <div className="form-group">
+                <label htmlFor="credentialUrl">Credential Offer URL:</label>
+                <TextField
+                  id="credentialUrl"
+                  fullWidth
+                  value={credentialUrl}
+                  onChange={(e) => setCredentialUrl(e.target.value)}
+                  placeholder="Enter credential offer URL"
+                  InputProps={{
+                    sx: {
+                      borderRadius: '8px',
+                      '&.Mui-focused': {
+                        boxShadow: '0 0 0 3px rgba(76, 81, 191, 0.1)',
+                      },
+                    },
+                  }}
+                />
+              </div>
+              <div className="modal-buttons">
+                <button
+                  className="btn secondary"
+                  onClick={resetImportFlow}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn primary"
+                  onClick={handleImportCredential}
+                  disabled={!credentialUrl}
+                >
+                  Import
+                </button>
+              </div>
+            </>
+          )}
         </Box>
       </Modal>
 
@@ -943,6 +998,20 @@ function App() {
           onClose={() => setVerifyToast((prev) => ({ ...prev, open: false }))}
         >
           {verifyToast.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={importToast.open}
+        autoHideDuration={4000}
+        onClose={() => setImportToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Alert
+          severity={importToast.severity}
+          variant="filled"
+          onClose={() => setImportToast((prev) => ({ ...prev, open: false }))}
+        >
+          {importToast.message}
         </Alert>
       </Snackbar>
     </div>
