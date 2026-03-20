@@ -1,16 +1,98 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Alert, Box, Button, CircularProgress, FormControlLabel, Menu, MenuItem, Modal, Snackbar, Switch, TextField } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Divider, FormControlLabel, Menu, MenuItem, Modal, Snackbar, Switch, TextField } from "@mui/material";
 import "./App.css";
 import { createVerificationController } from "@docknetwork/wallet-sdk-core/lib/verification-controller";
 import { getVCData } from "@docknetwork/prettyvc";
 import axios from "axios";
 import { setLocalStorageImpl } from "@docknetwork/wallet-sdk-data-store-web/lib/localStorageJSON";
+import { createDataStore } from "@docknetwork/wallet-sdk-data-store-web/lib/index";
 
 import useCloudWallet from './hooks/useCloudWallet';
-import { generateCloudWalletMasterKey } from "@docknetwork/wallet-sdk-core/lib/cloud-wallet";
+import { generateCloudWalletMasterKey, initializeCloudWallet } from "@docknetwork/wallet-sdk-core/lib/cloud-wallet";
 
 
 setLocalStorageImpl(global.localStorage);
+
+const WALLET_PROFILES_KEY = "walletProfiles";
+const ACTIVE_WALLET_ID_KEY = "activeWalletId";
+const EDV_URL = "https://edv.dock.io";
+const EDV_AUTH_KEY = "DOCKWALLET-TEST";
+
+function normalizeWalletKeys(rawKeys) {
+  if (!rawKeys) {
+    throw new Error("Missing wallet keys");
+  }
+
+  let masterKeyArray;
+  if (rawKeys.masterKey instanceof Uint8Array) {
+    masterKeyArray = Array.from(rawKeys.masterKey);
+  } else if (Array.isArray(rawKeys.masterKey)) {
+    masterKeyArray = rawKeys.masterKey;
+  } else if (rawKeys.masterKey && typeof rawKeys.masterKey === 'object') {
+    masterKeyArray = Object.values(rawKeys.masterKey);
+  } else {
+    throw new Error("Invalid master key format");
+  }
+
+  return {
+    masterKey: new Uint8Array(masterKeyArray),
+    mnemonic: rawKeys.mnemonic,
+  };
+}
+
+function serializeWalletKeys(keys) {
+  return {
+    masterKey: Array.from(keys.masterKey || []),
+    mnemonic: keys.mnemonic,
+  };
+}
+
+function createWalletProfile(keys, index = 1) {
+  return {
+    id: `wallet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: `Wallet ${index}`,
+    createdAt: new Date().toISOString(),
+    keys,
+  };
+}
+
+function createScopedLocalStorage(scope) {
+  const prefix = `walletScope:${scope}:`;
+
+  return {
+    getItem: (key) => localStorage.getItem(`${prefix}${key}`),
+    setItem: (key, value) => localStorage.setItem(`${prefix}${key}`, value),
+    removeItem: (key) => localStorage.removeItem(`${prefix}${key}`),
+    getData: () => {
+      const scopedData = {};
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          scopedData[key.replace(prefix, '')] = localStorage.getItem(key);
+        }
+      }
+      return scopedData;
+    },
+  };
+}
+
+function applyWalletStorageScope(walletId) {
+  setLocalStorageImpl(createScopedLocalStorage(walletId || 'default'));
+}
+
+function clearScopedWalletStorage(walletId) {
+  const prefix = `walletScope:${walletId}:`;
+  const scopedKeys = [];
+
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      scopedKeys.push(key);
+    }
+  }
+
+  scopedKeys.forEach((key) => localStorage.removeItem(key));
+}
 
 function humanizeKey(key) {
   return key
@@ -265,7 +347,14 @@ function App() {
     severity: "success",
     message: "",
   });
+  const [walletToast, setWalletToast] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
   const [walletKeys, setWalletKeys] = useState(null);
+  const [walletProfiles, setWalletProfiles] = useState([]);
+  const [activeWalletId, setActiveWalletId] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
   const [autoCheckMessages, setAutoCheckMessages] = useState(false);
@@ -282,32 +371,80 @@ function App() {
     p: 4,
   };
 
+  const persistWalletProfiles = useCallback((profiles, nextActiveWalletId) => {
+    const serializedProfiles = profiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      createdAt: profile.createdAt,
+      keys: serializeWalletKeys(profile.keys),
+    }));
+
+    localStorage.setItem(WALLET_PROFILES_KEY, JSON.stringify(serializedProfiles));
+
+    const resolvedActiveWalletId = nextActiveWalletId || profiles[0]?.id;
+    if (resolvedActiveWalletId) {
+      localStorage.setItem(ACTIVE_WALLET_ID_KEY, resolvedActiveWalletId);
+      const activeProfile = profiles.find((profile) => profile.id === resolvedActiveWalletId);
+      if (activeProfile) {
+        localStorage.setItem("keys", JSON.stringify(serializeWalletKeys(activeProfile.keys)));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     try {
-      const jsonKeys = localStorage.getItem("keys");
-      if (jsonKeys) {
-        let masterKeyArray;
-        const parsedKeys = JSON.parse(jsonKeys);
-        if (parsedKeys.masterKey && typeof parsedKeys.masterKey === 'object' && !Array.isArray(parsedKeys.masterKey)) {
-          masterKeyArray = Object.values(parsedKeys.masterKey);
-        } else if (Array.isArray(parsedKeys.masterKey)) {
-          masterKeyArray = parsedKeys.masterKey;
-        } else {
-          console.log('Master key', parsedKeys.masterKey);
-          throw new Error('Invalid master key format');
+      const storedProfiles = localStorage.getItem(WALLET_PROFILES_KEY);
+      const storedActiveWalletId = localStorage.getItem(ACTIVE_WALLET_ID_KEY);
+
+      if (storedProfiles) {
+        const parsedProfiles = JSON.parse(storedProfiles);
+        const normalizedProfiles = parsedProfiles
+          .map((profile, index) => {
+            try {
+              return {
+                id: profile.id || `wallet-${index + 1}`,
+                name: profile.name || `Wallet ${index + 1}`,
+                createdAt: profile.createdAt || new Date().toISOString(),
+                keys: normalizeWalletKeys(profile.keys),
+              };
+            } catch (err) {
+              console.error("Invalid stored wallet profile", profile, err);
+              return null;
+            }
+          })
+          .filter(Boolean);
+
+        if (normalizedProfiles.length) {
+          const resolvedActiveWalletId = normalizedProfiles.some((profile) => profile.id === storedActiveWalletId)
+            ? storedActiveWalletId
+            : normalizedProfiles[0].id;
+          const activeProfile = normalizedProfiles.find((profile) => profile.id === resolvedActiveWalletId);
+
+          applyWalletStorageScope(resolvedActiveWalletId);
+          setWalletProfiles(normalizedProfiles);
+          setActiveWalletId(resolvedActiveWalletId);
+          setWalletKeys(activeProfile?.keys || null);
+          return;
         }
+      }
 
-        const _walletKeys = {
-          masterKey: new Uint8Array(masterKeyArray),
-          mnemonic: parsedKeys.mnemonic,
-        };
+      const legacyKeys = localStorage.getItem("keys");
+      if (legacyKeys) {
+        const normalizedKeys = normalizeWalletKeys(JSON.parse(legacyKeys));
+        const migratedProfiles = [createWalletProfile(normalizedKeys, 1)];
 
-        setWalletKeys(_walletKeys);
+        applyWalletStorageScope(migratedProfiles[0].id);
+        setWalletProfiles(migratedProfiles);
+        setActiveWalletId(migratedProfiles[0].id);
+        setWalletKeys(migratedProfiles[0].keys);
+        persistWalletProfiles(migratedProfiles, migratedProfiles[0].id);
+      } else {
+        applyWalletStorageScope('default');
       }
     } catch (err) {
       console.error("Error fetching wallet keys:", err);
     }
-  }, []);
+  }, [persistWalletProfiles]);
 
   const {
     loading: cloudWalletLoading,
@@ -318,9 +455,10 @@ function App() {
     defaultDID,
     messageProvider,
     provisionNewWallet,
-  } = useCloudWallet(walletKeys);
+  } = useCloudWallet(walletKeys, activeWalletId);
 
   const settingsMenuOpen = Boolean(settingsAnchorEl);
+  const activeWalletProfile = walletProfiles.find((profile) => profile.id === activeWalletId) || null;
 
   const handleOpenSettingsMenu = (event) => {
     setSettingsAnchorEl(event.currentTarget);
@@ -563,10 +701,17 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const keys = JSON.parse(e.target.result);
-          localStorage.setItem("keys", JSON.stringify(keys));
-          setWalletKeys(keys);
+          const normalizedKeys = normalizeWalletKeys(JSON.parse(e.target.result));
+          const newProfile = createWalletProfile(normalizedKeys, walletProfiles.length + 1);
+          const updatedProfiles = [...walletProfiles, newProfile];
+
+          applyWalletStorageScope(newProfile.id);
+          setWalletProfiles(updatedProfiles);
+          setActiveWalletId(newProfile.id);
+          setWalletKeys(newProfile.keys);
+          persistWalletProfiles(updatedProfiles, newProfile.id);
           setLoading(false);
+          setUploadError(null);
         } catch (error) {
           console.error("Error parsing wallet keys:", error);
           setUploadError("Invalid wallet key file.");
@@ -580,25 +725,151 @@ function App() {
   const handleCreateWallet = async () => {
     setLoading(true);
     try {
-      const newKeys = await generateCloudWalletMasterKey();
+      const generatedKeys = await generateCloudWalletMasterKey();
+      const normalizedKeys = normalizeWalletKeys(generatedKeys);
+      const newProfile = createWalletProfile(normalizedKeys, walletProfiles.length + 1);
+      const updatedProfiles = [...walletProfiles, newProfile];
+
       console.log("generated new keys for the wallet");
-      localStorage.setItem("keys", JSON.stringify(newKeys));
-      setWalletKeys(newKeys);
+      applyWalletStorageScope(newProfile.id);
+      setWalletProfiles(updatedProfiles);
+      setActiveWalletId(newProfile.id);
+      setWalletKeys(newProfile.keys);
+      persistWalletProfiles(updatedProfiles, newProfile.id);
     } catch (err) {
       console.error("Error generating keys", err);
     }
     setLoading(false);
   };
 
+  const handleSwitchWallet = (walletId) => {
+    const targetProfile = walletProfiles.find((profile) => profile.id === walletId);
+    if (!targetProfile) {
+      return;
+    }
+
+    applyWalletStorageScope(walletId);
+    setActiveWalletId(walletId);
+    setWalletKeys(targetProfile.keys);
+    setDocuments([]);
+    setFormattedCredentials([]);
+    setSelectedCredential(null);
+    persistWalletProfiles(walletProfiles, walletId);
+  };
+
+  const handleRenameWallet = (walletId) => {
+    const profile = walletProfiles.find((item) => item.id === walletId);
+    if (!profile) {
+      return;
+    }
+
+    const nextName = window.prompt("Set wallet nickname", profile.name)?.trim();
+    if (!nextName || nextName === profile.name) {
+      return;
+    }
+
+    const updatedProfiles = walletProfiles.map((item) =>
+      item.id === walletId ? { ...item, name: nextName } : item
+    );
+
+    setWalletProfiles(updatedProfiles);
+    persistWalletProfiles(updatedProfiles, activeWalletId);
+    setWalletToast({
+      open: true,
+      severity: "success",
+      message: `Renamed wallet to \"${nextName}\".`,
+    });
+  };
+
+  const clearWalletEdvForProfile = async (profile) => {
+    const previousScope = activeWalletId || 'default';
+
+    try {
+      applyWalletStorageScope(profile.id);
+      const dataStore = await createDataStore({
+        databasePath: `dock-wallet-${profile.id}`,
+        defaultNetwork: 'testnet',
+      });
+      const tempCloudWallet = await initializeCloudWallet({
+        dataStore,
+        edvUrl: EDV_URL,
+        masterKey: profile.keys.masterKey,
+        authKey: EDV_AUTH_KEY,
+      });
+      await tempCloudWallet.clearEdvDocuments();
+      if (typeof tempCloudWallet.unsubscribeEventListeners === 'function') {
+        tempCloudWallet.unsubscribeEventListeners();
+      }
+    } finally {
+      applyWalletStorageScope(previousScope);
+    }
+  };
+
+  const handleDeleteWallet = async (walletId) => {
+    const profile = walletProfiles.find((item) => item.id === walletId);
+    if (!profile) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete \"${profile.name}\"? This will remove its local data and clear its EDV documents.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await clearWalletEdvForProfile(profile);
+    } catch (err) {
+      console.error("Error clearing EDV for wallet", err);
+      setWalletToast({
+        open: true,
+        severity: "error",
+        message: `Failed to clear EDV for ${profile.name}. Wallet was not deleted.`,
+      });
+      setLoading(false);
+      return;
+    }
+
+    clearScopedWalletStorage(profile.id);
+    const updatedProfiles = walletProfiles.filter((item) => item.id !== walletId);
+
+    if (!updatedProfiles.length) {
+      setWalletProfiles([]);
+      setActiveWalletId(null);
+      setWalletKeys(null);
+      localStorage.removeItem(WALLET_PROFILES_KEY);
+      localStorage.removeItem(ACTIVE_WALLET_ID_KEY);
+      localStorage.removeItem("keys");
+      applyWalletStorageScope('default');
+    } else {
+      const nextActiveId = walletId === activeWalletId ? updatedProfiles[0].id : activeWalletId;
+      const nextActiveProfile = updatedProfiles.find((item) => item.id === nextActiveId) || updatedProfiles[0];
+
+      applyWalletStorageScope(nextActiveProfile.id);
+      setWalletProfiles(updatedProfiles);
+      setActiveWalletId(nextActiveProfile.id);
+      setWalletKeys(nextActiveProfile.keys);
+      setDocuments([]);
+      setFormattedCredentials([]);
+      persistWalletProfiles(updatedProfiles, nextActiveProfile.id);
+    }
+
+    setWalletToast({
+      open: true,
+      severity: "success",
+      message: `Deleted wallet \"${profile.name}\" and cleared its EDV documents.`,
+    });
+    setLoading(false);
+  };
+
   const handleClearWallet = () => {
-    const currentKeysStr = localStorage.getItem("keys");
-    const currentKeys = currentKeysStr ? JSON.parse(currentKeysStr) : null;
+    const currentProfiles = walletProfiles;
+    const currentActiveWalletId = activeWalletId;
     localStorage.clear();
-    if (currentKeys) {
-      localStorage.setItem("keys", JSON.stringify({
-        masterKey: currentKeys.masterKey,
-        mnemonic: currentKeys.mnemonic,
-      }));
+    if (currentProfiles.length) {
+      persistWalletProfiles(currentProfiles, currentActiveWalletId);
     }
     window.location.reload();
   };
@@ -725,6 +996,67 @@ function App() {
           onClose={handleCloseSettingsMenu}
         >
           <MenuItem
+            onClick={async () => {
+              handleCloseSettingsMenu();
+              await handleCreateWallet();
+            }}
+          >
+            Create New Wallet
+          </MenuItem>
+          {walletProfiles.length > 0 && <Divider />}
+          {walletProfiles.length > 0 && (
+            <MenuItem disabled>
+              Switch Wallet
+            </MenuItem>
+          )}
+          {walletProfiles.map((profile) => (
+            <MenuItem
+              key={profile.id}
+              selected={profile.id === activeWalletId}
+              onClick={() => {
+                handleCloseSettingsMenu();
+                handleSwitchWallet(profile.id);
+              }}
+            >
+              {profile.name}{profile.id === activeWalletId ? " (Current)" : ""}
+            </MenuItem>
+          ))}
+          {walletProfiles.length > 0 && <Divider />}
+          {walletProfiles.length > 0 && (
+            <MenuItem disabled>
+              Rename Wallet
+            </MenuItem>
+          )}
+          {walletProfiles.map((profile) => (
+            <MenuItem
+              key={`rename-${profile.id}`}
+              onClick={() => {
+                handleCloseSettingsMenu();
+                handleRenameWallet(profile.id);
+              }}
+            >
+              Rename {profile.name}
+            </MenuItem>
+          ))}
+          {walletProfiles.length > 0 && <Divider />}
+          {walletProfiles.length > 0 && (
+            <MenuItem disabled>
+              Delete Wallet
+            </MenuItem>
+          )}
+          {walletProfiles.map((profile) => (
+            <MenuItem
+              key={`delete-${profile.id}`}
+              onClick={async () => {
+                handleCloseSettingsMenu();
+                await handleDeleteWallet(profile.id);
+              }}
+            >
+              Delete {profile.name}
+            </MenuItem>
+          ))}
+          {(walletProfiles.length > 0) && <Divider />}
+          <MenuItem
             onClick={() => {
               handleCloseSettingsMenu();
               handleClearWallet();
@@ -758,7 +1090,7 @@ function App() {
           ) : (
             <div className="did-display">
               <div className="did-info">
-                <strong>Default DID:</strong>
+                <strong>{activeWalletProfile?.name || "Wallet"}:</strong>
                 <span className="did-value">{defaultDID}</span>
                 <div className="did-controls">
                   <div className="did-control-group did-copy-group">
@@ -1012,6 +1344,20 @@ function App() {
           onClose={() => setImportToast((prev) => ({ ...prev, open: false }))}
         >
           {importToast.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={walletToast.open}
+        autoHideDuration={4000}
+        onClose={() => setWalletToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          severity={walletToast.severity}
+          variant="filled"
+          onClose={() => setWalletToast((prev) => ({ ...prev, open: false }))}
+        >
+          {walletToast.message}
         </Alert>
       </Snackbar>
     </div>
