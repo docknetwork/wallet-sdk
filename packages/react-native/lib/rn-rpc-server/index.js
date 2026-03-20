@@ -18,7 +18,7 @@ if (process.env.NODE_ENV !== 'test') {
         console.log(`Resolve method ${method.name} with params ${params}`);
         console.log(params);
         const result = await method.resolver(params);
-        return result || {};
+        return result === undefined ? null : result;
       });
     });
   });

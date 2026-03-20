@@ -8,6 +8,7 @@ import nodePolyfills from 'rollup-plugin-polyfill-node';
 import inject from '@rollup/plugin-inject';
 import alias from '@rollup/plugin-alias';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,14 @@ function createConfig(input, outputFile) {
       {
         name: 'node-protocol-resolver',
         async resolveId(source, importer, options) {
+          // Force CJS version of libsodium-sumo to prevent duplicate bundling.
+          // The ESM version's `var WebAssembly` wasm2js override gets stripped by Rollup,
+          // causing native WebAssembly.instantiate to be called with wasm2js binary data.
+          if (source.includes('libsodium-sumo') && (source.endsWith('.mjs') || source === 'libsodium-sumo')) {
+            const cjsPath = path.resolve(__dirname, '../../../node_modules/libsodium-sumo/dist/modules-sumo/libsodium-sumo.js');
+            return { id: cjsPath, external: false };
+          }
+
           // Handle @digitalcredentials/open-badges-context
           if (source === '@digitalcredentials/open-badges-context' || source.includes('@digitalcredentials/open-badges-context?commonjs-external')) {
             const modulePath = path.resolve(__dirname, '../../../node_modules/@digitalcredentials/open-badges-context/js/index.js');
@@ -126,6 +135,25 @@ function createConfig(input, outputFile) {
 
           return null;
         },
+        // Fix CJS modules where commonjs plugin can't detect named exports.
+        load(id) {
+          if (id.includes('@digitalbazaar/http-signature-header/lib/index.js')) {
+            let code = fs.readFileSync(id, 'utf8');
+            code = code.replace(/'use strict';?\n?/, '');
+            code = code.replace("const {assert} = require('./util.js');", "import _util from './util.js';\nconst {assert} = _util;");
+            code = code.replace("const HttpSignatureError = require('./HttpSignatureError');", "import HttpSignatureError from './HttpSignatureError';");
+            code = code.replace(/module\.exports\s*=\s*api;?/, '');
+            code += `
+export const createAuthzHeader = api.createAuthzHeader;
+export const createSignatureString = api.createSignatureString;
+export const parseRequest = api.parseRequest;
+export { parseSignatureHeader, extractPseudoHeaders, HttpSignatureError };
+export default api;
+`;
+            return code;
+          }
+          return null;
+        },
       },
 
       nodePolyfills({
@@ -148,7 +176,7 @@ function createConfig(input, outputFile) {
         babelHelpers: 'bundled',
         configFile: false,
         babelrc: false,
-        exclude: /node_modules\/(?!@docknetwork\/wallet-sdk|@docknetwork\/dock-blockchain|@digitalbazaar|@cheqd)/,
+        exclude: /node_modules\/(?!@docknetwork\/wallet-sdk|@docknetwork\/dock-blockchain|@digitalbazaar|@cheqd\/sdk)/,
         presets: [
           ['@babel/preset-env', {
             targets: { browsers: '> 0.25%, not dead' },

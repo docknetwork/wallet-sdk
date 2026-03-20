@@ -418,6 +418,19 @@ async function initialize({
  * const didProvider = WalletSDK.createDIDProvider({ wallet });
  * // ... configure additional providers as needed
  */
+export {
+  initialize,
+  createDataStore,
+  createWallet,
+  createCredentialProvider,
+  createDIDProvider,
+  createMessageProvider,
+  initializeCloudWallet,
+  generateCloudWalletMasterKey,
+  recoverCloudWalletMasterKey,
+  createVerificationController,
+};
+
 export default {
   initialize,
   createDataStore,
