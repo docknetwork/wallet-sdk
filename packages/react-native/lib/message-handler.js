@@ -87,12 +87,15 @@ export class MessageDispatcher {
 }
 
 export class WebviewEventHandler {
-  constructor({webViewRef, sandboxWebViewRef, onReady}) {
+  constructor({webViewRef, sandboxWebViewRef, onReady, debug}) {
     assert(!!webViewRef, 'webViewRef is required');
 
     this.webViewRef = webViewRef;
     this.sandboxWebViewRef = sandboxWebViewRef;
     this.onReady = onReady;
+    this.debug = debug;
+
+    Logger.log('WebviewEventHandler initialized with debug mode:', this.debug);
 
     this.dispatcher = new MessageDispatcher((body) => {
       const isSandbox = body?.__isSandbox;
@@ -115,6 +118,10 @@ export class WebviewEventHandler {
   }
 
   handleSandboxEvent(event) {
+    if (this.debug) {
+      Logger.log('Received sandbox event:', event.nativeEvent.data);
+    }
+
     const data = JSON.parse(event.nativeEvent.data);
     if (data.type === 'json-rpc-ready') {
       return;
@@ -126,6 +133,10 @@ export class WebviewEventHandler {
   }
 
   handleEvent(event) {
+    if (this.debug) {
+      Logger.log('Received event:', event.nativeEvent.data);
+    }
+
     assert(!!event, 'event is required');
     const data = JSON.parse(event.nativeEvent.data);
 
@@ -146,6 +157,10 @@ export class WebviewEventHandler {
 
     if (isSandbox) {
       processedBody.method = body.method.replace('sandbox-', '');
+    }
+
+    if (this.debug) {
+      Logger.log('Dispatching event:', {type, body: processedBody});
     }
 
     this.dispatcher.dispatch(type, processedBody);
