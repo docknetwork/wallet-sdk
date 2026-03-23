@@ -24,6 +24,12 @@ export enum VerificationStatus {
 type CredentialId = string;
 type CredentialSelection = {
   credential: any;
+  /**
+   * Optional list of credential attributes to reveal in the presentation.
+   * When omitted, the credential-sdk automatically determines which attributes
+   * to reveal based on the PEX (Presentation Exchange) template requirements.
+   * This allows generating a default presentation without manual attribute selection.
+   */
   attributesToReveal?: string[];
 };
 type CredentialSelectionMap = Map<CredentialId, CredentialSelection>;
@@ -192,11 +198,14 @@ export function createVerificationController({
     }
 
     if (bbsKvacSelections.length > 0) {
+      // When attributesToReveal is undefined, the credential-sdk will automatically
+      // determine which attributes to reveal based on the PEX template requirements.
+      // This enables generating a default presentation without manual attribute selection.
       const credentialsWithWitness = await Promise.all(
         bbsKvacSelections.map(async sel => ({
           credential: sel.credential,
           witness: await credentialProvider.getMembershipWitness(sel.credential.id),
-          attributesToReveal: sel.attributesToReveal || [],
+          attributesToReveal: sel.attributesToReveal,
         })),
       );
 
@@ -221,7 +230,7 @@ export function createVerificationController({
           credentials: credentialsWithWitness.map(c => ({
             credential: c.credential,
             witness: c.witness,
-            attributesToReveal: [...(c.attributesToReveal || []), 'id'],
+            attributesToReveal: c.attributesToReveal,
           })),
         });
 
