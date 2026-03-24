@@ -273,6 +273,12 @@
   gap: 12px;
 }
 
+.credential-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .credential-type-badge {
   font-size: 14px;
   font-weight: 700;
@@ -298,6 +304,35 @@
 .credential-status.expired {
   background: rgba(255, 80, 80, 0.35);
   color: #ffe0e0;
+}
+
+.delete-credential-icon-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.delete-credential-icon-btn:hover {
+  background: rgba(229, 62, 62, 0.7);
+}
+
+.delete-credential-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delete-credential-icon {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
 }
 
 /* Card name */
@@ -443,6 +478,8 @@
 
 .footer-bottom {
   display: flex;
+  align-items: center;
+  gap: 14px;
   justify-content: flex-end;
 }
 

@@ -216,7 +216,7 @@ function AttributeNode({ label, value, depth = 0 }) {
   );
 }
 
-function CredentialCard({ document, rawDocument, selectable, selected, onClick }) {
+function CredentialCard({ document, rawDocument, selectable, selected, onClick, onDelete, deleting }) {
   const [expanded, setExpanded] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const subject = document?.credentialSubject || {};
@@ -245,9 +245,28 @@ function CredentialCard({ document, rawDocument, selectable, selected, onClick }
     >
       <div className="credential-card-header">
         <span className="credential-type-badge">{document.humanizedType || (document.type?.slice(-1)[0]) || 'Credential'}</span>
-        {isExpired
-          ? <span className="credential-status expired">Expired</span>
-          : <span className="credential-status valid">Valid</span>}
+        <div className="credential-header-actions">
+          {isExpired
+            ? <span className="credential-status expired">Expired</span>
+            : <span className="credential-status valid">Valid</span>}
+          {onDelete && (
+            <button
+              className="delete-credential-icon-btn"
+              data-testid={`delete-credential-${document.id}`}
+              aria-label="Delete credential"
+              title="Delete credential"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(document.id);
+              }}
+              disabled={deleting}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="delete-credential-icon" title="Delete credential">
+                <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {showJson ? (
@@ -358,6 +377,7 @@ function App() {
   const [uploadError, setUploadError] = useState(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
   const [autoCheckMessages, setAutoCheckMessages] = useState(false);
+  const [deletingCredentialId, setDeletingCredentialId] = useState(null);
 
   // Styles for the modals
   const modalStyle = {
@@ -540,6 +560,110 @@ function App() {
     );
     setDocuments(creds);
   }, [credentialProvider]);
+
+  const waitForCloudWalletSync = useCallback(async () => {
+    if (!cloudWallet || typeof cloudWallet.waitForEdvIdle !== 'function') {
+      throw new Error('Cloud wallet connection is required to safely delete credentials.');
+    }
+
+    await cloudWallet.waitForEdvIdle();
+  }, [cloudWallet]);
+
+  const hasCredentialArtifacts = useCallback(async (credentialId) => {
+    if (!wallet || !credentialId) {
+      return false;
+    }
+
+    const candidateIds = [credentialId, `${credentialId}#witness`, `${credentialId}#status`];
+    const docs = await Promise.all(candidateIds.map((id) => wallet.getDocumentById(id)));
+    return docs.some(Boolean);
+  }, [wallet]);
+
+  const removeCredentialArtifactsFromWallet = useCallback(async (credentialId) => {
+    if (!wallet || !credentialId) {
+      return;
+    }
+
+    const candidateIds = [credentialId, `${credentialId}#witness`, `${credentialId}#status`];
+    for (const id of candidateIds) {
+      const existingDoc = await wallet.getDocumentById(id);
+      if (existingDoc) {
+        await wallet.removeDocument(id);
+      }
+    }
+  }, [wallet]);
+
+  const handleDeleteCredential = useCallback(async (credentialId) => {
+    if (!credentialProvider || !wallet || !credentialId) {
+      return;
+    }
+
+    const credential = documents.find((doc) => doc?.id === credentialId);
+    const credentialLabel = credential?.id || credentialId;
+    const confirmed = window.confirm(
+      `Delete this credential? This will remove it from local wallet storage and EDV.\n\n${credentialLabel}`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingCredentialId(credentialId);
+
+    try {
+      if (!cloudWallet || typeof cloudWallet.pullDocuments !== 'function') {
+        throw new Error('Cloud wallet is unavailable, so EDV deletion cannot be confirmed.');
+      }
+
+      await credentialProvider.removeCredential(credentialId);
+      await waitForCloudWalletSync();
+
+      // Re-pull from EDV and re-check local state to confirm the delete propagated to cloud.
+      await cloudWallet.pullDocuments();
+      await waitForCloudWalletSync();
+
+      if (await hasCredentialArtifacts(credentialId)) {
+        await removeCredentialArtifactsFromWallet(credentialId);
+        await waitForCloudWalletSync();
+        await cloudWallet.pullDocuments();
+        await waitForCloudWalletSync();
+      }
+
+      if (await hasCredentialArtifacts(credentialId)) {
+        throw new Error('Credential still exists after synchronization with EDV.');
+      }
+
+      if (selectedCredential?.id === credentialId) {
+        setSelectedCredential(null);
+      }
+
+      await refreshDocuments();
+      setImportToast({
+        open: true,
+        severity: 'success',
+        message: 'Credential deleted from local wallet and EDV.',
+      });
+    } catch (err) {
+      console.error('Error deleting credential', err);
+      setImportToast({
+        open: true,
+        severity: 'error',
+        message: `Delete failed: ${err?.message || 'Unable to delete credential.'}`,
+      });
+    } finally {
+      setDeletingCredentialId(null);
+    }
+  }, [
+    cloudWallet,
+    credentialProvider,
+    documents,
+    hasCredentialArtifacts,
+    refreshDocuments,
+    removeCredentialArtifactsFromWallet,
+    selectedCredential?.id,
+    waitForCloudWalletSync,
+    wallet,
+  ]);
 
   const handleFetchMessages = useCallback(async () => {
     if (!messageProvider) {
@@ -1156,6 +1280,8 @@ function App() {
                   key={document.id}
                   document={document}
                   rawDocument={documents[idx] || document}
+                  onDelete={handleDeleteCredential}
+                  deleting={deletingCredentialId === document.id}
                 />
               ))}
             </div>
