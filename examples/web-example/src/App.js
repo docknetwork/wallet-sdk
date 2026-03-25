@@ -14,6 +14,7 @@ import DidSection from "./components/DidSection";
 import CredentialsSection from "./components/CredentialsSection";
 import ImportCredentialModal from "./components/ImportCredentialModal";
 import VerifyCredentialModal from "./components/VerifyCredentialModal";
+import { useImportFlow, useVerifyFlow } from "./hooks/useModalFlows";
 
 
 setLocalStorageImpl(global.localStorage);
@@ -105,27 +106,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [formattedCredentials, setFormattedCredentials] = useState([]);
-  const [importModalOpen, setImportModalOpen] = useState(false);
-  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
-  const [credentialUrl, setCredentialUrl] = useState("");
-  const [proofRequestUrl, setProofRequestUrl] = useState();
-  const [proofRequestTemplate, setProofRequestTemplate] = useState(null);
-  const [verifyStep, setVerifyStep] = useState(1);
-  const [selectedCredential, setSelectedCredential] = useState(null);
-  const [matchingCredentialIds, setMatchingCredentialIds] = useState([]);
-  const [loadingMatchingCredentials, setLoadingMatchingCredentials] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [verifyToast, setVerifyToast] = useState({
-    open: false,
-    severity: "success",
-    message: "",
-  });
-  const [importToast, setImportToast] = useState({
-    open: false,
-    severity: "success",
-    message: "",
-  });
   const [walletToast, setWalletToast] = useState({
     open: false,
     severity: "success",
@@ -237,69 +217,6 @@ function App() {
     provisionNewWallet,
   } = useCloudWallet(walletKeys, activeWalletId);
 
-  const settingsMenuOpen = Boolean(settingsAnchorEl);
-  const handleOpenSettingsMenu = (event) => {
-    setSettingsAnchorEl(event.currentTarget);
-  };
-
-  const handleCloseSettingsMenu = () => {
-    setSettingsAnchorEl(null);
-  };
-
-  const resetVerifyFlow = () => {
-    setVerifyModalOpen(false);
-    setVerifyStep(1);
-    setProofRequestUrl("");
-    setProofRequestTemplate(null);
-    setMatchingCredentialIds([]);
-    setSelectedCredential(null);
-    setIsVerifying(false);
-  };
-
-  const resetImportFlow = () => {
-    setImportModalOpen(false);
-    setCredentialUrl("");
-    setIsImporting(false);
-  };
-
-
-  const handleImportCredential = async () => {
-    if (!credentialProvider) {
-      return
-    }
-
-    // check if the URL is a valid openid-credential-offer
-    if (!credentialUrl.startsWith("openid-credential-offer:")) {
-      alert("Invalid credential offer URL. Check https://docs.truvera.io/truvera-api/openid#credential-offers for more details.");
-      return;
-    }
-
-    try {
-      setIsImporting(true);
-
-      await credentialProvider.importCredentialFromURI({
-        uri: credentialUrl,
-        didProvider,
-      });
-
-      await refreshDocuments();
-      setImportToast({
-        open: true,
-        severity: "success",
-        message: "Credential imported successfully.",
-      });
-      resetImportFlow();
-    } catch (err) {
-      console.error("Error importing credential", err);
-      setImportToast({
-        open: true,
-        severity: "error",
-        message: `Import failed: ${err?.message || "Unable to import credential."}`,
-      });
-      setIsImporting(false);
-    }
-  };
-
   const refreshDocuments = useCallback(async () => {
     if (!credentialProvider) {
       return;
@@ -318,6 +235,19 @@ function App() {
     );
     setDocuments(creds);
   }, [credentialProvider]);
+
+  // Extract modal flows using custom hooks
+  const importFlow = useImportFlow(credentialProvider, didProvider, refreshDocuments);
+  const verifyFlow = useVerifyFlow(wallet, credentialProvider, didProvider);
+
+  const settingsMenuOpen = Boolean(settingsAnchorEl);
+  const handleOpenSettingsMenu = (event) => {
+    setSettingsAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseSettingsMenu = () => {
+    setSettingsAnchorEl(null);
+  };
 
   const waitForCloudWalletSync = useCallback(async () => {
     if (!cloudWallet || typeof cloudWallet.waitForEdvIdle !== 'function') {
@@ -456,7 +386,7 @@ function App() {
           incomingCredentials.map((credential) => credentialProvider.addCredential(credential))
         );
         await refreshDocuments();
-        setImportToast({
+        importFlow.setImportToast({
           open: true,
           severity: "success",
           message: `Imported ${incomingCredentials.length} credential${incomingCredentials.length === 1 ? "" : "s"} from messages.`,
@@ -481,100 +411,12 @@ function App() {
     return () => window.clearInterval(intervalId);
   }, [autoCheckMessages, defaultDID, messageProvider, handleFetchMessages]);
 
-  const handleVerifyCredential = async () => {
-    if (!wallet || !credentialProvider || !didProvider) {
-      return;
-    }
-
-    try {
-      setIsVerifying(true);
-
-      const proofRequest = proofRequestTemplate || (await axios.get(proofRequestUrl)).data;
-      const controller = createVerificationController({
-        wallet,
-        credentialProvider,
-        didProvider,
-      });
-
-      const credential = selectedCredential;
-
-      await controller.start({ template: proofRequest });
-
-      const attributesToReveal = ["credentialSubject.name"];
-
-      controller.selectedCredentials.set(credential.id, {
-        credential,
-        attributesToReveal,
-      });
-
-      const presentation = await controller.createPresentation();
-
-      console.log(presentation);
-
-      const { data: verificationResult } = await axios
-        .post(proofRequest.response_url, presentation)
-        .then((res) => res.data);
-
-      console.log("Verification sent", {
-        verificationResult,
-      });
-
-      setVerifyToast({
-        open: true,
-        severity: "success",
-        message: "Verification sent successfully.",
-      });
-    } catch (err) {
-      console.error("Error sending verification", err);
-
-      const errorMessage = err?.response?.data?.error || err?.message || "Unable to verify credential.";
-      setVerifyToast({
-        open: true,
-        severity: "error",
-        message: `Verification failed: ${errorMessage}`,
-      });
-    } finally {
-      setIsVerifying(false);
-      resetVerifyFlow();
-    }
-  };
-
-  const handleLoadMatchingCredentials = async () => {
-    if (!wallet || !credentialProvider || !didProvider || !proofRequestUrl) {
-      return;
-    }
-
-    try {
-      setLoadingMatchingCredentials(true);
-      const proofRequest = (await axios.get(proofRequestUrl)).data;
-      const controller = createVerificationController({
-        wallet,
-        credentialProvider,
-        didProvider,
-      });
-
-      await controller.start({ template: proofRequest });
-      const filteredCredentials = controller.getFilteredCredentials() || [];
-      const filteredIds = filteredCredentials.map((credential) => credential.id);
-
-      setProofRequestTemplate(proofRequest);
-      setMatchingCredentialIds(filteredIds);
-      setSelectedCredential(null);
-      setVerifyStep(2);
-    } catch (err) {
-      console.error("Error loading matching credentials", err);
-      alert("Unable to load matching credentials for this proof request.");
-    } finally {
-      setLoadingMatchingCredentials(false);
-    }
-  };
-
   const matchingCredentials = formattedCredentials
     .map((document, idx) => ({
       document,
       rawDocument: documents[idx],
     }))
-    .filter((item) => item.rawDocument && matchingCredentialIds.includes(item.rawDocument.id));
+    .filter((item) => item.rawDocument && verifyFlow.matchingCredentialIds.includes(item.rawDocument.id));
 
   const handleWalletKeyUpload = (event) => {
     const file = event.target.files[0];
@@ -825,18 +667,13 @@ function App() {
         {/* Action Buttons */}
         <ActionButtons
           onImportClick={() => {
-            setImportModalOpen(true);
-            setCredentialUrl("");
-            setIsImporting(false);
+            importFlow.setImportModalOpen(true);
+            importFlow.setCredentialUrl("");
           }}
           onVerifyClick={() => {
-            setVerifyModalOpen(true);
-            setVerifyStep(1);
-            setProofRequestUrl("");
-            setProofRequestTemplate(null);
-            setMatchingCredentialIds([]);
-            setSelectedCredential(null);
-            setIsVerifying(false);
+            verifyFlow.setVerifyModalOpen(true);
+            verifyFlow.setVerifyStep(1);
+            verifyFlow.setProofRequestUrl("");
           }}
           onRefreshClick={refreshDocuments}
           onSettingsClick={handleOpenSettingsMenu}
@@ -950,58 +787,58 @@ function App() {
 
       {/* Import Credential Modal */}
       <ImportCredentialModal
-        open={importModalOpen}
-        isImporting={isImporting}
-        credentialUrl={credentialUrl}
-        onCredentialUrlChange={setCredentialUrl}
-        onImport={handleImportCredential}
-        onClose={resetImportFlow}
+        open={importFlow.importModalOpen}
+        isImporting={importFlow.isImporting}
+        credentialUrl={importFlow.credentialUrl}
+        onCredentialUrlChange={importFlow.setCredentialUrl}
+        onImport={importFlow.handleImportCredential}
+        onClose={importFlow.resetImportFlow}
         modalStyle={modalStyle}
       />
 
       {/* Verify Credential Modal */}
       <VerifyCredentialModal
-        open={verifyModalOpen}
-        isVerifying={isVerifying}
-        verifyStep={verifyStep}
-        proofRequestUrl={proofRequestUrl}
-        loadingMatchingCredentials={loadingMatchingCredentials}
+        open={verifyFlow.verifyModalOpen}
+        isVerifying={verifyFlow.isVerifying}
+        verifyStep={verifyFlow.verifyStep}
+        proofRequestUrl={verifyFlow.proofRequestUrl}
+        loadingMatchingCredentials={verifyFlow.loadingMatchingCredentials}
         matchingCredentials={matchingCredentials}
-        selectedCredential={selectedCredential}
-        onProofRequestUrlChange={setProofRequestUrl}
-        onLoadMatchingCredentials={handleLoadMatchingCredentials}
-        onVerifyCredential={handleVerifyCredential}
-        onBackStep={() => setVerifyStep(1)}
-        onClose={resetVerifyFlow}
-        onSelectCredential={setSelectedCredential}
+        selectedCredential={verifyFlow.selectedCredential}
+        onProofRequestUrlChange={verifyFlow.setProofRequestUrl}
+        onLoadMatchingCredentials={verifyFlow.handleLoadMatchingCredentials}
+        onVerifyCredential={verifyFlow.handleVerifyCredential}
+        onBackStep={() => verifyFlow.setVerifyStep(1)}
+        onClose={verifyFlow.resetVerifyFlow}
+        onSelectCredential={verifyFlow.setSelectedCredential}
         modalStyle={modalStyle}
       />
       <Snackbar
-        open={verifyToast.open}
+        open={verifyFlow.verifyToast.open}
         autoHideDuration={4000}
-        onClose={() => setVerifyToast((prev) => ({ ...prev, open: false }))}
+        onClose={() => verifyFlow.setVerifyToast((prev) => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
-          severity={verifyToast.severity}
+          severity={verifyFlow.verifyToast.severity}
           variant="filled"
-          onClose={() => setVerifyToast((prev) => ({ ...prev, open: false }))}
+          onClose={() => verifyFlow.setVerifyToast((prev) => ({ ...prev, open: false }))}
         >
-          {verifyToast.message}
+          {verifyFlow.verifyToast.message}
         </Alert>
       </Snackbar>
       <Snackbar
-        open={importToast.open}
+        open={importFlow.importToast.open}
         autoHideDuration={4000}
-        onClose={() => setImportToast((prev) => ({ ...prev, open: false }))}
+        onClose={() => importFlow.setImportToast((prev) => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       >
         <Alert
-          severity={importToast.severity}
+          severity={importFlow.importToast.severity}
           variant="filled"
-          onClose={() => setImportToast((prev) => ({ ...prev, open: false }))}
+          onClose={() => importFlow.setImportToast((prev) => ({ ...prev, open: false }))}
         >
-          {importToast.message}
+          {importFlow.importToast.message}
         </Alert>
       </Snackbar>
       <Snackbar
