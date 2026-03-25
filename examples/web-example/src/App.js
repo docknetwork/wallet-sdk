@@ -9,6 +9,11 @@ import { createDataStore } from "@docknetwork/wallet-sdk-data-store-web/lib/inde
 
 import useCloudWallet from './hooks/useCloudWallet';
 import { generateCloudWalletMasterKey, initializeCloudWallet } from "@docknetwork/wallet-sdk-core/lib/cloud-wallet";
+import ActionButtons from "./components/ActionButtons";
+import DidSection from "./components/DidSection";
+import CredentialsSection from "./components/CredentialsSection";
+import ImportCredentialModal from "./components/ImportCredentialModal";
+import VerifyCredentialModal from "./components/VerifyCredentialModal";
 
 
 setLocalStorageImpl(global.localStorage);
@@ -94,252 +99,7 @@ function clearScopedWalletStorage(walletId) {
   scopedKeys.forEach((key) => localStorage.removeItem(key));
 }
 
-function humanizeKey(key) {
-  return key
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (s) => s.toUpperCase())
-    .trim();
-}
 
-function formatDate(value) {
-  if (!value) return null;
-  const clean = String(value).replace(/^"|"$/g, '').trim();
-  try {
-    const d = new Date(clean);
-    if (!isNaN(d)) return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-  } catch (_) {}
-  return clean;
-}
-
-function formatAttributeValue(value) {
-  if (value === null || value === undefined) return '—';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (Array.isArray(value)) return value.map(formatAttributeValue).join(', ');
-  if (typeof value === 'object') {
-    // Prefer a human-readable scalar property over raw JSON
-    const pick = value.name ?? value.value ?? value.id ?? value.label;
-    if (pick !== undefined && typeof pick !== 'object') return String(pick);
-    // Single-key object — just show its value
-    const entries = Object.entries(value);
-    if (entries.length === 1) return formatAttributeValue(entries[0][1]);
-    // Multi-key: show "Key: Value" pairs joined by space
-    return entries.map(([k, v]) => `${humanizeKey(k)}: ${formatAttributeValue(v)}`).join(' · ');
-  }
-  if (typeof value === 'string') {
-    const stripped = value.replace(/^"|"$/g, '');
-    if (/^\d{4}-\d{2}-\d{2}/.test(stripped)) {
-      try {
-        return new Date(stripped).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-      } catch (_) {}
-    }
-    return stripped;
-  }
-  return String(value);
-}
-
-function isPrimitiveValue(value) {
-  return value === null || value === undefined || typeof value !== 'object';
-}
-
-function FetchMessagesIcon({ className, title }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} title={title}>
-      <path d="M20 8h-3V4H7v4H4l8 8 8-8zm-2 10H6v-3H4v5h16v-5h-2v3z" />
-    </svg>
-  );
-}
-
-function AttributeNode({ label, value, depth = 0 }) {
-  const normalizedLabel = label ? humanizeKey(label) : null;
-
-  if (Array.isArray(value)) {
-    if (value.length === 0 || value.every(isPrimitiveValue)) {
-      return (
-        <div className="credential-attribute-row">
-          <span className="attribute-label">{normalizedLabel}</span>
-          <span className="attribute-value">{formatAttributeValue(value)}</span>
-        </div>
-      );
-    }
-
-    return (
-      <div className={`attribute-group depth-${depth}`}>
-        {normalizedLabel && <div className="attribute-group-title">{normalizedLabel}</div>}
-        <div className="attribute-group-body">
-          {value.map((item, index) => (
-            <AttributeNode
-              key={`${normalizedLabel || 'item'}-${index}`}
-              label={`Item ${index + 1}`}
-              value={item}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value).filter(([key]) => key !== 'id');
-
-    if (entries.length === 0) {
-      return (
-        <div className="credential-attribute-row">
-          <span className="attribute-label">{normalizedLabel}</span>
-          <span className="attribute-value">—</span>
-        </div>
-      );
-    }
-
-    return (
-      <div className={`attribute-group depth-${depth}`}>
-        {normalizedLabel && <div className="attribute-group-title">{normalizedLabel}</div>}
-        <div className="attribute-group-body">
-          {entries.map(([key, nestedValue]) => (
-            <AttributeNode
-              key={`${normalizedLabel || 'group'}-${key}`}
-              label={key}
-              value={nestedValue}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="credential-attribute-row">
-      <span className="attribute-label">{normalizedLabel}</span>
-      <span className="attribute-value">{formatAttributeValue(value)}</span>
-    </div>
-  );
-}
-
-function CredentialCard({ document, rawDocument, selectable, selected, onClick, onDelete, deleting }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showJson, setShowJson] = useState(false);
-  const subject = document?.credentialSubject || {};
-  const subjectEntries = Object.entries(subject).filter(([key]) => key !== 'id');
-  const PREVIEW_COUNT = 4;
-  const visibleEntries = expanded ? subjectEntries : subjectEntries.slice(0, PREVIEW_COUNT);
-  const hasMore = subjectEntries.length > PREVIEW_COUNT;
-
-  const issuer = document?.issuer;
-  const issuerName = typeof issuer === 'string'
-    ? issuer
-    : issuer?.name || issuer?.id || null;
-  const issuerLogo = typeof issuer === 'object'
-    ? (issuer?.image?.id || issuer?.image || issuer?.logo?.id || issuer?.logo || null)
-    : null;
-  const issuerLogoUrl = typeof issuerLogo === 'string' ? issuerLogo : null;
-
-  const issuanceDate = formatDate(document?.issuanceDate);
-  const expirationDate = formatDate(document?.expirationDate);
-  const isExpired = document?.expirationDate && new Date(String(document.expirationDate).replace(/^"|"$/g, '').trim()) < new Date();
-
-  return (
-    <div
-      className={['credential-card', selectable && 'selectable', selected && 'selected'].filter(Boolean).join(' ')}
-      onClick={onClick}
-    >
-      <div className="credential-card-header">
-        <span className="credential-type-badge">{document.humanizedType || (document.type?.slice(-1)[0]) || 'Credential'}</span>
-        <div className="credential-header-actions">
-          {isExpired
-            ? <span className="credential-status expired">Expired</span>
-            : <span className="credential-status valid">Valid</span>}
-          {onDelete && (
-            <button
-              className="delete-credential-icon-btn"
-              data-testid={`delete-credential-${document.id}`}
-              aria-label="Delete credential"
-              title="Delete credential"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(document.id);
-              }}
-              disabled={deleting}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="delete-credential-icon" title="Delete credential">
-                <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showJson ? (
-        <div className="credential-raw-json">
-          <pre>{JSON.stringify(rawDocument || document, null, 2)}</pre>
-        </div>
-      ) : (
-        subjectEntries.length > 0 && (
-          <div className="credential-attributes">
-            {visibleEntries.map(([key, value]) => (
-              <AttributeNode
-                key={key}
-                label={key}
-                value={value}
-              />
-            ))}
-            {hasMore && (
-              <button
-                className="expand-btn"
-                onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-              >
-                {expanded ? 'Show less' : `Show ${subjectEntries.length - PREVIEW_COUNT} more…`}
-              </button>
-            )}
-          </div>
-        )
-      )}
-
-      <div className="credential-card-footer">
-        {issuerName && (
-          <div className="footer-section issuer-section">
-            <span className="footer-section-label">Issued By</span>
-            <div className="issuer-identity">
-              {issuerLogoUrl && (
-                <img src={issuerLogoUrl} alt={issuerName} title={issuerName} className="issuer-logo" />
-              )}
-              <span className="issuer-value">{issuerName}</span>
-            </div>
-          </div>
-        )}
-        <div className="footer-meta">
-          {issuanceDate && (
-            <div className="credential-footer-item">
-              <span className="footer-label">Issued</span>
-              <span className="footer-value">{issuanceDate}</span>
-            </div>
-          )}
-          {expirationDate && (
-            <div className="credential-footer-item">
-              <span className="footer-label">Expires</span>
-              <span className={`footer-value ${isExpired ? 'expired-text' : ''}`}>{expirationDate}</span>
-            </div>
-          )}
-          <div className="credential-footer-item id-row">
-            <span className="footer-label">ID</span>
-            <span className="footer-value credential-id-value">{document.id}</span>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          <button
-            className="view-toggle-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowJson((v) => !v);
-            }}
-          >
-            {showJson ? 'View Card' : 'View JSON'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -1063,55 +823,24 @@ function App() {
         </header>
 
         {/* Action Buttons */}
-        <div className="action-buttons">
-          <button
-            className="btn primary"
-            data-testid="import-credential-button"
-            onClick={() => {
-              setImportModalOpen(true);
-              setCredentialUrl("");
-              setIsImporting(false);
-            }}
-          >
-            Import Credential
-          </button>
-          <button
-            className="btn primary"
-            data-testid="verify-credential-button"
-            onClick={() => {
-              setVerifyModalOpen(true);
-              setVerifyStep(1);
-              setProofRequestUrl("");
-              setProofRequestTemplate(null);
-              setMatchingCredentialIds([]);
-              setSelectedCredential(null);
-              setIsVerifying(false);
-            }}
-          >
-            Verify Credential
-          </button>
-          <button
-            className="icon-action-btn"
-            data-testid="refresh-button"
-            aria-label="Refresh credentials"
-            title="Refresh"
-            onClick={refreshDocuments}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="action-icon" title="Refresh">
-              <path d="M17.65 6.35A7.95 7.95 0 0012 4V1L7 6l5 5V7a5 5 0 11-4.9 6h-2.02A7 7 0 1017.65 6.35z" />
-            </svg>
-          </button>
-          <button
-            className="icon-action-btn"
-            aria-label="Settings"
-            title="Settings"
-            onClick={handleOpenSettingsMenu}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="action-icon" title="Settings">
-              <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.2 7.2 0 00-1.63-.94l-.36-2.54A.5.5 0 0013.9 2h-3.8a.5.5 0 00-.49.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 00-.6.22L2.71 8.48a.5.5 0 00.12.64l2.03 1.58c-.05.31-.08.63-.08.94s.03.63.08.94l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.72 1.63.94l.36 2.54c.04.24.25.42.49.42h3.8c.24 0 .45-.18.49-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8a3.5 3.5 0 010 7.5z" />
-            </svg>
-          </button>
-        </div>
+        <ActionButtons
+          onImportClick={() => {
+            setImportModalOpen(true);
+            setCredentialUrl("");
+            setIsImporting(false);
+          }}
+          onVerifyClick={() => {
+            setVerifyModalOpen(true);
+            setVerifyStep(1);
+            setProofRequestUrl("");
+            setProofRequestTemplate(null);
+            setMatchingCredentialIds([]);
+            setSelectedCredential(null);
+            setIsVerifying(false);
+          }}
+          onRefreshClick={refreshDocuments}
+          onSettingsClick={handleOpenSettingsMenu}
+        />
         <Menu
           anchorEl={settingsAnchorEl}
           open={settingsMenuOpen}
@@ -1199,265 +928,54 @@ function App() {
         </Menu>
 
         {/* DID Management */}
-        <div className="did-section">
-          {!defaultDID ? (
-            <div className="create-did">
-              <button
-                className="btn primary"
-                onClick={() => provisionNewWallet()}
-              >
-                Create Default DID
-              </button>
-            </div>
-          ) : (
-            <div className="did-display">
-              <div className="did-info">
-                <div className="did-wallet-switcher">
-                  <label htmlFor="did-wallet-selector" className="did-wallet-switcher-label">Wallet</label>
-                  <select
-                    id="did-wallet-selector"
-                    className="did-wallet-selector"
-                    data-testid="wallet-selector-dropdown"
-                    value={activeWalletId || ''}
-                    onChange={(event) => handleSwitchWallet(event.target.value)}
-                    disabled={walletProfiles.length <= 1}
-                  >
-                    {walletProfiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <span className="did-value">{defaultDID}</span>
-                <div className="did-controls">
-                  <div className="did-control-group did-copy-group">
-                    <button
-                      className="did-icon-btn"
-                      data-testid="copy-did-button"
-                      aria-label="Copy DID"
-                      title="Copy DID"
-                      onClick={() => {
-                        navigator.clipboard.writeText(defaultDID);
-                      }}
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true" className="did-action-icon" title="Copy DID">
-                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="did-control-group did-messages-group">
-                    <button
-                      className="did-icon-btn"
-                      data-testid="fetch-messages-button"
-                      aria-label="Fetch Messages"
-                      title="Fetch Messages"
-                      onClick={() => {
-                        void handleFetchMessages();
-                      }}
-                    >
-                      <FetchMessagesIcon
-                        className="did-action-icon"
-                        title="Fetch Messages"
-                      />
-                    </button>
-                    <FormControlLabel
-                      className="did-auto-check-toggle"
-                      control={(
-                        <Switch
-                          size="small"
-                          checked={autoCheckMessages}
-                          onChange={(event) => setAutoCheckMessages(event.target.checked)}
-                        />
-                      )}
-                      label="Auto-check every 30s"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <DidSection
+          defaultDID={defaultDID}
+          walletProfiles={walletProfiles}
+          activeWalletId={activeWalletId}
+          autoCheckMessages={autoCheckMessages}
+          onProvisionNewWallet={provisionNewWallet}
+          onSwitchWallet={handleSwitchWallet}
+          onFetchMessages={handleFetchMessages}
+          onAutoCheckToggle={setAutoCheckMessages}
+        />
 
         {/* Credentials List */}
-        <div className="credentials-section">
-          <h3>Credentials ({formattedCredentials.length})</h3>
-
-          {formattedCredentials.length === 0 ? (
-            <div className="no-credentials">
-              No credentials found. Import some credentials to get started.
-            </div>
-          ) : (
-            <div className="credentials-list">
-              {formattedCredentials.map((document, idx) => (
-                <CredentialCard
-                  key={document.id}
-                  document={document}
-                  rawDocument={documents[idx] || document}
-                  onDelete={handleDeleteCredential}
-                  deleting={deletingCredentialId === document.id}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <CredentialsSection
+          formattedCredentials={formattedCredentials}
+          documents={documents}
+          deletingCredentialId={deletingCredentialId}
+          onDeleteCredential={handleDeleteCredential}
+        />
       </div>
 
       {/* Import Credential Modal */}
-      <Modal
+      <ImportCredentialModal
         open={importModalOpen}
-        onClose={() => {
-          if (isImporting) {
-            return;
-          }
-          resetImportFlow();
-        }}
-      >
-        <Box sx={modalStyle}>
-          {isImporting ? (
-            <div className="verify-loading-state">
-              <CircularProgress size={32} />
-              <p>Importing credential offer and processing response...</p>
-            </div>
-          ) : (
-            <>
-              <h2>Import Credential</h2>
-              <div className="form-group">
-                <label htmlFor="credentialUrl">Credential Offer URL:</label>
-                <TextField
-                  id="credentialUrl"
-                  fullWidth
-                  value={credentialUrl}
-                  onChange={(e) => setCredentialUrl(e.target.value)}
-                  placeholder="Enter credential offer URL"
-                  InputProps={{
-                    sx: {
-                      borderRadius: '8px',
-                      '&.Mui-focused': {
-                        boxShadow: '0 0 0 3px rgba(76, 81, 191, 0.1)',
-                      },
-                    },
-                  }}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button
-                  className="btn secondary"
-                  onClick={resetImportFlow}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={handleImportCredential}
-                  disabled={!credentialUrl}
-                >
-                  Import
-                </button>
-              </div>
-            </>
-          )}
-        </Box>
-      </Modal>
+        isImporting={isImporting}
+        credentialUrl={credentialUrl}
+        onCredentialUrlChange={setCredentialUrl}
+        onImport={handleImportCredential}
+        onClose={resetImportFlow}
+        modalStyle={modalStyle}
+      />
 
       {/* Verify Credential Modal */}
-      <Modal
+      <VerifyCredentialModal
         open={verifyModalOpen}
-        onClose={() => {
-          if (isVerifying) {
-            return;
-          }
-          resetVerifyFlow();
-        }}
-      >
-        <Box sx={modalStyle}>
-          {isVerifying ? (
-            <div className="verify-loading-state">
-              <CircularProgress size={32} />
-              <p>Checking credential and submitting verification...</p>
-            </div>
-          ) : (
-            <>
-          {verifyStep === 1 && (
-            <>
-              <h2>Verify Credential</h2>
-              <div className="form-group">
-                <label htmlFor="proofRequestUrl">Proof Request URL:</label>
-                <TextField
-                  id="proofRequestUrl"
-                  fullWidth
-                  value={proofRequestUrl}
-                  onChange={(e) => setProofRequestUrl(e.target.value)}
-                  placeholder="Enter proof request URL"
-                  InputProps={{
-                    sx: {
-                      borderRadius: '8px',
-                      '&.Mui-focused': {
-                        boxShadow: '0 0 0 3px rgba(76, 81, 191, 0.1)',
-                      },
-                    },
-                  }}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button
-                  className="btn secondary"
-                  onClick={() => setVerifyModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={handleLoadMatchingCredentials}
-                  disabled={!proofRequestUrl || loadingMatchingCredentials}
-                >
-                  {loadingMatchingCredentials ? 'Loading...' : 'Next'}
-                </button>
-              </div>
-            </>
-          )}
-          {verifyStep === 2 && (
-            <>
-              <h2>Select Credential to Present</h2>
-              {matchingCredentials.length === 0 ? (
-                <div className="no-credentials">
-                  No matching credentials found for this proof request.
-                </div>
-              ) : (
-                <div className="credential-selection">
-                  {matchingCredentials.map((item) => (
-                    <CredentialCard
-                      key={item.document.id}
-                      document={item.document}
-                      rawDocument={item.rawDocument || item.document}
-                      selectable
-                      selected={selectedCredential?.id === item.rawDocument?.id}
-                      onClick={() => setSelectedCredential(item.rawDocument)}
-                    />
-                  ))}
-                </div>
-              )}
-              <div className="modal-buttons">
-                <button
-                  className="btn secondary"
-                  onClick={() => setVerifyStep(1)}
-                >
-                  Back
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={handleVerifyCredential}
-                  disabled={!selectedCredential}
-                >
-                  Verify
-                </button>
-              </div>
-            </>
-          )}
-            </>
-          )}
-        </Box>
-      </Modal>
+        isVerifying={isVerifying}
+        verifyStep={verifyStep}
+        proofRequestUrl={proofRequestUrl}
+        loadingMatchingCredentials={loadingMatchingCredentials}
+        matchingCredentials={matchingCredentials}
+        selectedCredential={selectedCredential}
+        onProofRequestUrlChange={setProofRequestUrl}
+        onLoadMatchingCredentials={handleLoadMatchingCredentials}
+        onVerifyCredential={handleVerifyCredential}
+        onBackStep={() => setVerifyStep(1)}
+        onClose={resetVerifyFlow}
+        onSelectCredential={setSelectedCredential}
+        modalStyle={modalStyle}
+      />
       <Snackbar
         open={verifyToast.open}
         autoHideDuration={4000}
