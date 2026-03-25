@@ -5,7 +5,6 @@ import { createVerificationController } from "@docknetwork/wallet-sdk-core/lib/v
 import { getVCData } from "@docknetwork/prettyvc";
 import axios from "axios";
 import { setLocalStorageImpl } from "@docknetwork/wallet-sdk-data-store-web/lib/localStorageJSON";
-import { createDataStore } from "@docknetwork/wallet-sdk-data-store-web/lib/index";
 
 import useCloudWallet from './hooks/useCloudWallet';
 import { useWalletManager } from './hooks/useWalletManager';
@@ -409,6 +408,20 @@ function App() {
           onClose={() => walletManager.setWalletToast((prev) => ({ ...prev, open: false }))}
         >
           {walletManager.walletToast.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={credentialManagement.credentialToast.open}
+        autoHideDuration={4000}
+        onClose={() => credentialManagement.setCredentialToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={credentialManagement.credentialToast.severity}
+          variant="filled"
+          onClose={() => credentialManagement.setCredentialToast((prev) => ({ ...prev, open: false }))}
+        >
+          {credentialManagement.credentialToast.message}
         </Alert>
       </Snackbar>
     </div>
