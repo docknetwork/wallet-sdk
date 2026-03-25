@@ -478,8 +478,6 @@ function App() {
   } = useCloudWallet(walletKeys, activeWalletId);
 
   const settingsMenuOpen = Boolean(settingsAnchorEl);
-  const activeWalletProfile = walletProfiles.find((profile) => profile.id === activeWalletId) || null;
-
   const handleOpenSettingsMenu = (event) => {
     setSettingsAnchorEl(event.currentTarget);
   };
@@ -1214,7 +1212,23 @@ function App() {
           ) : (
             <div className="did-display">
               <div className="did-info">
-                <strong>{activeWalletProfile?.name || "Wallet"}:</strong>
+                <div className="did-wallet-switcher">
+                  <label htmlFor="did-wallet-selector" className="did-wallet-switcher-label">Wallet</label>
+                  <select
+                    id="did-wallet-selector"
+                    className="did-wallet-selector"
+                    data-testid="wallet-selector-dropdown"
+                    value={activeWalletId || ''}
+                    onChange={(event) => handleSwitchWallet(event.target.value)}
+                    disabled={walletProfiles.length <= 1}
+                  >
+                    {walletProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <span className="did-value">{defaultDID}</span>
                 <div className="did-controls">
                   <div className="did-control-group did-copy-group">
