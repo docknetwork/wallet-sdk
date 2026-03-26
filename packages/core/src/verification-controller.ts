@@ -52,6 +52,7 @@ export function createVerificationController({
    */
   let statusData = null;
   let filteredCredentials = [];
+  let filteredMatches = [];
   let selectedCredentials: CredentialSelectionMap = new Map();
   let selectedDID = null;
 
@@ -110,6 +111,7 @@ export function createVerificationController({
       });
 
       filteredCredentials = result.verifiableCredential;
+      filteredMatches = result.matches || [];
     } catch (err) {
       console.error(
         `Unable to filter credentials using the template: \n ${JSON.stringify(
@@ -169,6 +171,43 @@ export function createVerificationController({
       id: getKeyId(keyDoc),
       domain: 'dock.io',
     });
+  }
+
+  async function createDefaultPresentation() {
+    assert(filteredCredentials.length > 0, 'No filtered credentials available');
+
+    selectedCredentials.clear();
+
+    if (filteredMatches.length > 0) {
+      // Select one credential per input descriptor using the first match
+      const seenDescriptors = new Set<string>();
+      for (const match of filteredMatches) {
+        const descriptorKey = match.name || match.id || '';
+        if (seenDescriptors.has(descriptorKey)) {
+          continue;
+        }
+        if (match.vc_path?.length > 0) {
+          // vc_path entries are like "$.verifiableCredential[0]"
+          const indexMatch = match.vc_path[0].match(/\[(\d+)\]/);
+          if (indexMatch) {
+            const idx = parseInt(indexMatch[1], 10);
+            const credential = filteredCredentials[idx];
+            if (credential) {
+              seenDescriptors.add(descriptorKey);
+              selectedCredentials.set(credential.id, { credential });
+            }
+          }
+        }
+      }
+    } else {
+      for (const credential of filteredCredentials) {
+        selectedCredentials.set(credential.id, { credential });
+      }
+    }
+
+    assert(selectedCredentials.size > 0, 'No credentials could be selected for the presentation');
+
+    return createPresentation();
   }
 
   async function createPresentation() {
@@ -304,6 +343,7 @@ export function createVerificationController({
     isBBSPlusCredential,
     loadCredentials,
     getFilteredCredentials,
+    createDefaultPresentation,
     createPresentation,
     evaluatePresentation,
     getTemplateJSON() {
