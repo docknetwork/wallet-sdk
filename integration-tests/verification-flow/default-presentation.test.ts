@@ -126,4 +126,228 @@ describe('Default presentation', () => {
     expect(presentation.verifiableCredential.length).toBeGreaterThanOrEqual(1);
 
   });
+
+  it('should return selected credentials by descriptor with alternatives', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+
+    expect(descriptors.length).toBeGreaterThanOrEqual(1);
+
+    const descriptor = descriptors[0];
+    expect(descriptor.selected).toBeDefined();
+    expect(descriptor.selected.id).toBeDefined();
+    expect(descriptor.descriptorName).toBeDefined();
+    // Template1 requires university degree, and we have 2 university degrees in the wallet
+    expect(descriptor.alternatives.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should return credential options for a selected credential', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const selectedCredentialId = descriptors[0].selected.id;
+
+    const options = controller.getCredentialOptionsForDescriptor(selectedCredentialId);
+
+    expect(options.selected.id).toBe(selectedCredentialId);
+    expect(options.alternatives.length).toBeGreaterThanOrEqual(1);
+    // The alternative should not be the same as the selected credential
+    expect(options.alternatives.every(alt => alt.id !== selectedCredentialId)).toBe(true);
+  });
+
+  it('should switch a credential and generate a valid presentation', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const originalCredentialId = descriptors[0].selected.id;
+    const replacementCredentialId = descriptors[0].alternatives[0].id;
+
+    const newPresentation = await controller.switchCredential(
+      originalCredentialId,
+      replacementCredentialId,
+    );
+
+    expect(newPresentation).toBeDefined();
+    expect(newPresentation.type).toEqual(['VerifiablePresentation']);
+
+    // Verify the selected credentials were actually swapped
+    const updatedDescriptors = controller.getSelectedCredentialsByDescriptor();
+    expect(updatedDescriptors[0].selected.id).toBe(replacementCredentialId);
+
+    const result = controller.evaluatePresentation(newPresentation);
+    expect(result.isValid).toBe(true);
+  });
+
+  it('should throw when switching with a non-selected credential', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    await expect(
+      controller.switchCredential('non-existent-id', universityDegree2.id),
+    ).rejects.toThrow('is not currently selected');
+  });
+
+  it('should throw when switching with an ineligible replacement', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const selectedCredentialId = descriptors[0].selected.id;
+
+    await expect(
+      controller.switchCredential(selectedCredentialId, 'non-existent-credential'),
+    ).rejects.toThrow('is not a valid replacement');
+  });
+
+  it('should return requested attributes for a credential', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const selectedCredentialId = descriptors[0].selected.id;
+
+    const attributes = controller.getRequestedAttributes(selectedCredentialId);
+
+    expect(attributes.length).toBeGreaterThanOrEqual(1);
+    // Template1 requests dateOfBirth
+    const dateOfBirth = attributes.find(a => a.name === 'credentialSubject.dateOfBirth');
+    expect(dateOfBirth).toBeDefined();
+    expect(dateOfBirth.isRangeProof).toBe(false);
+    expect(dateOfBirth.value).toBeDefined();
+  });
+
+  it('should identify range proof attributes', async () => {
+    const proofRequest = await createProofRequest(template2);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const selectedCredentialId = descriptors[0].selected.id;
+
+    const attributes = controller.getRequestedAttributes(selectedCredentialId);
+
+    const rangeProofAttr = attributes.find(a => a.isRangeProof);
+    expect(rangeProofAttr).toBeDefined();
+    expect(rangeProofAttr.value).toBeNull();
+    expect(rangeProofAttr.min !== undefined || rangeProofAttr.max !== undefined).toBe(true);
+  });
+
+  it('should return credential status for a valid credential', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const selectedCredentialId = descriptors[0].selected.id;
+
+    const status = await controller.getCredentialStatus(selectedCredentialId);
+
+    expect(status).toBeDefined();
+    expect(status.status).toBe('verified');
+  });
+
+  it('should check if a credential can be switched', async () => {
+    const proofRequest = await createProofRequest(template1);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    await controller.createDefaultPresentation();
+
+    const descriptors = controller.getSelectedCredentialsByDescriptor();
+    const selectedCredentialId = descriptors[0].selected.id;
+
+    // Template1 has 2 matching university degrees, so switching should be possible
+    expect(controller.canSwitchCredential(selectedCredentialId)).toBe(true);
+    // Non-existent credential should return false
+    expect(controller.canSwitchCredential('non-existent-id')).toBe(false);
+  });
 });

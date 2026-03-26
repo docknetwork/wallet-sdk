@@ -188,18 +188,15 @@ export function createVerificationController({
       for (const match of filteredMatches) {
         const key = groupKey(match);
         if (match.from || !seen.has(key)) {
-          // Distinct requirement: new `from` group or first match without `from`
           seen.set(key, requirements.length);
           requirements.push([match]);
         } else {
-          // Alternative for an existing requirement
           requirements[seen.get(key)].push(match);
         }
       }
 
       // Select one credential per requirement
       for (const group of requirements) {
-        // Collect all candidate indices from the group
         const candidates: number[] = [];
         for (const match of group) {
           for (const path of match.vc_path || []) {
@@ -210,7 +207,6 @@ export function createVerificationController({
           }
         }
 
-        // Pick the first candidate not already selected, or fall back to the first
         const chosen = candidates.find(idx => {
           const cred = filteredCredentials[idx];
           return cred && !selectedCredentials.has(cred.id);
