@@ -34,6 +34,27 @@ type CredentialSelection = {
 };
 type CredentialSelectionMap = Map<CredentialId, CredentialSelection>;
 
+export interface IVerificationController {
+  emitter: EventEmitter;
+  selectedCredentials: CredentialSelectionMap;
+  getStatus: () => VerificationStatus;
+  getStatusData: () => any;
+  submitPresentation: (presentation: any) => Promise<any>;
+  getSelectedDID: () => string | null;
+  setSelectedDID: (did: string) => void;
+  start: (params: {template: string | any}) => Promise<void>;
+  isBBSPlusCredential: (credential: any) => Promise<boolean>;
+  loadCredentials: () => Promise<void>;
+  getFilteredCredentials: () => any[];
+  createPresentation: () => Promise<any>;
+  evaluatePresentation: (presentation: any) => {
+    isValid: boolean;
+    errors: any[];
+    warnings: any[];
+  };
+  getTemplateJSON: () => any;
+}
+
 export function createVerificationController({
   wallet,
   credentialProvider,
@@ -42,7 +63,7 @@ export function createVerificationController({
   wallet: IWallet;
   credentialProvider?: ICredentialProvider;
   didProvider?: IDIDProvider;
-}) {
+}): IVerificationController {
   const emitter = new EventEmitter();
   let templateJSON = null;
   let status = VerificationStatus.Started;
