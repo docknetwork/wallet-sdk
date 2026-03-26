@@ -21,13 +21,15 @@ export enum VerificationStatus {
   SelectingCredentials = 'SelectingCredentials',
 }
 
-function isRangeProofTemplate(templateJSON) {
-  return templateJSON.proving_key;
-}
-
 type CredentialId = string;
 type CredentialSelection = {
   credential: any;
+  /**
+   * Optional list of credential attributes to reveal in the presentation.
+   * When omitted, the credential-sdk automatically determines which attributes
+   * to reveal based on the PEX (Presentation Exchange) template requirements.
+   * This allows generating a default presentation without manual attribute selection.
+   */
   attributesToReveal?: string[];
 };
 type CredentialSelectionMap = Map<CredentialId, CredentialSelection>;
@@ -52,7 +54,6 @@ export function createVerificationController({
   let filteredCredentials = [];
   let selectedCredentials: CredentialSelectionMap = new Map();
   let selectedDID = null;
-  let provingKey = null;
 
   if (!credentialProvider) {
     credentialProvider = createCredentialProvider({wallet});
@@ -60,23 +61,6 @@ export function createVerificationController({
 
   if (!didProvider) {
     didProvider = createDIDProvider({wallet});
-  }
-
-  async function fetchProvingKey(templateJSON: any) {
-    if (templateJSON.proving_key) {
-      setState(VerificationStatus.FetchingProvingKey);
-      try {
-        provingKey = await axios
-          .get(templateJSON.proving_key)
-          .then(res => res.data);
-      } catch (err) {
-        setState(VerificationStatus.Error, {
-          message: 'failed_to_fetch_proving_key',
-        });
-
-        throw err;
-      }
-    }
   }
 
   async function start({template}: {template: string | any}) {
@@ -96,7 +80,6 @@ export function createVerificationController({
     selectedDID = dids[0].didDocument.id;
     templateJSON = await getJSON(template);
 
-    await fetchProvingKey(templateJSON);
     await loadCredentials();
 
     setState(VerificationStatus.SelectingCredentials);
@@ -154,71 +137,113 @@ export function createVerificationController({
     return credentialServiceRPC.isKvacCredential({credential});
   }
 
+  async function deriveNonBbsCredentials(sdJwtSelections, regularSelections) {
+    const credentials = [];
+
+    for (const sel of sdJwtSelections) {
+      const derived = await credentialServiceRPC.createSDJWTPresentation({
+        attributesToReveal: sel.attributesToReveal,
+        credential: sel.credential._sd_jwt.encoded,
+      });
+      credentials.push(derived);
+    }
+
+    for (const sel of regularSelections) {
+      credentials.push(sel.credential);
+    }
+
+    return credentials;
+  }
+
+  function getKeyId(keyDoc) {
+    return keyDoc.controller.startsWith('did:key:')
+      ? keyDoc.id
+      : `${keyDoc.controller}#keys-1`;
+  }
+
+  async function assembleSignedPresentation(credentials, keyDoc) {
+    return credentialServiceRPC.createPresentation({
+      credentials,
+      challenge: templateJSON.nonce,
+      keyDoc,
+      id: getKeyId(keyDoc),
+      domain: 'dock.io',
+    });
+  }
+
   async function createPresentation() {
     assert(!!selectedDID, 'No DID selected');
     assert(!!selectedCredentials.size, 'No credentials selected');
 
-    if (isRangeProofTemplate(templateJSON)) {
-      // TODO: Implement proving key usage for range-proofs
-      assert(!!provingKey, 'No proving key found');
-    }
+    const didKeyPairList = await didProvider.getDIDKeyPairs();
+    const keyDoc = didKeyPairList.find(doc => doc.controller === selectedDID);
+    assert(keyDoc, `No key pair found for the selected DID ${selectedDID}`);
 
-    const credentials = [];
+    const sdJwtSelections = [];
+    const bbsKvacSelections = [];
+    const regularSelections = [];
 
     for (const credentialSelection of selectedCredentials.values()) {
-      const isBBS = await isBBSPlusCredential(credentialSelection.credential);
-      const isKVAC = await isKvacCredential(credentialSelection.credential);
-
       if (credentialSelection.credential._sd_jwt) {
-        const derivedCredential =
-          await credentialServiceRPC.createSDJWTPresentation({
-            attributesToReveal: credentialSelection.attributesToReveal,
-            credential: credentialSelection.credential._sd_jwt.encoded,
-          });
-
-        credentials.push(derivedCredential);
-      } else if (isBBS || isKVAC) {
-        // derive credential
-        const derivedCredentials =
-          await credentialServiceRPC.deriveVCFromPresentation({
-            proofRequest: templateJSON,
-            
-            credentials: [
-              {
-                credential: credentialSelection.credential,
-                witness: await credentialProvider.getMembershipWitness(credentialSelection.credential.id),
-                attributesToReveal: [
-                  ...(credentialSelection.attributesToReveal || []),
-                  'id',
-                ],
-              },
-            ],
-          });
-
-        console.log('Credential derived');
-
-        credentials.push(derivedCredentials[0]);
+        sdJwtSelections.push(credentialSelection);
       } else {
-        credentials.push(credentialSelection.credential);
+        const isBBS = await isBBSPlusCredential(credentialSelection.credential);
+        const isKVAC = await isKvacCredential(credentialSelection.credential);
+        if (isBBS || isKVAC) {
+          bbsKvacSelections.push(credentialSelection);
+        } else {
+          regularSelections.push(credentialSelection);
+        }
       }
     }
 
-    const didKeyPairList = await didProvider.getDIDKeyPairs();
-    const keyDoc = didKeyPairList.find(doc => doc.controller === selectedDID);
+    if (bbsKvacSelections.length > 0) {
+      // When attributesToReveal is undefined, the credential-sdk will automatically
+      // determine which attributes to reveal based on the PEX template requirements.
+      // This enables generating a default presentation without manual attribute selection.
+      const credentialsWithWitness = await Promise.all(
+        bbsKvacSelections.map(async sel => ({
+          credential: sel.credential,
+          witness: await credentialProvider.getMembershipWitness(sel.credential.id),
+          attributesToReveal: sel.attributesToReveal,
+        })),
+      );
 
-    assert(keyDoc, `No key pair found for the selected DID ${selectedDID}`);
+      // Pure BBS+/KVAC: use generatePresentationFromPex end-to-end
+      if (sdJwtSelections.length === 0 && regularSelections.length === 0) {
+        return credentialServiceRPC.generatePresentationFromPex({
+          credentials: credentialsWithWitness,
+          pexRequest: templateJSON.request,
+          holderKeyDoc: keyDoc,
+          holderDid: selectedDID,
+          challenge: templateJSON.nonce,
+          domain: 'dock.io',
+          boundCheckSnarkKey: templateJSON.boundCheckSnarkKey,
+          skipSigning: true,
+        });
+      }
 
-    const presentation = await credentialServiceRPC.createPresentation({
-      credentials,
-      challenge: templateJSON.nonce,
-      keyDoc,
-      id: keyDoc.controller.startsWith('did:key:')
-        ? keyDoc.id
-        : `${keyDoc.controller}#keys-1`,
-      domain: 'dock.io',
-    });
+      // Mixed: derive BBS+/KVAC, then combine with SD-JWT and regular
+      const derivedCredentials =
+        await credentialServiceRPC.deriveVCFromPresentation({
+          proofRequest: templateJSON,
+          credentials: credentialsWithWitness.map(c => ({
+            credential: c.credential,
+            witness: c.witness,
+            attributesToReveal: c.attributesToReveal,
+          })),
+        });
 
-    return presentation;
+      const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
+      return assembleSignedPresentation(
+        [...derivedCredentials, ...nonBbsCredentials],
+        keyDoc,
+      );
+    }
+
+    // No BBS+/KVAC: handle SD-JWT and regular only
+    const credentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
+    return assembleSignedPresentation(credentials, keyDoc);
   }
 
   /**

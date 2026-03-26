@@ -2,6 +2,7 @@ import {assertRpcService, getPromiseError} from '../test-utils';
 import {credentialService as service} from './service';
 import {validation} from './config';
 import * as credentialUtils from '@docknetwork/credential-sdk/vc';
+import * as pexUtils from '@docknetwork/credential-sdk/pex';
 import {CredentialServiceRPC} from './service-rpc';
 import {OpenID4VCIClientV1_0_13} from '@sphereon/oid4vci-client';
 import {didService} from '../dids/service';
@@ -564,6 +565,245 @@ describe('Credential Service', () => {
       expect(result).toEqual({
         authorizationURL: mockClient.authorizationURL,
       });
+    });
+  });
+
+  describe('generatePresentationFromPex', () => {
+    let generateSpy;
+
+    const basePexRequest = {
+      id: 'test-request',
+      input_descriptors: [
+        {
+          id: 'Credential 1',
+          constraints: {fields: [{path: ['$.type[*]']}]},
+        },
+      ],
+    };
+
+    const baseCredential = {
+      id: 'https://example.com/credential/1',
+      type: ['VerifiableCredential'],
+      credentialSubject: {id: 'did:example:123', name: 'Test'},
+      proof: {type: 'Bls12381BBS+SignatureDock2022'},
+    };
+
+    beforeEach(() => {
+      generateSpy = jest.spyOn(pexUtils, 'generatePresentationFromPexRequest');
+    });
+
+    afterEach(() => {
+      generateSpy.mockRestore();
+    });
+
+    it('should reject empty credentials array', async () => {
+      const error = await getPromiseError(() =>
+        service.generatePresentationFromPex({
+          credentials: [],
+          pexRequest: basePexRequest,
+          challenge: 'test-challenge',
+        }),
+      );
+      expect(error.message).toBe('no credential found');
+    });
+
+    it('should reject non-array credentials', async () => {
+      const error = await getPromiseError(() =>
+        service.generatePresentationFromPex({
+          credentials: 'invalid',
+          pexRequest: basePexRequest,
+          challenge: 'test-challenge',
+        }),
+      );
+      expect(error.message).toBe('invalid credentials');
+    });
+
+    it('should reject missing pexRequest', async () => {
+      const error = await getPromiseError(() =>
+        service.generatePresentationFromPex({
+          credentials: [{credential: baseCredential}],
+          challenge: 'test-challenge',
+        }),
+      );
+      expect(error.message).toBe('pexRequest is required');
+    });
+
+    it('should reject missing challenge', async () => {
+      const error = await getPromiseError(() =>
+        service.generatePresentationFromPex({
+          credentials: [{credential: baseCredential}],
+          pexRequest: basePexRequest,
+        }),
+      );
+      expect(error.message).toBe('challenge is required');
+    });
+
+    it('should call generatePresentationFromPexRequest and return presentation', async () => {
+      const mockPresentation = {
+        type: ['VerifiablePresentation'],
+        verifiableCredential: [baseCredential],
+      };
+
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.SUCCESS,
+        presentation: mockPresentation,
+      });
+
+      const result = await service.generatePresentationFromPex({
+        credentials: [
+          {
+            credential: baseCredential,
+            attributesToReveal: ['credentialSubject.name'],
+          },
+        ],
+        pexRequest: basePexRequest,
+        challenge: 'test-challenge',
+        domain: 'dock.io',
+        skipSigning: true,
+      });
+
+      expect(result).toEqual(mockPresentation);
+      expect(pexUtils.generatePresentationFromPexRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          credentials: [baseCredential],
+          pexRequest: basePexRequest,
+          challenge: 'test-challenge',
+          domain: 'dock.io',
+          skipSigning: true,
+          selectiveDisclosure: {
+            credentials: [
+              {
+                attributes: ['credentialSubject.name', 'id'],
+                witness: undefined,
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should throw when generation status is not SUCCESS', async () => {
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.REQUIREMENTS_NOT_MET,
+        error: new Error(
+          'Credentials do not satisfy the presentation definition',
+        ),
+      });
+
+      const error = await getPromiseError(() =>
+        service.generatePresentationFromPex({
+          credentials: [{credential: baseCredential}],
+          pexRequest: basePexRequest,
+          challenge: 'test-challenge',
+          skipSigning: true,
+        }),
+      );
+
+      expect(error.message).toBe(
+        'Credentials do not satisfy the presentation definition',
+      );
+    });
+
+    it('should throw generic error when generation fails without error object', async () => {
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.REQUIREMENTS_NOT_MET,
+      });
+
+      const error = await getPromiseError(() =>
+        service.generatePresentationFromPex({
+          credentials: [{credential: baseCredential}],
+          pexRequest: basePexRequest,
+          challenge: 'test-challenge',
+          skipSigning: true,
+        }),
+      );
+
+      expect(error.message).toBe(
+        'Presentation generation failed: requirements_not_met',
+      );
+    });
+
+    it('should pass credentials without witness as undefined', async () => {
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.SUCCESS,
+        presentation: {type: ['VerifiablePresentation']},
+      });
+
+      await service.generatePresentationFromPex({
+        credentials: [{credential: baseCredential, attributesToReveal: []}],
+        pexRequest: basePexRequest,
+        challenge: 'test-challenge',
+        skipSigning: true,
+      });
+
+      const callArgs = generateSpy.mock.calls[0][0];
+      expect(
+        callArgs.selectiveDisclosure.credentials[0].witness,
+      ).toBeUndefined();
+    });
+
+    it('should not include loadProvingKey when no boundCheckSnarkKey', async () => {
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.SUCCESS,
+        presentation: {type: ['VerifiablePresentation']},
+      });
+
+      await service.generatePresentationFromPex({
+        credentials: [{credential: baseCredential}],
+        pexRequest: basePexRequest,
+        challenge: 'test-challenge',
+        skipSigning: true,
+      });
+
+      const callArgs = generateSpy.mock.calls[0][0];
+      expect(callArgs.loadProvingKey).toBeUndefined();
+    });
+
+    it('should include loadProvingKey when boundCheckSnarkKey is provided', async () => {
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.SUCCESS,
+        presentation: {type: ['VerifiablePresentation']},
+      });
+
+      await service.generatePresentationFromPex({
+        credentials: [{credential: baseCredential}],
+        pexRequest: basePexRequest,
+        challenge: 'test-challenge',
+        boundCheckSnarkKey: 'SGVsbG8gV29ybGQ=',
+        skipSigning: true,
+      });
+
+      const callArgs = generateSpy.mock.calls[0][0];
+      expect(typeof callArgs.loadProvingKey).toBe('function');
+    });
+
+    it('should always append id to attributesToReveal', async () => {
+      generateSpy.mockResolvedValueOnce({
+        status: pexUtils.GeneratePresentationStatus.SUCCESS,
+        presentation: {type: ['VerifiablePresentation']},
+      });
+
+      await service.generatePresentationFromPex({
+        credentials: [
+          {
+            credential: baseCredential,
+            attributesToReveal: ['credentialSubject.name'],
+          },
+          {credential: baseCredential},
+        ],
+        pexRequest: basePexRequest,
+        challenge: 'test-challenge',
+        skipSigning: true,
+      });
+
+      const callArgs = generateSpy.mock.calls[0][0];
+      expect(callArgs.selectiveDisclosure.credentials[0].attributes).toEqual([
+        'credentialSubject.name',
+        'id',
+      ]);
+      expect(callArgs.selectiveDisclosure.credentials[1].attributes).toEqual([
+        'id',
+      ]);
     });
   });
 });

@@ -40,6 +40,13 @@ export const validation = {
       'publicKeyBase58 is not present',
     );
   },
+  generatePresentationFromPex: params => {
+    const {credentials, pexRequest, challenge} = params;
+    assert(Array.isArray(credentials), 'invalid credentials');
+    assert(credentials.length > 0, 'no credential found');
+    assert(pexRequest, 'pexRequest is required');
+    assert(challenge, 'challenge is required');
+  },
   createPresentation: params => {
     const {credentials, keyDoc, challenge, id} = params;
     assert(typeof id === 'string', 'invalid id');
