@@ -766,7 +766,9 @@ class CredentialService {
       const attributesToSkip = descriptorBounds[idx]
         ? descriptorBounds[idx].map(bound => bound.attributeName)
         : [];
-      const filteredAttributes = attributesToReveal.filter(
+      // attributesToReveal may be undefined when using default presentation generation,
+      // in which case only PEX-required attributes will be revealed
+      const filteredAttributes = (attributesToReveal || []).filter(
         attribute => !attributesToSkip.includes(attribute) && !shouldSkipAttribute(attribute),
       );
       const _pexRequiredAttributes = pexRequiredAttributes[idx] || [];
