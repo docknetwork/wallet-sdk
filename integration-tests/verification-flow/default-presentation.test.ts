@@ -106,8 +106,7 @@ describe('Default presentation', () => {
 
   });
 
-  // TODO: multi-credential BBS+ presentations are not yet supported by the SDK
-  it.skip('should create a default presentation with 2 range proofs', async () => {
+  it('should create a default presentation with 2 range proofs', async () => {
     const proofRequest = await createProofRequest(template4);
 
     const controller = createVerificationController({

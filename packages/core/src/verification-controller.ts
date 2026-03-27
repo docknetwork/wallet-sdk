@@ -272,8 +272,8 @@ export function createVerificationController({
         })),
       );
 
-      // Pure BBS+/KVAC: use generatePresentationFromPex end-to-end
-      if (sdJwtSelections.length === 0 && regularSelections.length === 0) {
+      // Single BBS+/KVAC credential: use generatePresentationFromPex end-to-end
+      if (credentialsWithWitness.length === 1 && sdJwtSelections.length === 0 && regularSelections.length === 0) {
         return credentialServiceRPC.generatePresentationFromPex({
           credentials: credentialsWithWitness,
           pexRequest: templateJSON.request,
@@ -286,16 +286,20 @@ export function createVerificationController({
         });
       }
 
-      // Mixed: derive BBS+/KVAC, then combine with SD-JWT and regular
-      const derivedCredentials =
-        await credentialServiceRPC.deriveVCFromPresentation({
-          proofRequest: templateJSON,
-          credentials: credentialsWithWitness.map(c => ({
-            credential: c.credential,
-            witness: c.witness,
-            attributesToReveal: c.attributesToReveal,
-          })),
-        });
+      // Multiple BBS+/KVAC or mixed: derive each BBS+/KVAC credential separately, then assemble
+      const derivedResults = await Promise.all(
+        credentialsWithWitness.map(c =>
+          credentialServiceRPC.deriveVCFromPresentation({
+            proofRequest: templateJSON,
+            credentials: [{
+              credential: c.credential,
+              witness: c.witness,
+              attributesToReveal: c.attributesToReveal,
+            }],
+          }),
+        ),
+      );
+      const derivedCredentials = derivedResults.flat();
 
       const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
       return assembleSignedPresentation(
