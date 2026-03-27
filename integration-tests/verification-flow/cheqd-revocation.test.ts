@@ -11,7 +11,8 @@ import { cheqdRevocationCredential } from './bbs-plus-revocation-credentials';
 
 jest.retryTimes(5);
 
-describe('BBS+ revocation cheqd', () => {
+// Skipped: will be handled in https://dock-team.atlassian.net/browse/DCKA-5410
+describe.skip('BBS+ revocation cheqd', () => {
   it('should verify a revokable bbs+ credential issued on cheqd', async () => {
     const wallet: IWallet = await getWallet();
 
