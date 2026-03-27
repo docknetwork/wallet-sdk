@@ -2,6 +2,7 @@ module.exports = {
   testEnvironment: 'node',
   testTimeout: 30000,
   testMatch: ['<rootDir>/**/!(*.e2e).test.js'],
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/bundler/'],
   transform: {
     '^.+\\.(ts|tsx)?$': 'ts-jest',
     '^.+\\.(js|jsx|cjs)$': [
