@@ -311,7 +311,7 @@ export function createVerificationController({
    */
   function evaluatePresentation(presentation) {
     const definition = getPresentationDefinition();
-    const result = credentialServiceRPC.evaluatePresentation({
+    const result = pexService.evaluatePresentation({
       presentation,
       presentationDefinition: definition,
     });

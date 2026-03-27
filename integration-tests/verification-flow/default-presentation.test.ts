@@ -47,13 +47,15 @@ describe('Default presentation', () => {
 
     const presentation = await controller.createDefaultPresentation();
 
-    debugger;
-    // expect(presentation.credentials[0]).toStrictEqual(credential);
-    // expect(presentation.type).toEqual(['VerifiablePresentation']);
+    expect(presentation).toBeDefined();
+    expect(presentation.type).toEqual(['VerifiablePresentation']);
+    expect(presentation.verifiableCredential).toBeDefined();
+    expect(presentation.verifiableCredential.length).toBe(1);
 
-    // const result = await controller.evaluatePresentation(presentation);
+    const result = controller.evaluatePresentation(presentation);
 
-    // expect(result.isValid).toBe(true);
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   afterAll(() => closeWallet());
