@@ -1,3 +1,4 @@
+/* global globalThis */
 const {test, expect} = require('@playwright/test');
 
 const BASE_URL = 'http://localhost:8787';
@@ -64,7 +65,10 @@ test.describe('React Native WebView Bundle', () => {
     const globals = await page.evaluate(() => {
       return {
         hasProcess: typeof globalThis.process !== 'undefined',
-        processType: typeof globalThis.process !== 'undefined' ? globalThis.process.type : null,
+        processType:
+          typeof globalThis.process !== 'undefined'
+            ? globalThis.process.type
+            : null,
         jsSha256NoNodeJs: window.JS_SHA256_NO_NODE_JS,
       };
     });
@@ -74,7 +78,9 @@ test.describe('React Native WebView Bundle', () => {
     expect(globals.jsSha256NoNodeJs).toBe(true);
   });
 
-  test('bundle.js should not have unhandled promise rejections', async ({page}) => {
+  test('bundle.js should not have unhandled promise rejections', async ({
+    page,
+  }) => {
     const rejections = [];
 
     page.on('pageerror', err => {
@@ -90,8 +96,8 @@ test.describe('React Native WebView Bundle', () => {
     await page.waitForTimeout(5000);
 
     const pageErrors = await page.evaluate(() => {
-      return (window.__bundleErrors || []).filter(e =>
-        e.message && e.message.includes('Unhandled rejection')
+      return (window.__bundleErrors || []).filter(
+        e => e.message && e.message.includes('Unhandled rejection'),
       );
     });
 

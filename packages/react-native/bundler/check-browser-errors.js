@@ -1,4 +1,4 @@
-const { chromium } = require('playwright');
+const {chromium} = require('playwright');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +16,10 @@ const mimeTypes = {
 function createServer() {
   return new Promise(resolve => {
     const server = http.createServer((req, res) => {
-      const filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url);
+      const filePath = path.join(
+        publicDir,
+        req.url === '/' ? 'index.html' : req.url,
+      );
       const ext = path.extname(filePath);
       const contentType = mimeTypes[ext] || 'application/octet-stream';
 
@@ -26,7 +29,7 @@ function createServer() {
           res.end('Not found');
           return;
         }
-        res.writeHead(200, { 'Content-Type': contentType });
+        res.writeHead(200, {'Content-Type': contentType});
         res.end(data);
       });
     });
@@ -42,7 +45,7 @@ function createServer() {
   const port = server.address().port;
   const url = `http://127.0.0.1:${port}/`;
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({headless: true});
   const page = await browser.newPage();
 
   const errors = [];
@@ -65,14 +68,22 @@ function createServer() {
   console.log(`Serving ${publicDir} at ${url}\n`);
 
   try {
-    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    await page.goto(url, {waitUntil: 'load', timeout: 30000});
     await page.waitForTimeout(3000);
 
     // Check if the app is actually functional despite WASM warnings
     const appState = await page.evaluate(() => {
       return {
         hasErrors: typeof window.__WALLET_SDK_ERROR__ !== 'undefined',
-        windowKeys: Object.keys(window).filter(k => k.includes('sodium') || k.includes('Sodium') || k.includes('wallet') || k.includes('Wallet')).slice(0, 10),
+        windowKeys: Object.keys(window)
+          .filter(
+            k =>
+              k.includes('sodium') ||
+              k.includes('Sodium') ||
+              k.includes('wallet') ||
+              k.includes('Wallet'),
+          )
+          .slice(0, 10),
       };
     });
     console.log('\nApp state:', JSON.stringify(appState, null, 2));

@@ -9,11 +9,11 @@
  */
 
 async function build({entry = 'bundle', callback} = {}) {
-  const { rollup } = await import('rollup');
-  const { default: getConfig } = await import('./rollup.config.mjs');
+  const {rollup} = await import('rollup');
+  const {default: getConfig} = await import('./rollup.config.mjs');
 
   const entryName = entry === 'sandbox' ? 'sandbox' : 'bundle';
-  const config = getConfig({ entry: entryName });
+  const config = getConfig({entry: entryName});
 
   console.log(`Building ${entryName}.js with rollup...`);
   const bundle = await rollup(config);
@@ -26,4 +26,4 @@ async function build({entry = 'bundle', callback} = {}) {
   }
 }
 
-module.exports = { build };
+module.exports = {build};

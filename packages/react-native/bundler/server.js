@@ -17,7 +17,10 @@ const mimeTypes = {
 };
 
 const server = http.createServer((req, res) => {
-  const filePath = path.join(publicDir, req.url === '/' ? 'index.html' : req.url);
+  const filePath = path.join(
+    publicDir,
+    req.url === '/' ? 'index.html' : req.url,
+  );
   const ext = path.extname(filePath);
   const contentType = mimeTypes[ext] || 'application/octet-stream';
 
@@ -27,7 +30,7 @@ const server = http.createServer((req, res) => {
       res.end('Not found');
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, {'Content-Type': contentType});
     res.end(data);
   });
 });

@@ -9,4 +9,4 @@ class AsyncResource {
   emitDestroy() {}
 }
 
-module.exports = { AsyncResource };
+module.exports = {AsyncResource};

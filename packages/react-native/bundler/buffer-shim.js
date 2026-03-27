@@ -2,8 +2,8 @@
 // We re-export everything from the polyfill plus browser-native Blob/File
 var buffer = require('buffer-polyfill');
 
-var _Blob = (typeof Blob !== 'undefined') ? Blob : undefined;
-var _File = (typeof File !== 'undefined') ? File : undefined;
+var _Blob = typeof Blob !== 'undefined' ? Blob : undefined;
+var _File = typeof File !== 'undefined' ? File : undefined;
 
 module.exports = {
   Buffer: buffer.Buffer,
