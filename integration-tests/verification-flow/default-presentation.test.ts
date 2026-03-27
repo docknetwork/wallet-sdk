@@ -105,4 +105,26 @@ describe('Default presentation', () => {
     expect(presentation.verifiableCredential.length).toBe(1);
 
   });
+
+  // TODO: multi-credential BBS+ presentations are not yet supported by the SDK
+  it.skip('should create a default presentation with 2 range proofs', async () => {
+    const proofRequest = await createProofRequest(template4);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    const presentation = await controller.createDefaultPresentation();
+
+    expect(presentation).toBeDefined();
+    expect(presentation.type).toEqual(['VerifiablePresentation']);
+    expect(presentation.verifiableCredential).toBeDefined();
+    expect(presentation.verifiableCredential.length).toBeGreaterThanOrEqual(1);
+
+  });
 });

@@ -179,23 +179,47 @@ export function createVerificationController({
     selectedCredentials.clear();
 
     if (filteredMatches.length > 0) {
-      // Select one credential per input descriptor using the first match
-      const seenDescriptors = new Set<string>();
+      // Group matches by requirement: matches with distinct `from` values are separate requirements,
+      // matches without `from` sharing the same name/id are alternatives for the same requirement
+      const requirements: Array<typeof filteredMatches> = [];
+      const groupKey = (match) => match.from ? JSON.stringify(match.from) : (match.name || match.id || '');
+      const seen = new Map<string, number>();
+
       for (const match of filteredMatches) {
-        const descriptorKey = match.name || match.id || '';
-        if (seenDescriptors.has(descriptorKey)) {
-          continue;
+        const key = groupKey(match);
+        if (match.from || !seen.has(key)) {
+          // Distinct requirement: new `from` group or first match without `from`
+          seen.set(key, requirements.length);
+          requirements.push([match]);
+        } else {
+          // Alternative for an existing requirement
+          requirements[seen.get(key)].push(match);
         }
-        if (match.vc_path?.length > 0) {
-          // vc_path entries are like "$.verifiableCredential[0]"
-          const indexMatch = match.vc_path[0].match(/\[(\d+)\]/);
-          if (indexMatch) {
-            const idx = parseInt(indexMatch[1], 10);
-            const credential = filteredCredentials[idx];
-            if (credential) {
-              seenDescriptors.add(descriptorKey);
-              selectedCredentials.set(credential.id, { credential });
+      }
+
+      // Select one credential per requirement
+      for (const group of requirements) {
+        // Collect all candidate indices from the group
+        const candidates: number[] = [];
+        for (const match of group) {
+          for (const path of match.vc_path || []) {
+            const indexMatch = path.match(/\[(\d+)\]/);
+            if (indexMatch) {
+              candidates.push(parseInt(indexMatch[1], 10));
             }
+          }
+        }
+
+        // Pick the first candidate not already selected, or fall back to the first
+        const chosen = candidates.find(idx => {
+          const cred = filteredCredentials[idx];
+          return cred && !selectedCredentials.has(cred.id);
+        }) ?? candidates[0];
+
+        if (chosen !== undefined) {
+          const credential = filteredCredentials[chosen];
+          if (credential) {
+            selectedCredentials.set(credential.id, { credential });
           }
         }
       }
