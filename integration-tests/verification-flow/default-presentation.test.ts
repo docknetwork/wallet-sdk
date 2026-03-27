@@ -22,18 +22,24 @@ const template3 = 'a3e775bb-aaab-4489-b31b-746dc74f76c5';
 // 2 range proofs
 const template4 = '9b434ed1-3b65-4b7c-b678-afc7e218f063';
 
-describe('Default presentation', () => {
-  it('should create a default presentation using filtered credentials', async () => {
-    const wallet: IWallet = await getWallet();
-    const didProvider = getDIDProvider();
+let wallet: IWallet;
+let didProvider;
 
+describe('Default presentation', () => {
+  beforeAll(async () => {
+    wallet = await getWallet();
+    didProvider = getDIDProvider();
     const credentialProvider = getCredentialProvider();
 
     await didProvider.ensureDID();
     await credentialProvider.addCredential(universityDegree);
     await credentialProvider.addCredential(universityDegree2);
     await credentialProvider.addCredential(equinetCreditScore);
+  });
 
+  afterAll(() => closeWallet());
+
+  it('should create a default presentation for university degree', async () => {
     const proofRequest = await createProofRequest(template1);
 
     const controller = createVerificationController({
@@ -58,5 +64,24 @@ describe('Default presentation', () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  afterAll(() => closeWallet());
+  it('should create a default presentation with range proof', async () => {
+    const proofRequest = await createProofRequest(template2);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    const presentation = await controller.createDefaultPresentation();
+
+    expect(presentation).toBeDefined();
+    expect(presentation.type).toEqual(['VerifiablePresentation']);
+    expect(presentation.verifiableCredential).toBeDefined();
+    expect(presentation.verifiableCredential.length).toBe(1);
+
+  });
 });
