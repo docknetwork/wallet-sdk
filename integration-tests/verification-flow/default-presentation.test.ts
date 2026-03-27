@@ -84,4 +84,25 @@ describe('Default presentation', () => {
     expect(presentation.verifiableCredential.length).toBe(1);
 
   });
+
+  it('should create a default presentation for any credential with dateOfBirth', async () => {
+    const proofRequest = await createProofRequest(template3);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    const presentation = await controller.createDefaultPresentation();
+
+    expect(presentation).toBeDefined();
+    expect(presentation.type).toEqual(['VerifiablePresentation']);
+    expect(presentation.verifiableCredential).toBeDefined();
+    expect(presentation.verifiableCredential.length).toBe(1);
+
+  });
 });
