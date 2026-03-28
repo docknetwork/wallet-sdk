@@ -52,6 +52,7 @@ export function createVerificationController({
    */
   let statusData = null;
   let filteredCredentials = [];
+  let filteredMatches = [];
   let selectedCredentials: CredentialSelectionMap = new Map();
   let selectedDID = null;
 
@@ -110,6 +111,7 @@ export function createVerificationController({
       });
 
       filteredCredentials = result.verifiableCredential;
+      filteredMatches = result.matches || [];
     } catch (err) {
       console.error(
         `Unable to filter credentials using the template: \n ${JSON.stringify(
@@ -171,6 +173,67 @@ export function createVerificationController({
     });
   }
 
+  async function createDefaultPresentation() {
+    assert(filteredCredentials.length > 0, 'No filtered credentials available');
+
+    selectedCredentials.clear();
+
+    if (filteredMatches.length > 0) {
+      // Group matches by requirement: matches with distinct `from` values are separate requirements,
+      // matches without `from` sharing the same name/id are alternatives for the same requirement
+      const requirements: Array<typeof filteredMatches> = [];
+      const groupKey = (match) => match.from ? JSON.stringify(match.from) : (match.name || match.id || '');
+      const seen = new Map<string, number>();
+
+      for (const match of filteredMatches) {
+        const key = groupKey(match);
+        if (match.from || !seen.has(key)) {
+          // Distinct requirement: new `from` group or first match without `from`
+          seen.set(key, requirements.length);
+          requirements.push([match]);
+        } else {
+          // Alternative for an existing requirement
+          requirements[seen.get(key)].push(match);
+        }
+      }
+
+      // Select one credential per requirement
+      for (const group of requirements) {
+        // Collect all candidate indices from the group
+        const candidates: number[] = [];
+        for (const match of group) {
+          for (const path of match.vc_path || []) {
+            const indexMatch = path.match(/\[(\d+)\]/);
+            if (indexMatch) {
+              candidates.push(parseInt(indexMatch[1], 10));
+            }
+          }
+        }
+
+        // Pick the first candidate not already selected, or fall back to the first
+        const chosen = candidates.find(idx => {
+          const cred = filteredCredentials[idx];
+          return cred && !selectedCredentials.has(cred.id);
+        }) ?? candidates[0];
+
+        if (chosen !== undefined) {
+          const credential = filteredCredentials[chosen];
+          if (credential) {
+            selectedCredentials.set(credential.id, { credential });
+          }
+        }
+      }
+    } else {
+      for (const credential of filteredCredentials) {
+        selectedCredentials.set(credential.id, { credential });
+      }
+    }
+
+    assert(selectedCredentials.size > 0, 'No credentials could be selected for the presentation');
+
+    return createPresentation();
+  }
+
   async function createPresentation() {
     assert(!!selectedDID, 'No DID selected');
     assert(!!selectedCredentials.size, 'No credentials selected');
@@ -209,8 +272,8 @@ export function createVerificationController({
         })),
       );
 
-      // Pure BBS+/KVAC: use generatePresentationFromPex end-to-end
-      if (sdJwtSelections.length === 0 && regularSelections.length === 0) {
+      // Single BBS+/KVAC credential: use generatePresentationFromPex end-to-end
+      if (credentialsWithWitness.length === 1 && sdJwtSelections.length === 0 && regularSelections.length === 0) {
         return credentialServiceRPC.generatePresentationFromPex({
           credentials: credentialsWithWitness,
           pexRequest: templateJSON.request,
@@ -223,16 +286,20 @@ export function createVerificationController({
         });
       }
 
-      // Mixed: derive BBS+/KVAC, then combine with SD-JWT and regular
-      const derivedCredentials =
-        await credentialServiceRPC.deriveVCFromPresentation({
-          proofRequest: templateJSON,
-          credentials: credentialsWithWitness.map(c => ({
-            credential: c.credential,
-            witness: c.witness,
-            attributesToReveal: c.attributesToReveal,
-          })),
-        });
+      // Multiple BBS+/KVAC or mixed: derive each BBS+/KVAC credential separately, then assemble
+      const derivedResults = await Promise.all(
+        credentialsWithWitness.map(c =>
+          credentialServiceRPC.deriveVCFromPresentation({
+            proofRequest: templateJSON,
+            credentials: [{
+              credential: c.credential,
+              witness: c.witness,
+              attributesToReveal: c.attributesToReveal,
+            }],
+          }),
+        ),
+      );
+      const derivedCredentials = derivedResults.flat();
 
       const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
       return assembleSignedPresentation(
@@ -272,7 +339,7 @@ export function createVerificationController({
    */
   function evaluatePresentation(presentation) {
     const definition = getPresentationDefinition();
-    const result = credentialServiceRPC.evaluatePresentation({
+    const result = pexService.evaluatePresentation({
       presentation,
       presentationDefinition: definition,
     });
@@ -304,6 +371,7 @@ export function createVerificationController({
     isBBSPlusCredential,
     loadCredentials,
     getFilteredCredentials,
+    createDefaultPresentation,
     createPresentation,
     evaluatePresentation,
     getTemplateJSON() {

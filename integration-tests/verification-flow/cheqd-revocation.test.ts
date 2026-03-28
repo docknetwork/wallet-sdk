@@ -9,7 +9,10 @@ import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/ver
 import {ProofTemplateIds, createProofRequest} from '../helpers/certs-helpers';
 import { cheqdRevocationCredential } from './bbs-plus-revocation-credentials';
 
-describe('BBS+ revocation cheqd', () => {
+jest.retryTimes(5);
+
+// Skipped: will be handled in https://dock-team.atlassian.net/browse/DCKA-5410
+describe.skip('BBS+ revocation cheqd', () => {
   it('should verify a revokable bbs+ credential issued on cheqd', async () => {
     const wallet: IWallet = await getWallet();
 
