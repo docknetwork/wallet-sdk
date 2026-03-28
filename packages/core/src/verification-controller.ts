@@ -290,6 +290,38 @@ export function createVerificationController({
     return createPresentation();
   }
 
+  function getAttributesToRevealFromTemplate(credential) {
+    const definition = getPresentationDefinition();
+    if (!definition?.input_descriptors) {
+      return ['id'];
+    }
+
+    const attributes = ['id'];
+    for (const descriptor of definition.input_descriptors) {
+      const fields = descriptor.constraints?.fields || [];
+      for (const field of fields) {
+        if (!field.path) continue;
+        const paths = Array.isArray(field.path) ? field.path : [field.path];
+        for (const p of paths) {
+          const attr = p.replace('$.', '');
+          if (attr && !attributes.includes(attr) && !attr.startsWith('type') &&
+              !attr.startsWith('issuer') && !attr.startsWith('@context') &&
+              !attr.startsWith('proof') && !attr.startsWith('credentialSchema') &&
+              !attr.startsWith('issuanceDate')) {
+            // Only include if the credential actually has this attribute
+            const value = attr.split('.').reduce((obj, key) => obj?.[key], credential);
+            if (value !== undefined) {
+              attributes.push(attr);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    return attributes;
+  }
+
   function ensureDescriptorMap(presentation) {
     if (
       presentation?.presentation_submission?.descriptor_map?.length > 0
@@ -348,28 +380,18 @@ export function createVerificationController({
       // determine which attributes to reveal based on the PEX template requirements.
       // This enables generating a default presentation without manual attribute selection.
       const credentialsWithWitness = await Promise.all(
-        bbsKvacSelections.map(async sel => ({
-          credential: sel.credential,
-          witness: await credentialProvider.getMembershipWitness(sel.credential.id),
-          attributesToReveal: sel.attributesToReveal,
-        })),
+        bbsKvacSelections.map(async sel => {
+          return {
+            credential: sel.credential,
+            witness: await credentialProvider.getMembershipWitness(sel.credential.id),
+            attributesToReveal: sel.attributesToReveal || getAttributesToRevealFromTemplate(sel.credential),
+          };
+        }),
       );
 
-      // Single BBS+/KVAC credential: use generatePresentationFromPex end-to-end
-      if (credentialsWithWitness.length === 1 && sdJwtSelections.length === 0 && regularSelections.length === 0) {
-        const presentation = await credentialServiceRPC.generatePresentationFromPex({
-          credentials: credentialsWithWitness,
-          pexRequest: templateJSON.request,
-          holderKeyDoc: keyDoc,
-          holderDid: selectedDID,
-          challenge: templateJSON.nonce,
-          domain: 'dock.io',
-          boundCheckSnarkKey: templateJSON.boundCheckSnarkKey,
-        });
-        return ensureDescriptorMap(presentation);
-      }
-
-      // Multiple BBS+/KVAC or mixed: derive each BBS+/KVAC credential separately, then assemble
+      // Derive each BBS+/KVAC credential separately, then assemble into a signed presentation.
+      // This approach uses deriveVCFromPresentation which properly handles range proof
+      // bound checks and produces presentations that the Truvera API can verify.
       const derivedResults = await Promise.all(
         credentialsWithWitness.map(c =>
           credentialServiceRPC.deriveVCFromPresentation({
@@ -389,7 +411,7 @@ export function createVerificationController({
         [...derivedCredentials, ...nonBbsCredentials],
         keyDoc,
       );
-      return ensureDescriptorMap(presentation);
+      return presentation;
     }
 
     // No BBS+/KVAC: handle SD-JWT and regular only

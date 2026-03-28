@@ -86,6 +86,9 @@ describe('Default presentation', () => {
     expect(presentation.type).toEqual(['VerifiablePresentation']);
     expect(presentation.verifiableCredential).toBeDefined();
     expect(presentation.verifiableCredential.length).toBe(1);
+
+    const submitResult = await controller.submitPresentation(presentation);
+    expect(submitResult.verified).toBe(true);
   });
 
   it('should create a default presentation for any credential with dateOfBirth', async () => {
@@ -130,6 +133,9 @@ describe('Default presentation', () => {
     expect(presentation.type).toEqual(['VerifiablePresentation']);
     expect(presentation.verifiableCredential).toBeDefined();
     expect(presentation.verifiableCredential.length).toBeGreaterThanOrEqual(1);
+
+    const submitResult = await controller.submitPresentation(presentation);
+    expect(submitResult.verified).toBe(true);
   });
 
   it('should return selected credentials by descriptor with alternatives', async () => {
