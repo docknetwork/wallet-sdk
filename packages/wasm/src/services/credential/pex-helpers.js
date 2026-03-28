@@ -7,8 +7,8 @@ export const MAX_DATE_PLACEHOLDER = 884541351600000;
 export const MIN_DATE_PLACEHOLDER = -17592186044415;
 export const MAX_INTEGER = Number.MAX_SAFE_INTEGER;
 export const MIN_INTEGER = Number.MIN_SAFE_INTEGER;
-export const MAX_NUMBER = Number.MAX_SAFE_INTEGER;
-export const MIN_NUMBER = Number.MIN_SAFE_INTEGER;
+export const MAX_NUMBER = 100 ** 5;
+export const MIN_NUMBER = -(100 ** 5);
 
 /*
   PEX Filter rules:
