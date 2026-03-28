@@ -95,7 +95,7 @@ export class WebviewEventHandler {
     this.onReady = onReady;
     this.debug = debug;
 
-    Logger.log('WebviewEventHandler initialized with debug mode:', this.debug);
+    Logger.info('WebviewEventHandler initialized with debug mode:', this.debug);
 
     this.dispatcher = new MessageDispatcher((body) => {
       const isSandbox = body?.__isSandbox;
@@ -119,7 +119,7 @@ export class WebviewEventHandler {
 
   handleSandboxEvent(event) {
     if (this.debug) {
-      Logger.log('Received sandbox event:', event.nativeEvent.data);
+      Logger.info('Received sandbox event:', event.nativeEvent.data);
     }
 
     const data = JSON.parse(event.nativeEvent.data);
@@ -134,7 +134,7 @@ export class WebviewEventHandler {
 
   handleEvent(event) {
     if (this.debug) {
-      Logger.log('Received event:', event.nativeEvent.data);
+      Logger.info('Received event:', event.nativeEvent.data);
     }
 
     assert(!!event, 'event is required');
@@ -160,7 +160,7 @@ export class WebviewEventHandler {
     }
 
     if (this.debug) {
-      Logger.log('Dispatching event:', {type, body: processedBody});
+      Logger.info('Dispatching event:', {type, body: processedBody});
     }
 
     this.dispatcher.dispatch(type, processedBody);
