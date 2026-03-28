@@ -62,6 +62,10 @@ describe('Default presentation', () => {
 
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
+
+    const submitResult = await controller.submitPresentation(presentation);
+
+    expect(submitResult.verified).toBe(true);
   });
 
   it('should create a default presentation with range proof', async () => {

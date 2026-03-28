@@ -290,6 +290,33 @@ export function createVerificationController({
     return createPresentation();
   }
 
+  function ensureDescriptorMap(presentation) {
+    if (
+      presentation?.presentation_submission?.descriptor_map?.length > 0
+    ) {
+      return presentation;
+    }
+
+    const definition = getPresentationDefinition();
+    if (!definition?.input_descriptors) {
+      return presentation;
+    }
+
+    const descriptorMap = definition.input_descriptors.map((descriptor, idx) => ({
+      id: descriptor.id,
+      format: 'ldp_vp',
+      path: `$.verifiableCredential[${idx}]`,
+    }));
+
+    presentation.presentation_submission = {
+      ...presentation.presentation_submission,
+      definition_id: definition.id,
+      descriptor_map: descriptorMap,
+    };
+
+    return presentation;
+  }
+
   async function createPresentation() {
     assert(!!selectedDID, 'No DID selected');
     assert(!!selectedCredentials.size, 'No credentials selected');
@@ -330,7 +357,7 @@ export function createVerificationController({
 
       // Single BBS+/KVAC credential: use generatePresentationFromPex end-to-end
       if (credentialsWithWitness.length === 1 && sdJwtSelections.length === 0 && regularSelections.length === 0) {
-        return credentialServiceRPC.generatePresentationFromPex({
+        const presentation = await credentialServiceRPC.generatePresentationFromPex({
           credentials: credentialsWithWitness,
           pexRequest: templateJSON.request,
           holderKeyDoc: keyDoc,
@@ -340,6 +367,7 @@ export function createVerificationController({
           boundCheckSnarkKey: templateJSON.boundCheckSnarkKey,
           skipSigning: true,
         });
+        return ensureDescriptorMap(presentation);
       }
 
       // Multiple BBS+/KVAC or mixed: derive each BBS+/KVAC credential separately, then assemble
@@ -358,15 +386,17 @@ export function createVerificationController({
       const derivedCredentials = derivedResults.flat();
 
       const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
-      return assembleSignedPresentation(
+      const presentation = await assembleSignedPresentation(
         [...derivedCredentials, ...nonBbsCredentials],
         keyDoc,
       );
+      return ensureDescriptorMap(presentation);
     }
 
     // No BBS+/KVAC: handle SD-JWT and regular only
     const credentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
-    return assembleSignedPresentation(credentials, keyDoc);
+    const presentation = await assembleSignedPresentation(credentials, keyDoc);
+    return ensureDescriptorMap(presentation);
   }
 
   /**
