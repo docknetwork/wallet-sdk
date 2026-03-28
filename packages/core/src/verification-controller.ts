@@ -365,7 +365,6 @@ export function createVerificationController({
           challenge: templateJSON.nonce,
           domain: 'dock.io',
           boundCheckSnarkKey: templateJSON.boundCheckSnarkKey,
-          skipSigning: true,
         });
         return ensureDescriptorMap(presentation);
       }
