@@ -47,6 +47,7 @@ export interface IVerificationController {
   loadCredentials: () => Promise<void>;
   getFilteredCredentials: () => any[];
   createPresentation: () => Promise<any>;
+  createDefaultPresentation: () => Promise<any>;
   evaluatePresentation: (presentation: any) => {
     isValid: boolean;
     errors: any[];
