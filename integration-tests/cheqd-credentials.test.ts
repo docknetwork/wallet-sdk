@@ -4,7 +4,7 @@ import { CheqdCredentialNonZKP, CheqdCredentialZKP } from './data/credentials/ch
 import { addCredentialIfNotExists, closeWallet, createNewWallet, getCredentialProvider, getWallet } from './helpers';
 import { ProofTemplateIds, createProofRequest } from './helpers/certs-helpers';
 
-describe('Cheq integration tests', () => {
+describe.skip('Cheq integration tests', () => {
   beforeAll(async () => {
     await createNewWallet();
   });

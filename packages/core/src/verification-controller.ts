@@ -195,65 +195,180 @@ export function createVerificationController({
     });
   }
 
+  function getRequirementGroups() {
+    if (filteredMatches.length === 0) {
+      return [{
+        descriptorKey: 'default',
+        descriptorName: 'default',
+        candidates: [...filteredCredentials],
+      }];
+    }
+
+    const groups: Array<{descriptorKey: string; descriptorName: string; candidates: any[]}> = [];
+    const groupKeyFn = (match) => match.from ? JSON.stringify(match.from) : (match.name || match.id || '');
+    const seen = new Map<string, number>();
+
+    for (const match of filteredMatches) {
+      const key = groupKeyFn(match);
+      const candidateIndices: number[] = [];
+      for (const path of match.vc_path || []) {
+        const indexMatch = path.match(/\[(\d+)\]/);
+        if (indexMatch) {
+          candidateIndices.push(parseInt(indexMatch[1], 10));
+        }
+      }
+      const candidates = candidateIndices
+        .map(idx => filteredCredentials[idx])
+        .filter(Boolean);
+
+      if (match.from || !seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({
+          descriptorKey: key,
+          descriptorName: match.name || match.id || key,
+          candidates,
+        });
+      } else {
+        const existing = groups[seen.get(key)];
+        for (const cred of candidates) {
+          if (!existing.candidates.some(c => c.id === cred.id)) {
+            existing.candidates.push(cred);
+          }
+        }
+      }
+    }
+
+    return groups;
+  }
+
   async function createDefaultPresentation() {
     assert(filteredCredentials.length > 0, 'No filtered credentials available');
 
     selectedCredentials.clear();
 
-    if (filteredMatches.length > 0) {
-      // Group matches by requirement: matches with distinct `from` values are separate requirements,
-      // matches without `from` sharing the same name/id are alternatives for the same requirement
-      const requirements: Array<typeof filteredMatches> = [];
-      const groupKey = (match) => match.from ? JSON.stringify(match.from) : (match.name || match.id || '');
-      const seen = new Map<string, number>();
-
-      for (const match of filteredMatches) {
-        const key = groupKey(match);
-        if (match.from || !seen.has(key)) {
-          // Distinct requirement: new `from` group or first match without `from`
-          seen.set(key, requirements.length);
-          requirements.push([match]);
-        } else {
-          // Alternative for an existing requirement
-          requirements[seen.get(key)].push(match);
-        }
-      }
-
-      // Select one credential per requirement
-      for (const group of requirements) {
-        // Collect all candidate indices from the group
-        const candidates: number[] = [];
-        for (const match of group) {
-          for (const path of match.vc_path || []) {
-            const indexMatch = path.match(/\[(\d+)\]/);
-            if (indexMatch) {
-              candidates.push(parseInt(indexMatch[1], 10));
-            }
-          }
-        }
-
-        // Pick the first candidate not already selected, or fall back to the first
-        const chosen = candidates.find(idx => {
-          const cred = filteredCredentials[idx];
-          return cred && !selectedCredentials.has(cred.id);
-        }) ?? candidates[0];
-
-        if (chosen !== undefined) {
-          const credential = filteredCredentials[chosen];
-          if (credential) {
-            selectedCredentials.set(credential.id, { credential });
-          }
-        }
-      }
-    } else {
-      for (const credential of filteredCredentials) {
-        selectedCredentials.set(credential.id, { credential });
+    const groups = getRequirementGroups();
+    for (const group of groups) {
+      const chosen = group.candidates.find(cred => !selectedCredentials.has(cred.id)) || group.candidates[0];
+      if (chosen) {
+        selectedCredentials.set(chosen.id, { credential: chosen });
       }
     }
 
     assert(selectedCredentials.size > 0, 'No credentials could be selected for the presentation');
 
     return createPresentation();
+  }
+
+  function getSelectedCredentialsByDescriptor() {
+    const groups = getRequirementGroups();
+
+    return groups.map(group => {
+      const selected = group.candidates.find(cred => selectedCredentials.has(cred.id)) || null;
+      const alternatives = group.candidates.filter(cred => !selected || cred.id !== selected.id);
+
+      return {
+        descriptorId: group.descriptorKey,
+        descriptorName: group.descriptorName,
+        selected,
+        alternatives,
+      };
+    });
+  }
+
+  function getCredentialOptionsForDescriptor(credentialId: string) {
+    const groups = getRequirementGroups();
+    const group = groups.find(g => g.candidates.some(c => c.id === credentialId));
+
+    assert(group, `Credential ${credentialId} not found in any descriptor group`);
+
+    const selected = group.candidates.find(c => c.id === credentialId);
+    const alternatives = group.candidates.filter(c => c.id !== credentialId);
+
+    return {
+      descriptorId: group.descriptorKey,
+      descriptorName: group.descriptorName,
+      selected,
+      alternatives,
+    };
+  }
+
+  async function switchCredential(currentCredentialId: string, replacementCredentialId: string) {
+    assert(
+      selectedCredentials.has(currentCredentialId),
+      `Credential ${currentCredentialId} is not currently selected`,
+    );
+
+    const options = getCredentialOptionsForDescriptor(currentCredentialId);
+    const replacement = options.alternatives.find(c => c.id === replacementCredentialId);
+
+    assert(
+      replacement,
+      `Credential ${replacementCredentialId} is not a valid replacement for ${currentCredentialId}`,
+    );
+
+    selectedCredentials.delete(currentCredentialId);
+    selectedCredentials.set(replacementCredentialId, { credential: replacement });
+
+    return createPresentation();
+  }
+
+  function getAttributesToRevealFromTemplate(credential) {
+    const definition = getPresentationDefinition();
+    if (!definition?.input_descriptors) {
+      return ['id'];
+    }
+
+    const attributes = ['id'];
+    for (const descriptor of definition.input_descriptors) {
+      const fields = descriptor.constraints?.fields || [];
+      for (const field of fields) {
+        if (!field.path) continue;
+        const paths = Array.isArray(field.path) ? field.path : [field.path];
+        for (const p of paths) {
+          const attr = p.replace('$.', '');
+          if (attr && !attributes.includes(attr) && !attr.startsWith('type') &&
+              !attr.startsWith('issuer') && !attr.startsWith('@context') &&
+              !attr.startsWith('proof') && !attr.startsWith('credentialSchema') &&
+              !attr.startsWith('issuanceDate')) {
+            // Only include if the credential actually has this attribute
+            const value = attr.split('.').reduce((obj, key) => obj?.[key], credential);
+            if (value !== undefined) {
+              attributes.push(attr);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    return attributes;
+  }
+
+  function ensureDescriptorMap(presentation) {
+    if (
+      presentation?.presentation_submission?.descriptor_map?.length > 0
+    ) {
+      return presentation;
+    }
+
+    const definition = getPresentationDefinition();
+    if (!definition?.input_descriptors) {
+      return presentation;
+    }
+
+    const descriptorMap = definition.input_descriptors.map((descriptor, idx) => ({
+      id: descriptor.id,
+      format: 'ldp_vp',
+      path: `$.verifiableCredential[${idx}]`,
+    }));
+
+    presentation.presentation_submission = {
+      ...presentation.presentation_submission,
+      definition_id: definition.id,
+      descriptor_map: descriptorMap,
+    };
+
+    return presentation;
   }
 
   async function createPresentation() {
@@ -287,28 +402,18 @@ export function createVerificationController({
       // determine which attributes to reveal based on the PEX template requirements.
       // This enables generating a default presentation without manual attribute selection.
       const credentialsWithWitness = await Promise.all(
-        bbsKvacSelections.map(async sel => ({
-          credential: sel.credential,
-          witness: await credentialProvider.getMembershipWitness(sel.credential.id),
-          attributesToReveal: sel.attributesToReveal,
-        })),
+        bbsKvacSelections.map(async sel => {
+          return {
+            credential: sel.credential,
+            witness: await credentialProvider.getMembershipWitness(sel.credential.id),
+            attributesToReveal: sel.attributesToReveal || getAttributesToRevealFromTemplate(sel.credential),
+          };
+        }),
       );
 
-      // Single BBS+/KVAC credential: use generatePresentationFromPex end-to-end
-      if (credentialsWithWitness.length === 1 && sdJwtSelections.length === 0 && regularSelections.length === 0) {
-        return credentialServiceRPC.generatePresentationFromPex({
-          credentials: credentialsWithWitness,
-          pexRequest: templateJSON.request,
-          holderKeyDoc: keyDoc,
-          holderDid: selectedDID,
-          challenge: templateJSON.nonce,
-          domain: 'dock.io',
-          boundCheckSnarkKey: templateJSON.boundCheckSnarkKey,
-          skipSigning: true,
-        });
-      }
-
-      // Multiple BBS+/KVAC or mixed: derive each BBS+/KVAC credential separately, then assemble
+      // Derive each BBS+/KVAC credential separately, then assemble into a signed presentation.
+      // This approach uses deriveVCFromPresentation which properly handles range proof
+      // bound checks and produces presentations that the Truvera API can verify.
       const derivedResults = await Promise.all(
         credentialsWithWitness.map(c =>
           credentialServiceRPC.deriveVCFromPresentation({
@@ -324,15 +429,17 @@ export function createVerificationController({
       const derivedCredentials = derivedResults.flat();
 
       const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
-      return assembleSignedPresentation(
+      const presentation = await assembleSignedPresentation(
         [...derivedCredentials, ...nonBbsCredentials],
         keyDoc,
       );
+      return presentation;
     }
 
     // No BBS+/KVAC: handle SD-JWT and regular only
     const credentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
-    return assembleSignedPresentation(credentials, keyDoc);
+    const presentation = await assembleSignedPresentation(credentials, keyDoc);
+    return ensureDescriptorMap(presentation);
   }
 
   /**
@@ -373,6 +480,122 @@ export function createVerificationController({
     };
   }
 
+  function getRequestedAttributes(credentialId: string) {
+    const definition = getPresentationDefinition();
+    if (!definition?.input_descriptors) {
+      return [];
+    }
+
+    const groups = getRequirementGroups();
+    const group = groups.find(g => g.candidates.some(c => c.id === credentialId));
+    if (!group) {
+      return [];
+    }
+
+    const credential = group.candidates.find(c => c.id === credentialId);
+    if (!credential) {
+      return [];
+    }
+
+    const descriptor = definition.input_descriptors.find(
+      d => (d.name || d.id) === group.descriptorName,
+    );
+    if (!descriptor?.constraints?.fields) {
+      return [];
+    }
+
+    const attributesToSkip = [
+      /^type/,
+      /^issuer/,
+      /^@context/,
+      /^proof/,
+      /^credentialSchema/,
+      /^issuanceDate/,
+      /^credentialStatus/,
+      /^cryptoVersion/,
+    ];
+
+    return descriptor.constraints.fields
+      .map(field => {
+        const paths = Array.isArray(field.path) ? field.path : [field.path];
+        let resolvedPath = null;
+        let value = undefined;
+
+        for (const p of paths) {
+          const cleanPath = p.replace('$.', '');
+          const pathParts = cleanPath.split('.');
+          let current = credential;
+          let found = true;
+          for (const part of pathParts) {
+            if (current && typeof current === 'object' && part in current) {
+              current = current[part];
+            } else {
+              found = false;
+              break;
+            }
+          }
+          if (found) {
+            resolvedPath = cleanPath;
+            value = current;
+            break;
+          }
+        }
+
+        if (!resolvedPath) {
+          return null;
+        }
+
+        if (attributesToSkip.some(regex => regex.test(resolvedPath))) {
+          return null;
+        }
+
+        const isRangeProof = !!(
+          field.filter &&
+          (field.filter.minimum !== undefined ||
+            field.filter.maximum !== undefined ||
+            field.filter.exclusiveMinimum !== undefined ||
+            field.filter.exclusiveMaximum !== undefined ||
+            field.filter.formatMinimum !== undefined ||
+            field.filter.formatMaximum !== undefined)
+        );
+
+        return {
+          name: resolvedPath,
+          value: isRangeProof ? null : value,
+          isRangeProof,
+          isOptional: field.optional === true,
+          ...(isRangeProof && {
+            min: field.filter.minimum ?? field.filter.exclusiveMinimum ?? field.filter.formatMinimum,
+            max: field.filter.maximum ?? field.filter.exclusiveMaximum ?? field.filter.formatMaximum,
+          }),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  async function getCredentialStatus(credentialId: string) {
+    const groups = getRequirementGroups();
+    let credential = null;
+
+    for (const group of groups) {
+      credential = group.candidates.find(c => c.id === credentialId);
+      if (credential) break;
+    }
+
+    assert(credential, `Credential ${credentialId} not found in any descriptor group`);
+
+    return credentialProvider.isValid(credential);
+  }
+
+  function canSwitchCredential(credentialId: string) {
+    try {
+      const options = getCredentialOptionsForDescriptor(credentialId);
+      return options.alternatives.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   function submitPresentation(presentation) {
     return axios
       .post(templateJSON.response_url, presentation)
@@ -396,6 +619,13 @@ export function createVerificationController({
     createDefaultPresentation,
     createPresentation,
     evaluatePresentation,
+    getRequirementGroups,
+    getSelectedCredentialsByDescriptor,
+    getCredentialOptionsForDescriptor,
+    switchCredential,
+    getRequestedAttributes,
+    getCredentialStatus,
+    canSwitchCredential,
     getTemplateJSON() {
       return templateJSON;
     },

@@ -832,10 +832,16 @@ class CredentialService {
       credentials.map(c => resolveWitnessForCredential(c.credential, c.witness)),
     );
 
+    let resolvedKeyDoc = holderKeyDoc;
+    if (!skipSigning && holderKeyDoc) {
+      resolvedKeyDoc = getKeypairFromDoc(holderKeyDoc);
+      resolvedKeyDoc.signer = resolvedKeyDoc.signer();
+    }
+
     const result = await generatePresentationFromPexRequest({
       credentials: credentials.map(c => c.credential),
       pexRequest,
-      holderKeyDoc,
+      holderKeyDoc: resolvedKeyDoc,
       holderDid,
       challenge,
       domain,
