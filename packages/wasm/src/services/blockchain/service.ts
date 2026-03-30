@@ -236,10 +236,8 @@ export class BlockchainService {
       });
       Logger.info(`Cheqd initialized at: ${checkdApiUrl}`);
     } catch (err) {
-      debugger
       Logger.error(`Failed to initialize cheqd at: ${checkdApiUrl}`, err);
     }
-
 
     // Re-create the resolver with the new blockchain connection
     this._resolver = this.createDIDResolver(true);

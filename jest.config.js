@@ -6,7 +6,8 @@ module.exports = {
   testMatch: ["<rootDir>/packages/**/!(*.e2e).test.[j]s"],
   testPathIgnorePatterns: [
     "/node_modules/",
-    "/.rollup.cache/"
+    "/.rollup.cache/",
+    "/bundler/"
   ],
   coverageThreshold: {
     global: {

@@ -90,6 +90,29 @@ describe('Verification provider', () => {
     expect(result.isValid).toBe(true);
   });
 
+  it('expect to create a default presentation using filtered credentials', async () => {
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: anyCredentialProofRequest,
+    });
+
+    const credentials = controller.getFilteredCredentials();
+
+    const presentation = await controller.createDefaultPresentation();
+
+    expect(presentation.credentials[0]).toStrictEqual(credentials[0]);
+    expect(presentation.type).toEqual(['VerifiablePresentation']);
+
+    // validate the presentation
+    const result = await controller.evaluatePresentation(presentation);
+
+    expect(result.isValid).toBe(true);
+  });
+
   it('expect to generate presentation iiw credential', async () => {
     const controller = createVerificationController({
       wallet,

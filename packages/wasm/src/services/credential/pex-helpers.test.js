@@ -1,4 +1,4 @@
-import {getPexRequiredAttributes, pexToBounds} from './pex-helpers';
+import {getPexRequiredAttributes, pexToBounds, MAX_NUMBER} from './pex-helpers';
 
 describe('pex helpers', () => {
   describe('getPexRequiredAttributes', () => {
@@ -302,7 +302,7 @@ describe('pex helpers', () => {
           {
             attributeName: 'credentialSubject.age',
             min: 0,
-            max: Number.MAX_SAFE_INTEGER,
+            max: MAX_NUMBER,
             proofRequestMax: undefined,
             proofRequestMin: 0,
             format: undefined,
@@ -357,7 +357,7 @@ describe('pex helpers', () => {
           {
             attributeName: 'credentialSubject.age',
             min: 0,
-            max: Number.MAX_SAFE_INTEGER,
+            max: MAX_NUMBER,
             proofRequestMax: undefined,
             proofRequestMin: 0,
             format: undefined,
