@@ -1,27 +1,14 @@
 const {build} = require('./index');
 
-function buildIndex(callback) {
-  console.log('Building index');
-  return build({
-    entry: require.resolve('./webview-index.js'),
-    path: `${__dirname}/../public`,
-    filename: 'bundle.js',
-    callback,
-  });
+async function buildAll() {
+  await build({entry: 'sandbox'});
+  await build({entry: 'bundle'});
+
+  console.log('Copying assets...');
+  require('./copy-rn-assets');
 }
 
-function buildSandbox(callback) {
-  console.log('Building sandbox');
-  return build({
-    entry: require.resolve('./webview-sandbox.js'),
-    path: `${__dirname}/../public`,
-    filename: 'sandbox.js',
-    callback,
-  });
-}
-
-buildSandbox(() => {
-  buildIndex(() => {
-    require('./copy-rn-assets');
-  });
+buildAll().catch(err => {
+  console.error(err);
+  process.exit(1);
 });

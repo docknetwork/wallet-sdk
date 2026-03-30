@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>React Native WebView Bundle Test</title>
+</head>
+<body>
+  <div id="status">Loading...</div>
+  <div id="errors"></div>
+
+  <script>
+    // Track errors before bundle loads
+    window.__bundleErrors = [];
+    window.__bundleWarnings = [];
+
+    window.onerror = function(msg, url, line, col, error) {
+      window.__bundleErrors.push({
+        message: msg,
+        url: url,
+        line: line,
+        col: col,
+        stack: error ? error.stack : null,
+      });
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+      window.__bundleErrors.push({
+        message: 'Unhandled rejection: ' + (event.reason ? (event.reason.message || String(event.reason)) : 'unknown'),
+        stack: event.reason ? event.reason.stack : null,
+      });
+    });
+  </script>
+
+  <script type="text/javascript" src="/public/bundle.js"></script>
+
+  <script>
+    window.addEventListener('load', function() {
+      var statusEl = document.getElementById('status');
+      if (window.__bundleErrors.length === 0) {
+        statusEl.textContent = 'Ready';
+      } else {
+        statusEl.textContent = 'Error';
+        var errorsEl = document.getElementById('errors');
+        window.__bundleErrors.forEach(function(err) {
+          var p = document.createElement('p');
+          p.textContent = err.message;
+          errorsEl.appendChild(p);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

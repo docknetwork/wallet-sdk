@@ -165,7 +165,7 @@ export function _useWalletController() {
   };
 }
 
-export function WalletSDKProvider({onError, customUri, children, onReady, configs}) {
+export function WalletSDKProvider({onError, customUri, children, onReady, configs, debug}) {
   const controller = _useWalletController();
   const webViewRef = useRef();
   const sandboxWebViewRef = useRef();
@@ -186,6 +186,7 @@ export function WalletSDKProvider({onError, customUri, children, onReady, config
       new WebviewEventHandler({
         webViewRef,
         sandboxWebViewRef,
+        debug,
         onReady: handleReady,
       }),
     [webViewRef, handleReady],
@@ -197,7 +198,10 @@ export function WalletSDKProvider({onError, customUri, children, onReady, config
         height: 0,
       }}
       ref={webViewRef}
+      webviewDebuggingEnabled={debug}
       originWhitelist={['*']}
+      allowFileAccessFromFileURLs={true}
+      allowUniversalAccessFromFileURLs={true}
       source={
         customUri
           ? {
@@ -225,8 +229,11 @@ export function WalletSDKProvider({onError, customUri, children, onReady, config
       style={{
         height: 0,
       }}
+      webviewDebuggingEnabled={debug}
       ref={sandboxWebViewRef}
       originWhitelist={['*']}
+      allowFileAccessFromFileURLs={true}
+      allowUniversalAccessFromFileURLs={true}
       source={{
         uri: `${baseUrl}/sandbox.html`,
       }}

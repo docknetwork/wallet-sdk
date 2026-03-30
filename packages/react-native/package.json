@@ -12,7 +12,12 @@
     },
     "scripts": {
         "test": "jest",
-        "build": "echo 'add build script when required'"
+        "test:bundle": "playwright test",
+        "test:bundle:headed": "playwright test --headed",
+        "build": "echo 'add build script when required'",
+        "build:bundle": "node bundler/build.js",
+        "build:all": "node bundler/build-and-copy.js",
+        "dev": "node bundler/server.js"
     },
     "browserslist": "> 0.01%",
     "dependencies": {
@@ -21,19 +26,32 @@
         "@docknetwork/wallet-sdk-dids": "^1.7.6",
         "@docknetwork/wallet-sdk-wasm": "^1.7.6",
         "react-native-webview": "^11.4.3",
-        "webpack": "^5.67.0",
-        "webpack-dev-server": "4.15.1"
+        "rollup": "^4.57.0"
     },
     "devDependencies": {
+        "@playwright/test": "^1.58.0",
+        "@rollup/plugin-babel": "^6.1.0",
+        "@rollup/plugin-commonjs": "^29.0.0",
+        "@rollup/plugin-inject": "^5.0.5",
+        "@rollup/plugin-json": "^6.1.0",
+        "@rollup/plugin-node-resolve": "^16.0.3",
+        "@rollup/plugin-replace": "^6.0.3",
+        "@rollup/plugin-wasm": "^6.2.2",
+        "@rollup/plugin-alias": "^5.1.1",
         "@testing-library/jest-dom": "^5.14.1",
         "@testing-library/react-hooks": "^8.0.0",
         "@types/react": "^18.0.24",
+        "buffer": "^6.0.3",
+        "crypto-browserify": "^3.12.1",
+        "http-server": "^14.1.1",
         "jest": "29.1.0",
         "jest-environment-jsdom": "29.1.0",
         "raf": "^3.4.1",
         "react": "^18.2.0",
         "react-dom": "^17.0.2",
         "react-test-renderer": "18.2.0",
+        "rollup-plugin-polyfill-node": "^0.13.0",
+        "stream-browserify": "^3.0.0",
         "ts-jest": "29.1.0",
         "ts-node": "^10.9.1",
         "typescript": "^5.0.4"
