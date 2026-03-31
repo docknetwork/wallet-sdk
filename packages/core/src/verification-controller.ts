@@ -53,6 +53,13 @@ export interface IVerificationController {
     errors: any[];
     warnings: any[];
   };
+  getRequirementGroups: () => Array<{descriptorKey: string; descriptorName: string; candidates: any[]}>;
+  getSelectedCredentialsByDescriptor: () => any[];
+  getCredentialOptionsForDescriptor: (credentialId: string) => any;
+  switchCredential: (currentCredentialId: string, replacementCredentialId: string) => Promise<void>;
+  getRequestedAttributes: (credentialId: string) => any[];
+  getCredentialStatus: (credentialId: string) => Promise<any>;
+  canSwitchCredential: (credentialId: string) => boolean;
   getTemplateJSON: () => any;
 }
 
