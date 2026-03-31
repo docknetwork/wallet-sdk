@@ -266,7 +266,7 @@ async function initialize({
      *
      * @async
      * @param {Object} config - Configuration object
-     * @param {string} config.proofRequestUrl - URL to the proof request template from the verifier
+     * @param {string|Object} config.proofRequest - Proof request URL string or proof request object
      * @param {Array<Object>} [config.credentials] - Optional array of credentials to include.
      *   When omitted, a default presentation is created by auto-selecting credentials.
      * @param {string} config.credentials[].id - The credential ID
@@ -277,23 +277,29 @@ async function initialize({
      * @returns {Object} returns.verificationController - The verification controller instance
      * @returns {Function} returns.submit - Convenience function to submit the presentation to the Certs API
      *
-     * @throws {Error} When proofRequestUrl is invalid
+     * @throws {Error} When proofRequest is not provided
      * @throws {Error} When no matching credentials are found in the wallet
      * @throws {Error} When presentation creation fails
      *
      * @example
-     * // Default presentation (auto-selects credentials)
+     * // Default presentation with URL (auto-selects credentials)
      * const result = await wallet.createPresentation({
-     *   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
+     *   proofRequest: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
      * });
      *
      * console.log(result.presentation);
      * const response = await result.submit();
      *
      * @example
+     * // Default presentation with proof request object
+     * const result = await wallet.createPresentation({
+     *   proofRequest: proofRequestObject,
+     * });
+     *
+     * @example
      * // Selective disclosure (specify credentials and attributes)
      * const result = await wallet.createPresentation({
-     *   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1',
+     *   proofRequest: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1',
      *   credentials: [
      *     {
      *       id: 'https://creds-testnet.truvera.io/credential-id',
@@ -304,11 +310,11 @@ async function initialize({
      *
      * const response = await result.submit();
      */
-    createPresentation: async ({credentials, proofRequestUrl}) => {
+    createPresentation: async ({credentials, proofRequest}) => {
       await blockchainService.ensureBlockchainReady();
 
-      if (!proofRequestUrl || typeof proofRequestUrl !== 'string') {
-        throw new Error('Invalid proofRequestUrl: Must be a valid URL string');
+      if (!proofRequest) {
+        throw new Error('Invalid input: proofRequest is required (URL string or proof request object)');
       }
 
       const verificationController = createVerificationController({
@@ -317,7 +323,7 @@ async function initialize({
         didProvider,
       });
 
-      await verificationController.start({template: proofRequestUrl});
+      await verificationController.start({template: proofRequest});
 
       let presentation;
 

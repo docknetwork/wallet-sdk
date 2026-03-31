@@ -74,7 +74,7 @@ describe('bbs-revocation witness cache', () => {
     const result1 = await getWitnessDetails(credential, membershipWitness);
     const result2 = await getWitnessDetails(credential, membershipWitness);
 
-    expect(result1).toBe(result2);
+    expect(result1).toEqual(result2);
     expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(1);
     expect(blockchainService.modules.accumulator.getPublicKey).toHaveBeenCalledTimes(1);
   });

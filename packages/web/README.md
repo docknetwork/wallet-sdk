@@ -132,8 +132,14 @@ Create a verifiable presentation for a given proof request. When called without 
 #### Default presentation (auto-selects credentials)
 
 ```javascript
+// Using a proof request URL
 const result = await wallet.createPresentation({
-  proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
+  proofRequest: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
+});
+
+// Or using a proof request object
+const result = await wallet.createPresentation({
+  proofRequest: proofRequestObject,
 });
 
 // Inspect the presentation
@@ -147,7 +153,7 @@ const response = await result.submit();
 
 ```javascript
 const result = await wallet.createPresentation({
-  proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1',
+  proofRequest: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1',
   credentials: [
     {
       id: 'https://creds-testnet.truvera.io/credential-id',
@@ -160,7 +166,7 @@ const response = await result.submit();
 ```
 
 **Parameters**:
--   `proofRequestUrl` (string): The URL of the proof request template from the verifier.
+-   `proofRequest` (string | Object): The proof request — either a URL string or a proof request object.
 -   `credentials` (Array<Object>, optional): Array of credentials to include. When omitted, credentials are auto-selected.
     -   `credentials[].id` (string): The credential ID.
     -   `credentials[].attributesToReveal` (Array<string>): Array of attribute names to reveal from this credential.
