@@ -22,7 +22,19 @@ const trimHexID = id => {
   return id.substr(2);
 };
 
+const witnessCache = new Map<string, {data: any; timestamp: number}>();
+export const WITNESS_CACHE_TTL = 60_000; // 60 seconds
+
+export const clearWitnessCache = () => witnessCache.clear();
+
 export const getWitnessDetails = async (credential, _membershipWitness) => {
+  const cacheKey = credential?.credentialStatus?.id;
+  if (cacheKey) {
+    const cached = witnessCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < WITNESS_CACHE_TTL) {
+      return cached.data;
+    }
+  }
   let witness = _membershipWitness;
   let blockNo;
 
@@ -92,13 +104,19 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
     console.error(err);
   }
 
-  return {
+  const result = {
     encodedRevId,
     membershipWitness,
     pk,
     params,
     accumulator,
   };
+
+  if (cacheKey) {
+    witnessCache.set(cacheKey, {data: result, timestamp: Date.now()});
+  }
+
+  return result;
 };
 
 export const getIsRevoked = async (credential, _membershipWitness) => {
