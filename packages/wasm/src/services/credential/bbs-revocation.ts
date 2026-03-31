@@ -23,7 +23,7 @@ const trimHexID = id => {
 };
 
 const blockchainCache = new Map<string, {data: any; timestamp: number}>();
-export const WITNESS_CACHE_TTL = 60_000; // 60 seconds
+export const WITNESS_CACHE_TTL = 120_000; // 2 minutes
 
 export const clearWitnessCache = () => blockchainCache.clear();
 
@@ -126,6 +126,20 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
     params: dockAccumulatorParams(),
     accumulator: PositiveAccumulator.fromAccumulated(rawData.accumulatedBytes),
   };
+};
+
+export const prefetchWitnessCache = async (credential, _membershipWitness) => {
+  const cacheKey = credential?.credentialStatus?.id;
+  if (!cacheKey || !_membershipWitness) {
+    return;
+  }
+
+  try {
+    const rawData = await fetchBlockchainData(credential, _membershipWitness);
+    blockchainCache.set(cacheKey, {data: rawData, timestamp: Date.now()});
+  } catch (err) {
+    console.warn('Failed to prefetch witness cache:', err.message);
+  }
 };
 
 export const getIsRevoked = async (credential, _membershipWitness) => {
