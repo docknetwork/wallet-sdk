@@ -46,7 +46,7 @@ import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/block
  * @returns {Function} returns.getCredentials - Function to retrieve all credentials
  * @returns {Function} returns.addCredential - Function to import a credential from an offer URI
  * @returns {Function} returns.getDID - Function to get the default DID
- * @returns {Function} returns.submitPresentation - Function to create and submit a presentation
+ * @returns {Function} returns.createPresentation - Function to create a presentation with optional auto-selection
  *
  * @throws {Error} When neither masterKey nor mnemonic is provided
  * @throws {Error} When both masterKey and mnemonic are provided
@@ -255,122 +255,115 @@ async function initialize({
       }
     },
     /**
-     * Creates and submits a verifiable presentation for the given credentials and proof request.
+     * Creates a verifiable presentation for a given proof request.
      *
-     * This function processes a proof request from a verifier, selects the specified credentials,
-     * creates a presentation with the requested attributes, and submits it to the verifier.
+     * When called without credentials, automatically filters wallet credentials
+     * against the proof request template, selects the best matches, and generates
+     * a presentation with the required attributes revealed (default presentation).
+     *
+     * When called with credentials, uses the specified credentials and attributes
+     * to generate the presentation (selective disclosure).
      *
      * @async
-     * @param {Object} config - Configuration object for presentation submission
-     * @param {Array<Object>} config.credentials - Array of credential objects to include in the presentation
-     * @param {string} config.credentials[].id - The credential ID
-     * @param {Object} config.credentials[].attributesToReveal - Map of attribute names to reveal
-     * @param {Array<string>} config.credentials[].attributesToReveal - Array of attribute names to reveal from this credential
+     * @param {Object} config - Configuration object
      * @param {string} config.proofRequestUrl - URL to the proof request template from the verifier
+     * @param {Array<Object>} [config.credentials] - Optional array of credentials to include.
+     *   When omitted, a default presentation is created by auto-selecting credentials.
+     * @param {string} config.credentials[].id - The credential ID
+     * @param {Array<string>} config.credentials[].attributesToReveal - Array of attribute names to reveal from this credential
      *
-     * @returns {Promise<Object>} The submission response from the verifier
-     * @throws {Error} When credentials array is empty or invalid
+     * @returns {Promise<Object>} Result object containing:
+     * @returns {Object} returns.presentation - The generated verifiable presentation
+     * @returns {Object} returns.verificationController - The verification controller instance
+     * @returns {Function} returns.submit - Convenience function to submit the presentation to the Certs API
+     *
      * @throws {Error} When proofRequestUrl is invalid
-     * @throws {Error} When verification controller fails to start
+     * @throws {Error} When no matching credentials are found in the wallet
      * @throws {Error} When presentation creation fails
-     * @throws {Error} When presentation submission fails
      *
      * @example
-     * // Submit a presentation with selective disclosure
-     * const result = await wallet.submitPresentation({
+     * // Default presentation (auto-selects credentials)
+     * const result = await wallet.createPresentation({
+     *   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
+     * });
+     *
+     * console.log(result.presentation);
+     * const response = await result.submit();
+     *
+     * @example
+     * // Selective disclosure (specify credentials and attributes)
+     * const result = await wallet.createPresentation({
+     *   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1',
      *   credentials: [
      *     {
-     *       id: 'https://creds-testnet.truvera.io/c7f3e722287d1ea98c136ad5df8066209c5e9b44c6251af0860d62e9a3a21a76',
+     *       id: 'https://creds-testnet.truvera.io/credential-id',
      *       attributesToReveal: ['credentialSubject.fullName', 'credentialSubject.age']
      *     },
      *   ],
-     *   proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
      * });
+     *
+     * const response = await result.submit();
      */
-    submitPresentation: async ({credentials, proofRequestUrl}) => {
-      // ensure blockchain is connected
+    createPresentation: async ({credentials, proofRequestUrl}) => {
       await blockchainService.ensureBlockchainReady();
-
-      // Validate inputs
-      if (
-        !credentials ||
-        !Array.isArray(credentials) ||
-        credentials.length === 0
-      ) {
-        throw new Error(
-          'Invalid credentials: Must provide a non-empty array of credentials',
-        );
-      }
 
       if (!proofRequestUrl || typeof proofRequestUrl !== 'string') {
         throw new Error('Invalid proofRequestUrl: Must be a valid URL string');
       }
 
-      // Validate each credential
-      for (const credential of credentials) {
-        if (!credential.id) {
+      const verificationController = createVerificationController({
+        wallet,
+        credentialProvider,
+        didProvider,
+      });
+
+      await verificationController.start({template: proofRequestUrl});
+
+      let presentation;
+
+      if (!credentials) {
+        presentation = await verificationController.createDefaultPresentation();
+      } else {
+        if (!Array.isArray(credentials) || credentials.length === 0) {
           throw new Error(
-            'Invalid credential: Each credential must have an id property',
+            'Invalid credentials: Must provide a non-empty array of credentials',
           );
         }
-        if (!credential.attributesToReveal) {
-          throw new Error(
-            `Invalid credential ${credential.id}: Missing attributesToReveal property`,
-          );
+
+        for (const credential of credentials) {
+          if (!credential.id) {
+            throw new Error(
+              'Invalid credential: Each credential must have an id property',
+            );
+          }
+          if (!credential.attributesToReveal) {
+            throw new Error(
+              `Invalid credential ${credential.id}: Missing attributesToReveal property`,
+            );
+          }
         }
-      }
 
-      let verificationController;
-      try {
-        verificationController = createVerificationController({
-          wallet,
-          credentialProvider,
-          didProvider,
-        });
-      } catch (error) {
-        throw new Error(
-          `Failed to create verification controller: ${error.message}`,
-        );
-      }
-
-      try {
-        await verificationController.start({template: proofRequestUrl});
-      } catch (error) {
-        throw new Error(
-          `Failed to start verification with proof request: ${error.message}`,
-        );
-      }
-
-      // Select credentials and attributes to reveal
-      try {
         for (const credentialToPresent of credentials) {
-          const credential = await credentialProvider.getById(
-            credentialToPresent.id,
-          );
+          const cred = await credentialProvider.getById(credentialToPresent.id);
           verificationController.selectedCredentials.set(
             credentialToPresent.id,
             {
-              credential,
+              credential: cred,
               attributesToReveal: credentialToPresent.attributesToReveal,
             },
           );
         }
-      } catch (error) {
-        throw new Error(`Failed to select credentials: ${error.message}`);
-      }
 
-      let presentation;
-      try {
         presentation = await verificationController.createPresentation();
-      } catch (error) {
-        throw new Error(`Failed to create presentation: ${error.message}`);
       }
 
-      try {
-        return await verificationController.submitPresentation(presentation);
-      } catch (error) {
-        throw new Error(`Failed to submit presentation: ${error.message}`);
-      }
+      return {
+        presentation,
+        verificationController,
+        submit: async () => {
+          return await verificationController.submitPresentation(presentation);
+        },
+      };
     },
   };
 }
