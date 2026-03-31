@@ -255,6 +255,20 @@ async function initialize({
       }
     },
     /**
+     * Removes a credential from the wallet.
+     *
+     * @async
+     * @param {string} credentialId - The ID of the credential to remove
+     * @returns {Promise<void>}
+     */
+    removeCredential: async credentialId => {
+      if (!credentialId || typeof credentialId !== 'string') {
+        throw new Error('Invalid credentialId: Must be a non-empty string');
+      }
+      return await credentialProvider.removeCredential(credentialId);
+    },
+
+    /**
      * Creates a verifiable presentation for a given proof request.
      *
      * When called without credentials, automatically filters wallet credentials

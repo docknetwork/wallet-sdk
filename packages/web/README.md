@@ -113,6 +113,21 @@ const credential = await wallet.addCredential('openid-credential-offer://...');
 
 ---
 
+### `removeCredential`
+
+Remove a credential from the wallet by its ID.
+
+```javascript
+await wallet.removeCredential('https://creds-testnet.truvera.io/credential-id');
+```
+
+**Parameters**:
+-   `credentialId` (string): The ID of the credential to remove.
+
+**Returns**: `Promise<void>`
+
+---
+
 ### `getDID`
 
 Get the default Decentralized Identifier (DID) associated with the wallet.
