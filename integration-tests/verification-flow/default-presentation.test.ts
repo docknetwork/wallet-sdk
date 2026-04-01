@@ -207,11 +207,12 @@ describe('Default presentation', () => {
     const originalCredentialId = descriptors[0].selected.id;
     const replacementCredentialId = descriptors[0].alternatives[0].id;
 
-    const newPresentation = await controller.switchCredential(
+    await controller.switchCredential(
       originalCredentialId,
       replacementCredentialId,
     );
 
+    const newPresentation = await controller.createPresentation();
     expect(newPresentation).toBeDefined();
     expect(newPresentation.type).toEqual(['VerifiablePresentation']);
 
