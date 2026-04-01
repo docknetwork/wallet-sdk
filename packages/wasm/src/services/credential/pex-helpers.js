@@ -322,13 +322,17 @@ export function getPexRequiredAttributes(pexRequest, selectedCredentials = []) {
   });
 }
 
-function findMatchingDescriptor(inputDescriptors, credential) {
+export function findMatchingDescriptor(inputDescriptors, credential) {
   let bestMatch = null;
-  let bestScore = 0;
+  let bestScore = -1;
 
   for (const descriptor of inputDescriptors) {
     const fields = descriptor.constraints?.fields || [];
-    let score = 0;
+    if (fields.length === 0) {
+      continue;
+    }
+
+    let matched = 0;
     for (const field of fields) {
       try {
         const fieldPaths = Array.isArray(field.path)
@@ -337,7 +341,7 @@ function findMatchingDescriptor(inputDescriptors, credential) {
         for (const p of fieldPaths) {
           const paths = JSONPath.paths(credential, p);
           if (paths.length > 0) {
-            score++;
+            matched++;
             break;
           }
         }
@@ -345,6 +349,10 @@ function findMatchingDescriptor(inputDescriptors, credential) {
         // ignore
       }
     }
+
+    // Use match ratio so descriptors where all fields match score higher
+    // than descriptors where only generic fields (e.g. issuer) match
+    const score = matched / fields.length;
     if (score > bestScore) {
       bestScore = score;
       bestMatch = descriptor;
