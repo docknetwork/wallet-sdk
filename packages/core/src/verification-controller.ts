@@ -603,10 +603,19 @@ export function createVerificationController({
     }
   }
 
-  function submitPresentation(presentation) {
-    return axios
-      .post(templateJSON.response_url, presentation)
-      .then(res => res.data);
+  async function submitPresentation(presentation, maxRetries = 3) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const res = await axios.post(templateJSON.response_url, presentation);
+        return res.data;
+      } catch (err) {
+        if (attempt === maxRetries - 1) {
+          throw err;
+        }
+        const delay = Math.min(1000 * 2 ** attempt, 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
   return {
