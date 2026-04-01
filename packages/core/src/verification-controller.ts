@@ -609,7 +609,11 @@ export function createVerificationController({
         const res = await axios.post(templateJSON.response_url, presentation);
         return res.data;
       } catch (err) {
-        if (attempt === maxRetries - 1) {
+        const status = err?.response?.status;
+        const isRetryable =
+          !status || status === 429 || status >= 500;
+
+        if (!isRetryable || attempt === maxRetries - 1) {
           throw err;
         }
         const delay = Math.min(1000 * 2 ** attempt, 8000);
