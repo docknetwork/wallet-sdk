@@ -328,7 +328,9 @@ async function initialize({
       await blockchainService.ensureBlockchainReady();
 
       if (!proofRequest) {
-        throw new Error('Invalid input: proofRequest is required (URL string or proof request object)');
+        throw new Error(
+          'Invalid input: proofRequest is required (URL string or proof request object)',
+        );
       }
 
       const verificationController = createVerificationController({

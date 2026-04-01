@@ -1,7 +1,12 @@
 import {initializeWasm} from '@docknetwork/crypto-wasm-ts/lib/index';
 
 const {blockchainService} = require('../blockchain/service');
-const {getWitnessDetails, clearWitnessCache, getWitnessCacheTTL, setWitnessCacheTTL} = require('./bbs-revocation');
+const {
+  getWitnessDetails,
+  clearWitnessCache,
+  getWitnessCacheTTL,
+  setWitnessCacheTTL,
+} = require('./bbs-revocation');
 
 const mockAccumulatorResult = {
   accumulated: {bytes: new Uint8Array([1, 2, 3])},
@@ -64,8 +69,12 @@ describe('bbs-revocation witness cache', () => {
     const credential = createCredential();
     await getWitnessDetails(credential, membershipWitness);
 
-    expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(1);
-    expect(blockchainService.modules.accumulator.getPublicKey).toHaveBeenCalledTimes(1);
+    expect(
+      blockchainService.modules.accumulator.getAccumulator,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      blockchainService.modules.accumulator.getPublicKey,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('should return cached result on second call with same credential', async () => {
@@ -75,8 +84,12 @@ describe('bbs-revocation witness cache', () => {
     const result2 = await getWitnessDetails(credential, membershipWitness);
 
     expect(result1).toEqual(result2);
-    expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(1);
-    expect(blockchainService.modules.accumulator.getPublicKey).toHaveBeenCalledTimes(1);
+    expect(
+      blockchainService.modules.accumulator.getAccumulator,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      blockchainService.modules.accumulator.getPublicKey,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('should not share cache between different credentials', async () => {
@@ -86,7 +99,9 @@ describe('bbs-revocation witness cache', () => {
     await getWitnessDetails(credential1, membershipWitness);
     await getWitnessDetails(credential2, membershipWitness);
 
-    expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(2);
+    expect(
+      blockchainService.modules.accumulator.getAccumulator,
+    ).toHaveBeenCalledTimes(2);
   });
 
   it('should refresh cache after TTL expires', async () => {
@@ -99,7 +114,9 @@ describe('bbs-revocation witness cache', () => {
 
     await getWitnessDetails(credential, membershipWitness);
 
-    expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(2);
+    expect(
+      blockchainService.modules.accumulator.getAccumulator,
+    ).toHaveBeenCalledTimes(2);
 
     setWitnessCacheTTL(originalTTL);
   });
@@ -111,7 +128,9 @@ describe('bbs-revocation witness cache', () => {
     clearWitnessCache();
     await getWitnessDetails(credential, membershipWitness);
 
-    expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(2);
+    expect(
+      blockchainService.modules.accumulator.getAccumulator,
+    ).toHaveBeenCalledTimes(2);
   });
 
   it('should bypass cache when credential has no credentialStatus.id', async () => {
@@ -120,6 +139,8 @@ describe('bbs-revocation witness cache', () => {
     await getWitnessDetails(credential, membershipWitness);
     await getWitnessDetails(credential, membershipWitness);
 
-    expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(2);
+    expect(
+      blockchainService.modules.accumulator.getAccumulator,
+    ).toHaveBeenCalledTimes(2);
   });
 });

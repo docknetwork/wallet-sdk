@@ -63,7 +63,7 @@ const allCredentials = [
       proofValue:
         'z2TZXgpEqiRkAmoB8XRvZZj8KJBpgFv5M9vVj4Nm5uYAj5nw5XwDRN2gYwyVyWtyrwyBtWHbbfhfahWWZN49RwHeedJ7kEuzCrxoSU5HQAKxHPG',
     },
-    '$$accum__witness$$':
+    $$accum__witness$$:
       '{"blockNo":"d10f73a8-8aed-4e5c-be8d-24105cb494ac","witness":"0x935dd2dcf49a488a9aafda317abc477a8cd8c0edcfdf7f79a6fe4f51b0b352cf4d050822e8d44ecb001a8d98c7a618f2"}',
   },
   {
@@ -134,7 +134,7 @@ const allCredentials = [
       proofValue:
         'z2mhJL8VK9cvvRuBqEkscjqUtXG2nCQ2oLH1NvuUT6uejKMha61Zz7ux61nui1X3cYsjc8nTmQLMgH7T5y4L8PH29eEVykbGtAT5rnxQAUjoxra',
     },
-    '$$accum__witness$$':
+    $$accum__witness$$:
       '{"blockNo":"d10f73a8-8aed-4e5c-be8d-24105cb494ac","witness":"0xb8ff9c2afe1753a7b455315127e402ec7357110dfda15460f8df55b474220ec5f29de9177dd60dc409751ede1d1f66fb"}',
   },
 ];
@@ -145,7 +145,10 @@ const TEST_CONFIG = {
   networkId: 'testnet',
 };
 
-const certsApiUrl = process.env.CERTS_API_URL || process.env.TESTING_API_URL || 'https://api-staging.dock.io';
+const certsApiUrl =
+  process.env.CERTS_API_URL ||
+  process.env.TESTING_API_URL ||
+  'https://api-staging.dock.io';
 const certsApiKey = process.env.CERTS_API_KEY;
 
 // Compound proof template: requires both QuotientLoyaltyCard + QuotientCustomerIdentity
@@ -175,7 +178,9 @@ async function createProofRequest(templateId, retries = 3) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(`Proof request failed (${response.status}): ${JSON.stringify(data)}`);
+      throw new Error(
+        `Proof request failed (${response.status}): ${JSON.stringify(data)}`,
+      );
     }
 
     if (data.request && !data.request.id) {
@@ -240,7 +245,9 @@ test.describe('Compound presentation e2e', () => {
     expect(result.success).toBe(true);
     expect(result.credentialsCount).toBe(2);
 
-    console.log(`[PERF] Wallet init: ${result.perf.initDuration}ms | Add 2 credentials: ${result.perf.addDuration}ms`);
+    console.log(
+      `[PERF] Wallet init: ${result.perf.initDuration}ms | Add 2 credentials: ${result.perf.addDuration}ms`,
+    );
 
     walletHandle = page;
   });
@@ -286,7 +293,11 @@ test.describe('Compound presentation e2e', () => {
       console.error('Compound test error:', result.error);
     }
     if (result.createMs) {
-      console.log(`[PERF] Compound | Create: ${result.createMs}ms | Submit: ${result.submitMs}ms | Total: ${result.createMs + result.submitMs}ms`);
+      console.log(
+        `[PERF] Compound | Create: ${result.createMs}ms | Submit: ${
+          result.submitMs
+        }ms | Total: ${result.createMs + result.submitMs}ms`,
+      );
     }
 
     expect(result.success).toBe(true);

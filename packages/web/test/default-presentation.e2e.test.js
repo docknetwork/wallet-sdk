@@ -4,19 +4,28 @@ const path = require('path');
 
 const universityDegree = JSON.parse(
   fs.readFileSync(
-    path.resolve(__dirname, '../../../integration-tests/data/default-presentation-tests/university-degree.json'),
+    path.resolve(
+      __dirname,
+      '../../../integration-tests/data/default-presentation-tests/university-degree.json',
+    ),
     'utf-8',
   ),
 );
 const universityDegree2 = JSON.parse(
   fs.readFileSync(
-    path.resolve(__dirname, '../../../integration-tests/data/default-presentation-tests/university-degree-2.json'),
+    path.resolve(
+      __dirname,
+      '../../../integration-tests/data/default-presentation-tests/university-degree-2.json',
+    ),
     'utf-8',
   ),
 );
 const equinetCreditScore = JSON.parse(
   fs.readFileSync(
-    path.resolve(__dirname, '../../../integration-tests/data/default-presentation-tests/equinet-credit-score.json'),
+    path.resolve(
+      __dirname,
+      '../../../integration-tests/data/default-presentation-tests/equinet-credit-score.json',
+    ),
     'utf-8',
   ),
 );
@@ -27,7 +36,8 @@ const TEST_CONFIG = {
   networkId: 'testnet',
 };
 
-const certsApiUrl = process.env.TESTING_API_URL || 'https://api-staging.dock.io';
+const certsApiUrl =
+  process.env.TESTING_API_URL || 'https://api-staging.dock.io';
 const certsApiKey = process.env.CERTS_API_KEY;
 
 // Template IDs (same as integration tests)
@@ -63,7 +73,9 @@ async function createProofRequest(templateId, retries = 3) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(`Proof request failed (${response.status}): ${JSON.stringify(data)}`);
+      throw new Error(
+        `Proof request failed (${response.status}): ${JSON.stringify(data)}`,
+      );
     }
 
     if (data.request && !data.request.id) {
@@ -138,7 +150,9 @@ test.describe('Default presentation e2e', () => {
       walletInit: `${result.perf.initDuration}ms`,
       addCredentials: `${result.perf.addDuration}ms`,
     });
-    console.log(`[PERF] Wallet init: ${result.perf.initDuration}ms | Add 3 credentials: ${result.perf.addDuration}ms`);
+    console.log(
+      `[PERF] Wallet init: ${result.perf.initDuration}ms | Add 3 credentials: ${result.perf.addDuration}ms`,
+    );
 
     // Keep the page alive for all tests
     walletHandle = page;
@@ -151,7 +165,9 @@ test.describe('Default presentation e2e', () => {
     console.log('|----------|-------------------|--------|-------|');
     for (const entry of perfReport) {
       if (entry.template) {
-        console.log(`| ${entry.template} | ${entry.createMs}ms | ${entry.submitMs}ms | ${entry.totalMs}ms |`);
+        console.log(
+          `| ${entry.template} | ${entry.createMs}ms | ${entry.submitMs}ms | ${entry.totalMs}ms |`,
+        );
       }
     }
     console.log('=========================================\n');
@@ -198,7 +214,9 @@ test.describe('Default presentation e2e', () => {
 
     if (result.perf) {
       perfReport.push({template: 'T1: University degree', ...result.perf});
-      console.log(`[PERF] T1 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`);
+      console.log(
+        `[PERF] T1 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`,
+      );
     }
 
     expect(result.success).toBe(true);
@@ -239,8 +257,13 @@ test.describe('Default presentation e2e', () => {
     }, proofRequest);
 
     if (result.perf) {
-      perfReport.push({template: 'T2: Range proof (creditScore)', ...result.perf});
-      console.log(`[PERF] T2 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`);
+      perfReport.push({
+        template: 'T2: Range proof (creditScore)',
+        ...result.perf,
+      });
+      console.log(
+        `[PERF] T2 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`,
+      );
     }
 
     expect(result.success).toBe(true);
@@ -289,8 +312,13 @@ test.describe('Default presentation e2e', () => {
       console.error('Template 3 error:', result.error, result.responseData);
     }
     if (result.perf) {
-      perfReport.push({template: 'T3: Any cred with dateOfBirth', ...result.perf});
-      console.log(`[PERF] T3 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`);
+      perfReport.push({
+        template: 'T3: Any cred with dateOfBirth',
+        ...result.perf,
+      });
+      console.log(
+        `[PERF] T3 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`,
+      );
     }
 
     expect(result.success).toBe(true);
@@ -332,7 +360,9 @@ test.describe('Default presentation e2e', () => {
 
     if (result.perf) {
       perfReport.push({template: 'T4: 2 range proofs', ...result.perf});
-      console.log(`[PERF] T4 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`);
+      console.log(
+        `[PERF] T4 | Create: ${result.perf.createMs}ms | Submit: ${result.perf.submitMs}ms | Total: ${result.perf.totalMs}ms`,
+      );
     }
 
     expect(result.success).toBe(true);
