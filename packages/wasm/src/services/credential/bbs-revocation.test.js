@@ -1,7 +1,7 @@
 import {initializeWasm} from '@docknetwork/crypto-wasm-ts/lib/index';
 
 const {blockchainService} = require('../blockchain/service');
-const {getWitnessDetails, clearWitnessCache, WITNESS_CACHE_TTL} = require('./bbs-revocation');
+const {getWitnessDetails, clearWitnessCache, getWitnessCacheTTL, setWitnessCacheTTL} = require('./bbs-revocation');
 
 const mockAccumulatorResult = {
   accumulated: {bytes: new Uint8Array([1, 2, 3])},
@@ -91,17 +91,17 @@ describe('bbs-revocation witness cache', () => {
 
   it('should refresh cache after TTL expires', async () => {
     const credential = createCredential();
+    const originalTTL = getWitnessCacheTTL();
 
     await getWitnessDetails(credential, membershipWitness);
 
-    const now = Date.now();
-    jest.spyOn(Date, 'now').mockReturnValue(now + WITNESS_CACHE_TTL + 1);
+    setWitnessCacheTTL(0); // expire immediately
 
     await getWitnessDetails(credential, membershipWitness);
 
     expect(blockchainService.modules.accumulator.getAccumulator).toHaveBeenCalledTimes(2);
 
-    jest.restoreAllMocks();
+    setWitnessCacheTTL(originalTTL);
   });
 
   it('should clear cache when clearWitnessCache is called', async () => {

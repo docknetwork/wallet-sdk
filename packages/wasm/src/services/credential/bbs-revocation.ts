@@ -23,8 +23,10 @@ const trimHexID = id => {
 };
 
 const blockchainCache = new Map<string, {data: any; timestamp: number}>();
-export const WITNESS_CACHE_TTL = 120_000; // 2 minutes
+let WITNESS_CACHE_TTL = 120_000; // 2 minutes
 
+export const getWitnessCacheTTL = () => WITNESS_CACHE_TTL;
+export const setWitnessCacheTTL = (ms: number) => { WITNESS_CACHE_TTL = ms; };
 export const clearWitnessCache = () => blockchainCache.clear();
 
 async function fetchBlockchainData(credential, _membershipWitness) {
@@ -104,8 +106,12 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
 
   if (cacheKey) {
     const cached = blockchainCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < WITNESS_CACHE_TTL) {
-      rawData = cached.data;
+    if (cached) {
+      if (Date.now() - cached.timestamp < WITNESS_CACHE_TTL) {
+        rawData = cached.data;
+      } else {
+        blockchainCache.delete(cacheKey);
+      }
     }
   }
 
