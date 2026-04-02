@@ -12,10 +12,10 @@ test.describe('Credential Management', () => {
 
     // Create new wallet
     await page.getByTestId('create-wallet-button').click();
-    await page.waitForSelector('.App-header:has-text("Truvera Wallet React Example")', { timeout: 30000 });
+    await page.waitForSelector('.App-header:has-text("Truvera Demo Web Wallet")', { timeout: 30000 });
 
     // Wait for default DID to be created automatically
-    await page.waitForSelector('text=Default DID:', { timeout: 30000 });
+    await page.waitForSelector('.did-value', { timeout: 30000 });
   });
 
   test('should open import credential modal', async ({ page }) => {
@@ -126,7 +126,7 @@ test.describe('Credential Management', () => {
     await page.getByTestId('fetch-messages-button').click();
 
     // Should not show any errors
-    await expect(page.locator('text=Default DID:')).toBeVisible();
+    await expect(page.locator('.did-value')).toBeVisible();
 
     // The button should remain clickable
     await expect(page.getByTestId('fetch-messages-button')).toBeEnabled();
@@ -136,11 +136,8 @@ test.describe('Credential Management', () => {
     // Grant clipboard permissions
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     
-    // Get the DID text - it's between "Default DID:" and the buttons
-    const didContainer = await page.locator('text=Default DID:').locator('..');
-    const didText = await didContainer.textContent();
-    // Extract just the DID (remove "Default DID:", "Copy", and "Fetch Messages")
-    const did = didText.replace('Default DID:', '').replace('Copy', '').replace('Fetch Messages', '').trim();
+    // Get the DID text from the did-value element
+    const did = await page.locator('.did-value').textContent();
     
     // Click copy button
     await page.getByTestId('copy-did-button').click();
