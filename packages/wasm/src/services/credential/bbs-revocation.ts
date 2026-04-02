@@ -22,7 +22,14 @@ const trimHexID = id => {
   return id.substr(2);
 };
 
-export const getWitnessDetails = async (credential, _membershipWitness) => {
+const blockchainCache = new Map<string, {data: any; timestamp: number}>();
+let WITNESS_CACHE_TTL = 0; // Disabled — accumulator can change between cache time and verification
+
+export const getWitnessCacheTTL = () => WITNESS_CACHE_TTL;
+export const setWitnessCacheTTL = (ms: number) => { WITNESS_CACHE_TTL = ms; };
+export const clearWitnessCache = () => blockchainCache.clear();
+
+async function fetchBlockchainData(credential, _membershipWitness) {
   let witness = _membershipWitness;
   let blockNo;
 
@@ -34,7 +41,6 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
 
   const {credentialStatus} = credential;
   const registryId = credentialStatus?.id;
-  const revocationIndex = credentialStatus.revocationId;
 
   const queriedAccumulator =
     await blockchainService.modules.accumulator.getAccumulator(
@@ -46,22 +52,12 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
     throw new Error('Accumulator not found');
   }
 
-  const accumulator = PositiveAccumulator.fromAccumulated(
-    queriedAccumulator.accumulated.bytes,
-  );
-
-  const encodedRevId = Encoder.defaultEncodeFunc()(revocationIndex.toString());
-
   const publicKey = await blockchainService.modules.accumulator.getPublicKey(
     queriedAccumulator.keyRef[0],
     queriedAccumulator.keyRef[1],
   );
 
-  const params = dockAccumulatorParams();
-  const pk = new AccumulatorPublicKey(publicKey.bytes);
-
-  const membershipWitness = new VBMembershipWitness(hexToU8a(witness));
-
+  let updatedWitness = witness;
   try {
     const credentialStatusId = credential.credentialStatus.id;
     const accumulatorId = blockchainService
@@ -80,6 +76,10 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
     const nextBlockNo = history.updates[blockNoIndex + 1]?.id?.toString();
 
     if (nextBlockNo) {
+      const revocationIndex = credentialStatus.revocationId;
+      const encodedRevId = Encoder.defaultEncodeFunc()(revocationIndex.toString());
+      const membershipWitness = new VBMembershipWitness(hexToU8a(witness));
+
       await blockchainService.modules.accumulator.updateWitness(
         registryId,
         encodedRevId,
@@ -87,18 +87,65 @@ export const getWitnessDetails = async (credential, _membershipWitness) => {
         nextBlockNo,
         queriedAccumulator.lastModified,
       );
+      updatedWitness = witness;
     }
   } catch (err) {
     console.error(err);
   }
 
   return {
-    encodedRevId,
-    membershipWitness,
-    pk,
-    params,
-    accumulator,
+    accumulatedBytes: queriedAccumulator.accumulated.bytes,
+    publicKeyBytes: publicKey.bytes,
+    witness: updatedWitness,
   };
+}
+
+export const getWitnessDetails = async (credential, _membershipWitness) => {
+  const cacheKey = credential?.credentialStatus?.id;
+  let rawData;
+
+  if (cacheKey) {
+    const cached = blockchainCache.get(cacheKey);
+    if (cached) {
+      if (Date.now() - cached.timestamp < WITNESS_CACHE_TTL) {
+        rawData = cached.data;
+      } else {
+        blockchainCache.delete(cacheKey);
+      }
+    }
+  }
+
+  if (!rawData) {
+    rawData = await fetchBlockchainData(credential, _membershipWitness);
+    if (cacheKey) {
+      blockchainCache.set(cacheKey, {data: rawData, timestamp: Date.now()});
+    }
+  }
+
+  const {credentialStatus} = credential;
+  const revocationIndex = credentialStatus.revocationId;
+
+  return {
+    encodedRevId: Encoder.defaultEncodeFunc()(revocationIndex.toString()),
+    membershipWitness: new VBMembershipWitness(hexToU8a(rawData.witness)),
+    pk: new AccumulatorPublicKey(rawData.publicKeyBytes),
+    params: dockAccumulatorParams(),
+    accumulator: PositiveAccumulator.fromAccumulated(rawData.accumulatedBytes),
+  };
+};
+
+export const prefetchWitnessCache = async (credential, _membershipWitness) => {
+  const cacheKey = credential?.credentialStatus?.id;
+  if (!cacheKey || !_membershipWitness) {
+    return;
+  }
+
+  try {
+    const rawData = await fetchBlockchainData(credential, _membershipWitness);
+    blockchainCache.set(cacheKey, {data: rawData, timestamp: Date.now()});
+  } catch (err) {
+    console.warn('Failed to prefetch witness cache:', err.message);
+  }
 };
 
 export const getIsRevoked = async (credential, _membershipWitness) => {

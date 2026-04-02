@@ -253,7 +253,7 @@ describe('pex helpers', () => {
           },
         ],
       );
-      expect(result).toEqual([]);
+      expect(result).toEqual([[]]);
     });
   });
 

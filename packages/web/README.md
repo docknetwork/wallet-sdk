@@ -113,6 +113,21 @@ const credential = await wallet.addCredential('openid-credential-offer://...');
 
 ---
 
+### `removeCredential`
+
+Remove a credential from the wallet by its ID.
+
+```javascript
+await wallet.removeCredential('https://creds-testnet.truvera.io/credential-id');
+```
+
+**Parameters**:
+-   `credentialId` (string): The ID of the credential to remove.
+
+**Returns**: `Promise<void>`
+
+---
+
 ### `getDID`
 
 Get the default Decentralized Identifier (DID) associated with the wallet.
@@ -125,26 +140,53 @@ const did = await wallet.getDID();
 
 ---
 
-### `submitPresentation`
+### `createPresentation`
 
-Submit a presentation for specific credentials to a proof request URL.
+Create a verifiable presentation for a given proof request. When called without `credentials`, the SDK automatically selects the best matching credentials from the wallet (default presentation). When called with `credentials`, uses the specified credentials and attributes (selective disclosure).
+
+#### Default presentation (auto-selects credentials)
 
 ```javascript
-const response = await wallet.submitPresentation({
+// Using a proof request URL
+const result = await wallet.createPresentation({
+  proofRequest: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
+});
+
+// Or using a proof request object
+const result = await wallet.createPresentation({
+  proofRequest: proofRequestObject,
+});
+
+// Inspect the presentation
+console.log(result.presentation);
+
+// Submit when ready
+const response = await result.submit();
+```
+
+#### Selective disclosure (specify credentials and attributes)
+
+```javascript
+const result = await wallet.createPresentation({
+  proofRequest: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1',
   credentials: [
     {
-      id: 'https://creds-testnet.truvera.io/c7f3e722287d1ea98c136ad5df8066209c5e9b44c6251af0860d62e9a3a21a76',
+      id: 'https://creds-testnet.truvera.io/credential-id',
       attributesToReveal: ['credentialSubject.fullName', 'credentialSubject.age']
     },
   ],
-  proofRequestUrl: 'https://creds-staging.truvera.io/proof/77ae2c67-678e-4cb6-8c5d-a4dd4a1a19f1'
 });
+
+const response = await result.submit();
 ```
 
 **Parameters**:
--   `credentials` (Array<Object>): Array of credential objects to include in the presentation.
+-   `proofRequest` (string | Object): The proof request — either a URL string or a proof request object.
+-   `credentials` (Array<Object>, optional): Array of credentials to include. When omitted, credentials are auto-selected.
     -   `credentials[].id` (string): The credential ID.
     -   `credentials[].attributesToReveal` (Array<string>): Array of attribute names to reveal from this credential.
--   `proofRequestUrl` (string): The URL of the proof request template from the verifier.
 
-**Returns**: `Promise<Object>` - The submission response from the verifier.
+**Returns**: `Promise<Object>` - Result object containing:
+-   `presentation` (Object): The generated verifiable presentation.
+-   `verificationController` (Object): The verification controller instance.
+-   `submit` (Function): Convenience function to submit the presentation to the Certs API. Returns a `Promise<Object>` with the submission response.

@@ -53,6 +53,20 @@ export interface IVerificationController {
     errors: any[];
     warnings: any[];
   };
+  getRequirementGroups: () => Array<{
+    descriptorKey: string;
+    descriptorName: string;
+    candidates: any[];
+  }>;
+  getSelectedCredentialsByDescriptor: () => any[];
+  getCredentialOptionsForDescriptor: (credentialId: string) => any;
+  switchCredential: (
+    currentCredentialId: string,
+    replacementCredentialId: string,
+  ) => Promise<void>;
+  getRequestedAttributes: (credentialId: string) => any[];
+  getCredentialStatus: (credentialId: string) => Promise<any>;
+  canSwitchCredential: (credentialId: string) => boolean;
   getTemplateJSON: () => any;
 }
 
@@ -197,15 +211,22 @@ export function createVerificationController({
 
   function getRequirementGroups() {
     if (filteredMatches.length === 0) {
-      return [{
-        descriptorKey: 'default',
-        descriptorName: 'default',
-        candidates: [...filteredCredentials],
-      }];
+      return [
+        {
+          descriptorKey: 'default',
+          descriptorName: 'default',
+          candidates: [...filteredCredentials],
+        },
+      ];
     }
 
-    const groups: Array<{descriptorKey: string; descriptorName: string; candidates: any[]}> = [];
-    const groupKeyFn = (match) => match.from ? JSON.stringify(match.from) : (match.name || match.id || '');
+    const groups: Array<{
+      descriptorKey: string;
+      descriptorName: string;
+      candidates: any[];
+    }> = [];
+    const groupKeyFn = match =>
+      match.from ? JSON.stringify(match.from) : match.name || match.id || '';
     const seen = new Map<string, number>();
 
     for (const match of filteredMatches) {
@@ -248,13 +269,18 @@ export function createVerificationController({
 
     const groups = getRequirementGroups();
     for (const group of groups) {
-      const chosen = group.candidates.find(cred => !selectedCredentials.has(cred.id)) || group.candidates[0];
+      const chosen =
+        group.candidates.find(cred => !selectedCredentials.has(cred.id)) ||
+        group.candidates[0];
       if (chosen) {
-        selectedCredentials.set(chosen.id, { credential: chosen });
+        selectedCredentials.set(chosen.id, {credential: chosen});
       }
     }
 
-    assert(selectedCredentials.size > 0, 'No credentials could be selected for the presentation');
+    assert(
+      selectedCredentials.size > 0,
+      'No credentials could be selected for the presentation',
+    );
 
     return createPresentation();
   }
@@ -263,8 +289,11 @@ export function createVerificationController({
     const groups = getRequirementGroups();
 
     return groups.map(group => {
-      const selected = group.candidates.find(cred => selectedCredentials.has(cred.id)) || null;
-      const alternatives = group.candidates.filter(cred => !selected || cred.id !== selected.id);
+      const selected =
+        group.candidates.find(cred => selectedCredentials.has(cred.id)) || null;
+      const alternatives = group.candidates.filter(
+        cred => !selected || cred.id !== selected.id,
+      );
 
       return {
         descriptorId: group.descriptorKey,
@@ -277,9 +306,14 @@ export function createVerificationController({
 
   function getCredentialOptionsForDescriptor(credentialId: string) {
     const groups = getRequirementGroups();
-    const group = groups.find(g => g.candidates.some(c => c.id === credentialId));
+    const group = groups.find(g =>
+      g.candidates.some(c => c.id === credentialId),
+    );
 
-    assert(group, `Credential ${credentialId} not found in any descriptor group`);
+    assert(
+      group,
+      `Credential ${credentialId} not found in any descriptor group`,
+    );
 
     const selected = group.candidates.find(c => c.id === credentialId);
     const alternatives = group.candidates.filter(c => c.id !== credentialId);
@@ -292,14 +326,19 @@ export function createVerificationController({
     };
   }
 
-  async function switchCredential(currentCredentialId: string, replacementCredentialId: string) {
+  async function switchCredential(
+    currentCredentialId: string,
+    replacementCredentialId: string,
+  ) {
     assert(
       selectedCredentials.has(currentCredentialId),
       `Credential ${currentCredentialId} is not currently selected`,
     );
 
     const options = getCredentialOptionsForDescriptor(currentCredentialId);
-    const replacement = options.alternatives.find(c => c.id === replacementCredentialId);
+    const replacement = options.alternatives.find(
+      c => c.id === replacementCredentialId,
+    );
 
     assert(
       replacement,
@@ -307,7 +346,7 @@ export function createVerificationController({
     );
 
     selectedCredentials.delete(currentCredentialId);
-    selectedCredentials.set(replacementCredentialId, { credential: replacement });
+    selectedCredentials.set(replacementCredentialId, {credential: replacement});
 
     return createPresentation();
   }
@@ -322,16 +361,26 @@ export function createVerificationController({
     for (const descriptor of definition.input_descriptors) {
       const fields = descriptor.constraints?.fields || [];
       for (const field of fields) {
-        if (!field.path) continue;
+        if (!field.path) {
+          continue;
+        }
         const paths = Array.isArray(field.path) ? field.path : [field.path];
         for (const p of paths) {
           const attr = p.replace('$.', '');
-          if (attr && !attributes.includes(attr) && !attr.startsWith('type') &&
-              !attr.startsWith('issuer') && !attr.startsWith('@context') &&
-              !attr.startsWith('proof') && !attr.startsWith('credentialSchema') &&
-              !attr.startsWith('issuanceDate')) {
+          if (
+            attr &&
+            !attributes.includes(attr) &&
+            !attr.startsWith('type') &&
+            !attr.startsWith('issuer') &&
+            !attr.startsWith('@context') &&
+            !attr.startsWith('proof') &&
+            !attr.startsWith('credentialSchema') &&
+            !attr.startsWith('issuanceDate')
+          ) {
             // Only include if the credential actually has this attribute
-            const value = attr.split('.').reduce((obj, key) => obj?.[key], credential);
+            const value = attr
+              .split('.')
+              .reduce((obj, key) => obj?.[key], credential);
             if (value !== undefined) {
               attributes.push(attr);
             }
@@ -345,9 +394,7 @@ export function createVerificationController({
   }
 
   function ensureDescriptorMap(presentation) {
-    if (
-      presentation?.presentation_submission?.descriptor_map?.length > 0
-    ) {
+    if (presentation?.presentation_submission?.descriptor_map?.length > 0) {
       return presentation;
     }
 
@@ -356,11 +403,13 @@ export function createVerificationController({
       return presentation;
     }
 
-    const descriptorMap = definition.input_descriptors.map((descriptor, idx) => ({
-      id: descriptor.id,
-      format: 'ldp_vp',
-      path: `$.verifiableCredential[${idx}]`,
-    }));
+    const descriptorMap = definition.input_descriptors.map(
+      (descriptor, idx) => ({
+        id: descriptor.id,
+        format: 'ldp_vp',
+        path: `$.verifiableCredential[${idx}]`,
+      }),
+    );
 
     presentation.presentation_submission = {
       ...presentation.presentation_submission,
@@ -405,8 +454,12 @@ export function createVerificationController({
         bbsKvacSelections.map(async sel => {
           return {
             credential: sel.credential,
-            witness: await credentialProvider.getMembershipWitness(sel.credential.id),
-            attributesToReveal: sel.attributesToReveal || getAttributesToRevealFromTemplate(sel.credential),
+            witness: await credentialProvider.getMembershipWitness(
+              sel.credential.id,
+            ),
+            attributesToReveal:
+              sel.attributesToReveal ||
+              getAttributesToRevealFromTemplate(sel.credential),
           };
         }),
       );
@@ -418,17 +471,22 @@ export function createVerificationController({
         credentialsWithWitness.map(c =>
           credentialServiceRPC.deriveVCFromPresentation({
             proofRequest: templateJSON,
-            credentials: [{
-              credential: c.credential,
-              witness: c.witness,
-              attributesToReveal: c.attributesToReveal,
-            }],
+            credentials: [
+              {
+                credential: c.credential,
+                witness: c.witness,
+                attributesToReveal: c.attributesToReveal,
+              },
+            ],
           }),
         ),
       );
       const derivedCredentials = derivedResults.flat();
 
-      const nonBbsCredentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
+      const nonBbsCredentials = await deriveNonBbsCredentials(
+        sdJwtSelections,
+        regularSelections,
+      );
       const presentation = await assembleSignedPresentation(
         [...derivedCredentials, ...nonBbsCredentials],
         keyDoc,
@@ -437,7 +495,10 @@ export function createVerificationController({
     }
 
     // No BBS+/KVAC: handle SD-JWT and regular only
-    const credentials = await deriveNonBbsCredentials(sdJwtSelections, regularSelections);
+    const credentials = await deriveNonBbsCredentials(
+      sdJwtSelections,
+      regularSelections,
+    );
     const presentation = await assembleSignedPresentation(credentials, keyDoc);
     return ensureDescriptorMap(presentation);
   }
@@ -487,7 +548,9 @@ export function createVerificationController({
     }
 
     const groups = getRequirementGroups();
-    const group = groups.find(g => g.candidates.some(c => c.id === credentialId));
+    const group = groups.find(g =>
+      g.candidates.some(c => c.id === credentialId),
+    );
     if (!group) {
       return [];
     }
@@ -519,7 +582,7 @@ export function createVerificationController({
       .map(field => {
         const paths = Array.isArray(field.path) ? field.path : [field.path];
         let resolvedPath = null;
-        let value = undefined;
+        let value;
 
         for (const p of paths) {
           const cleanPath = p.replace('$.', '');
@@ -565,8 +628,14 @@ export function createVerificationController({
           isRangeProof,
           isOptional: field.optional === true,
           ...(isRangeProof && {
-            min: field.filter.minimum ?? field.filter.exclusiveMinimum ?? field.filter.formatMinimum,
-            max: field.filter.maximum ?? field.filter.exclusiveMaximum ?? field.filter.formatMaximum,
+            min:
+              field.filter.minimum ??
+              field.filter.exclusiveMinimum ??
+              field.filter.formatMinimum,
+            max:
+              field.filter.maximum ??
+              field.filter.exclusiveMaximum ??
+              field.filter.formatMaximum,
           }),
         };
       })
@@ -579,10 +648,15 @@ export function createVerificationController({
 
     for (const group of groups) {
       credential = group.candidates.find(c => c.id === credentialId);
-      if (credential) break;
+      if (credential) {
+        break;
+      }
     }
 
-    assert(credential, `Credential ${credentialId} not found in any descriptor group`);
+    assert(
+      credential,
+      `Credential ${credentialId} not found in any descriptor group`,
+    );
 
     return credentialProvider.isValid(credential);
   }
@@ -596,10 +670,23 @@ export function createVerificationController({
     }
   }
 
-  function submitPresentation(presentation) {
-    return axios
-      .post(templateJSON.response_url, presentation)
-      .then(res => res.data);
+  async function submitPresentation(presentation, maxRetries = 3) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const res = await axios.post(templateJSON.response_url, presentation);
+        return res.data;
+      } catch (err) {
+        const httpStatus = err?.response?.status;
+        const isRetryable =
+          !httpStatus || httpStatus === 429 || httpStatus >= 500;
+
+        if (!isRetryable || attempt === maxRetries - 1) {
+          throw err;
+        }
+        const delay = Math.min(1000 * 2 ** attempt, 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
   return {
