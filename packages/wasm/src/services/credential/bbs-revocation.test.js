@@ -51,6 +51,7 @@ describe('bbs-revocation witness cache', () => {
 
   beforeEach(() => {
     clearWitnessCache();
+    setWitnessCacheTTL(120_000); // Enable cache for unit tests
 
     blockchainService.modules = {
       accumulator: {
