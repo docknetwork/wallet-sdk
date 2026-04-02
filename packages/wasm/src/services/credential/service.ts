@@ -45,7 +45,7 @@ import {LegoProvingKey} from '@docknetwork/crypto-wasm-ts/lib/legosnark';
 import assert from 'assert';
 import axios from 'axios';
 import {getIsRevoked, getWitnessDetails} from './bbs-revocation';
-import {getPexRequiredAttributes, shouldSkipAttribute} from './pex-helpers';
+import {getPexRequiredAttributes, shouldSkipAttribute, findMatchingDescriptor} from './pex-helpers';
 import {didService} from '../dids/service';
 import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialToW3C, verifySDJWT, createSDJWTPresentation} from './sd-jwt';
 
@@ -742,11 +742,31 @@ class CredentialService {
       });
     }
 
-    if (proofRequest && hasProvingKey(proofRequest)) {
-      const {provingKey, provingKeyId} = await fetchProvingKey(proofRequest);
+    // Filter proof request descriptors to only those matching the provided
+    // credentials. This ensures correct mapping when credentials are provided
+    // in a different order than the proof request's input_descriptors.
+    let filteredProofRequest = proofRequest;
+    if (proofRequest?.request?.input_descriptors?.length > 1) {
+      const matchedDescriptors = selectedCredentials.map(credential =>
+        findMatchingDescriptor(proofRequest.request.input_descriptors, credential),
+      ).filter(Boolean);
+
+      if (matchedDescriptors.length > 0) {
+        filteredProofRequest = {
+          ...proofRequest,
+          request: {
+            ...proofRequest.request,
+            input_descriptors: matchedDescriptors,
+          },
+        };
+      }
+    }
+
+    if (filteredProofRequest && hasProvingKey(filteredProofRequest)) {
+      const {provingKey, provingKeyId} = await fetchProvingKey(filteredProofRequest);
       descriptorBounds = applyEnforceBounds({
         builder: presentation.presBuilder,
-        proofRequest,
+        proofRequest: filteredProofRequest,
         provingKey,
         provingKeyId,
         selectedCredentials,
@@ -754,9 +774,9 @@ class CredentialService {
     }
 
     let pexRequiredAttributes = [];
-    if (proofRequest?.request) {
+    if (filteredProofRequest?.request) {
       pexRequiredAttributes = getPexRequiredAttributes(
-        proofRequest.request,
+        filteredProofRequest.request,
         selectedCredentials,
       );
     }

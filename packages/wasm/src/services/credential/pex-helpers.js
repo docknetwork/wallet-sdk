@@ -283,35 +283,81 @@ export const shouldSkipAttribute = attributeName =>
   attributesToSkip.some(regex => regex.test(attributeName));
 
 export function getPexRequiredAttributes(pexRequest, selectedCredentials = []) {
-  return pexRequest.input_descriptors
-    .map((inputDescriptor, index) => {
-      return inputDescriptor.constraints.fields
-        .filter(field => {
-          if (field.filter || field.optional) {
-            return false;
+  // Match each credential to its best-fitting descriptor by checking which
+  // descriptor's fields exist in the credential, rather than relying on
+  // positional index. This allows credentials to be provided in any order.
+  return selectedCredentials.map((credential, credIdx) => {
+    const matchedDescriptor = findMatchingDescriptor(
+      pexRequest.input_descriptors,
+      credential,
+    );
+    if (!matchedDescriptor) {
+      return [];
+    }
+    return matchedDescriptor.constraints.fields
+      .filter(field => {
+        if (field.filter || field.optional) {
+          return false;
+        }
+
+        try {
+          const paths = Array.isArray(field.path)
+            ? field.path.flatMap(singlePath =>
+                JSONPath.paths(credential, singlePath),
+              )
+            : JSONPath.paths(credential, field.path);
+
+          return paths.length !== 0;
+        } catch (error) {
+          console.error(`Error in field ${field.path}: ${error.message}`);
+          return false;
+        }
+      })
+      .map(field =>
+        getAttributeName({field, selectedCredentials, index: credIdx}),
+      )
+      .filter(attributeName => {
+        return !shouldSkipAttribute(attributeName);
+      });
+  });
+}
+
+export function findMatchingDescriptor(inputDescriptors, credential) {
+  let bestMatch = null;
+  let bestScore = -1;
+
+  for (const descriptor of inputDescriptors) {
+    const fields = descriptor.constraints?.fields || [];
+    if (fields.length === 0) {
+      continue;
+    }
+
+    let matched = 0;
+    for (const field of fields) {
+      try {
+        const fieldPaths = Array.isArray(field.path)
+          ? field.path
+          : [field.path];
+        for (const p of fieldPaths) {
+          const paths = JSONPath.paths(credential, p);
+          if (paths.length > 0) {
+            matched++;
+            break;
           }
+        }
+      } catch {
+        // ignore
+      }
+    }
 
-          try {
-            if (!selectedCredentials[index]) {
-              return false;
-            }
+    // Use match ratio so descriptors where all fields match score higher
+    // than descriptors where only generic fields (e.g. issuer) match
+    const score = matched / fields.length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = descriptor;
+    }
+  }
 
-            const paths = Array.isArray(field.path)
-              ? field.path.flatMap(singlePath =>
-                  JSONPath.paths(selectedCredentials[index], singlePath),
-                )
-              : JSONPath.paths(selectedCredentials[index], field.path);
-
-            return paths.length !== 0;
-          } catch (error) {
-            console.error(`Error in field ${field.path}: ${error.message}`);
-            return false;
-          }
-        })
-        .map(field => getAttributeName({field, selectedCredentials, index}))
-        .filter(attributeName => {
-          return !shouldSkipAttribute(attributeName);
-        });
-    })
-    .filter(requiredAttributes => requiredAttributes.length > 0);
+  return bestMatch;
 }
