@@ -10,6 +10,7 @@ import universityDegree from '../data/default-presentation-tests/university-degr
 import universityDegree2 from '../data/default-presentation-tests/university-degree-2.json';
 import equinetCreditScore from '../data/default-presentation-tests/equinet-credit-score.json';
 import {createProofRequest} from '../helpers/certs-helpers';
+import {setWitnessCacheTTL} from '@docknetwork/wallet-sdk-wasm/src/services/credential/bbs-revocation';
 
 jest.retryTimes(0);
 
@@ -27,6 +28,7 @@ let didProvider;
 
 describe('Default presentation', () => {
   beforeAll(async () => {
+    setWitnessCacheTTL(0); // Disable witness cache for testing
     wallet = await getWallet();
     didProvider = getDIDProvider();
     const credentialProvider = getCredentialProvider();

@@ -6,6 +6,7 @@ import {
   getCredentialProvider,
 } from '../helpers/wallet-helpers';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
+import {setWitnessCacheTTL} from '@docknetwork/wallet-sdk-wasm/src/services/credential/bbs-revocation';
 
 const allCredentials = [
   {
@@ -150,6 +151,7 @@ let credentialProvider;
 
 describe('Default presentation', () => {
   beforeAll(async () => {
+    setWitnessCacheTTL(0); // Disable witness cache for testing
     wallet = await getWallet();
     didProvider = getDIDProvider();
     credentialProvider = getCredentialProvider();
