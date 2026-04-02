@@ -3,6 +3,7 @@ import {pexService} from '@docknetwork/wallet-sdk-wasm/src/services/pex';
 import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
 import {
   createCredentialProvider,
+  CredentialStatus,
   ICredentialProvider,
 } from './credential-provider';
 import {IWallet} from './types';
@@ -59,14 +60,14 @@ export interface IVerificationController {
     candidates: any[];
   }>;
   getSelectedCredentialsByDescriptor: () => any[];
-  getCredentialOptionsForDescriptor: (credentialId: string) => any;
+  getCredentialOptionsForDescriptor: (credentialId: string) => Promise<any>;
   switchCredential: (
     currentCredentialId: string,
     replacementCredentialId: string,
   ) => Promise<void>;
   getRequestedAttributes: (credentialId: string) => any[];
   getCredentialStatus: (credentialId: string) => Promise<any>;
-  canSwitchCredential: (credentialId: string) => boolean;
+  canSwitchCredential: (credentialId: string) => Promise<boolean>;
   getTemplateJSON: () => any;
 }
 
@@ -262,6 +263,27 @@ export function createVerificationController({
     return groups;
   }
 
+  async function filterValidCredentials(candidates: any[]) {
+    const results = await Promise.all(
+      candidates.map(async cred => {
+        const statusResult = await credentialProvider.getCredentialStatus(cred);
+        return {
+          credential: cred,
+          status: statusResult.status,
+        };
+      }),
+    );
+
+    return results
+      .filter(
+        r =>
+          r.status !== CredentialStatus.Revoked &&
+          r.status !== CredentialStatus.Invalid &&
+          r.status !== CredentialStatus.Expired,
+      )
+      .map(r => r.credential);
+  }
+
   async function createDefaultPresentation() {
     assert(filteredCredentials.length > 0, 'No filtered credentials available');
 
@@ -269,9 +291,10 @@ export function createVerificationController({
 
     const groups = getRequirementGroups();
     for (const group of groups) {
+      const validCandidates = await filterValidCredentials(group.candidates);
       const chosen =
-        group.candidates.find(cred => !selectedCredentials.has(cred.id)) ||
-        group.candidates[0];
+        validCandidates.find(cred => !selectedCredentials.has(cred.id)) ||
+        validCandidates[0];
       if (chosen) {
         selectedCredentials.set(chosen.id, {credential: chosen});
       }
@@ -304,7 +327,7 @@ export function createVerificationController({
     });
   }
 
-  function getCredentialOptionsForDescriptor(credentialId: string) {
+  async function getCredentialOptionsForDescriptor(credentialId: string) {
     const groups = getRequirementGroups();
     const group = groups.find(g =>
       g.candidates.some(c => c.id === credentialId),
@@ -316,7 +339,8 @@ export function createVerificationController({
     );
 
     const selected = group.candidates.find(c => c.id === credentialId);
-    const alternatives = group.candidates.filter(c => c.id !== credentialId);
+    const allAlternatives = group.candidates.filter(c => c.id !== credentialId);
+    const alternatives = await filterValidCredentials(allAlternatives);
 
     return {
       descriptorId: group.descriptorKey,
@@ -335,7 +359,7 @@ export function createVerificationController({
       `Credential ${currentCredentialId} is not currently selected`,
     );
 
-    const options = getCredentialOptionsForDescriptor(currentCredentialId);
+    const options = await getCredentialOptionsForDescriptor(currentCredentialId);
     const replacement = options.alternatives.find(
       c => c.id === replacementCredentialId,
     );
@@ -661,9 +685,9 @@ export function createVerificationController({
     return credentialProvider.isValid(credential);
   }
 
-  function canSwitchCredential(credentialId: string) {
+  async function canSwitchCredential(credentialId: string) {
     try {
-      const options = getCredentialOptionsForDescriptor(credentialId);
+      const options = await getCredentialOptionsForDescriptor(credentialId);
       return options.alternatives.length > 0;
     } catch {
       return false;
