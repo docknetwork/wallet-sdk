@@ -24,14 +24,16 @@ const template3 = 'a3e775bb-aaab-4489-b31b-746dc74f76c5';
 // 2 range proofs
 const template4 = '9b434ed1-3b65-4b7c-b678-afc7e218f063';
 
-// Create tampered credentials for invalid/revoked status tests
+// Create tampered credentials for invalid/revoked/expired status tests
 const invalidCredentialId = 'https://creds-staging.truvera.io/invalid-university-degree';
 const revokedCredentialId = 'https://creds-staging.truvera.io/revoked-university-degree';
+const expiredCredentialId = 'https://creds-staging.truvera.io/expired-university-degree';
 
-function createTamperedCredential(base: any, newId: string) {
+function createTamperedCredential(base: any, newId: string, overrides: any = {}) {
   return {
     ...JSON.parse(JSON.stringify(base)),
     id: newId,
+    ...overrides,
   };
 }
 
@@ -53,9 +55,13 @@ describe('Default presentation', () => {
     // Add tampered credentials and force their cached status
     const invalidCredential = createTamperedCredential(universityDegree, invalidCredentialId);
     const revokedCredential = createTamperedCredential(universityDegree, revokedCredentialId);
+    const expiredCredential = createTamperedCredential(universityDegree, expiredCredentialId, {
+      expirationDate: '2020-01-01T00:00:00Z',
+    });
 
     await credentialProvider.addCredential(invalidCredential);
     await credentialProvider.addCredential(revokedCredential);
+    await credentialProvider.addCredential(expiredCredential);
 
     // Wait for the background status sync triggered by addCredential to settle
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -398,7 +404,7 @@ describe('Default presentation', () => {
     expect(await controller.canSwitchCredential('non-existent-id')).toBe(false);
   });
 
-  it('should filter out invalid and revoked credentials from default presentation', async () => {
+  it('should filter out invalid, revoked and expired credentials from default presentation', async () => {
     const proofRequest = await createProofRequest(template1);
 
     const controller = createVerificationController({
@@ -410,26 +416,29 @@ describe('Default presentation', () => {
       template: proofRequest,
     });
 
-    // The filtered credentials should include the invalid and revoked ones
+    // The filtered credentials should include the invalid, revoked and expired ones
     // since PEX filtering only checks schema/type match, not status
     const allFiltered = controller.getFilteredCredentials();
     const hasInvalid = allFiltered.some(c => c.id === invalidCredentialId);
     const hasRevoked = allFiltered.some(c => c.id === revokedCredentialId);
+    const hasExpired = allFiltered.some(c => c.id === expiredCredentialId);
     expect(hasInvalid).toBe(true);
     expect(hasRevoked).toBe(true);
+    expect(hasExpired).toBe(true);
 
     const presentation = await controller.createDefaultPresentation();
 
     expect(presentation).toBeDefined();
     expect(presentation.verifiableCredential).toBeDefined();
 
-    // The selected credentials should NOT include invalid or revoked ones
+    // The selected credentials should NOT include invalid, revoked or expired ones
     const selectedIds = [...controller.selectedCredentials.keys()];
     expect(selectedIds).not.toContain(invalidCredentialId);
     expect(selectedIds).not.toContain(revokedCredentialId);
+    expect(selectedIds).not.toContain(expiredCredentialId);
   });
 
-  it('should filter out invalid and revoked credentials from switch alternatives', async () => {
+  it('should filter out invalid, revoked and expired credentials from switch alternatives', async () => {
     const proofRequest = await createProofRequest(template1);
 
     const controller = createVerificationController({
@@ -448,9 +457,10 @@ describe('Default presentation', () => {
 
     const options = await controller.getCredentialOptionsForDescriptor(selectedCredentialId);
 
-    // Alternatives should not contain invalid or revoked credentials
+    // Alternatives should not contain invalid, revoked or expired credentials
     const alternativeIds = options.alternatives.map(c => c.id);
     expect(alternativeIds).not.toContain(invalidCredentialId);
     expect(alternativeIds).not.toContain(revokedCredentialId);
+    expect(alternativeIds).not.toContain(expiredCredentialId);
   });
 });

@@ -278,7 +278,8 @@ export function createVerificationController({
       .filter(
         r =>
           r.status !== CredentialStatus.Revoked &&
-          r.status !== CredentialStatus.Invalid,
+          r.status !== CredentialStatus.Invalid &&
+          r.status !== CredentialStatus.Expired,
       )
       .map(r => r.credential);
   }
