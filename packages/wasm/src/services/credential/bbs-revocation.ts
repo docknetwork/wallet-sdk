@@ -23,7 +23,7 @@ const trimHexID = id => {
 };
 
 const blockchainCache = new Map<string, {data: any; timestamp: number}>();
-let WITNESS_CACHE_TTL = 120_000; // 2 minutes
+let WITNESS_CACHE_TTL = 0; // Disabled — accumulator can change between cache time and verification
 
 export const getWitnessCacheTTL = () => WITNESS_CACHE_TTL;
 export const setWitnessCacheTTL = (ms: number) => { WITNESS_CACHE_TTL = ms; };
