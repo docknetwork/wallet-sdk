@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Box, Button, Modal, TextField } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Divider, FormControlLabel, Menu, MenuItem, Modal, Snackbar, Switch, TextField } from "@mui/material";
 import "./App.css";
 import { createVerificationController } from "@docknetwork/wallet-sdk-core/lib/verification-controller";
 import { getVCData } from "@docknetwork/prettyvc";
@@ -7,23 +7,28 @@ import axios from "axios";
 import { setLocalStorageImpl } from "@docknetwork/wallet-sdk-data-store-web/lib/localStorageJSON";
 
 import useCloudWallet from './hooks/useCloudWallet';
-import { generateCloudWalletMasterKey } from "@docknetwork/wallet-sdk-core/lib/cloud-wallet";
+import { useWalletManager } from './hooks/useWalletManager';
+import { useCredentialManagement } from './hooks/useCredentialManagement';
+import ActionButtons from "./components/ActionButtons";
+import DidSection from "./components/DidSection";
+import CredentialsSection from "./components/CredentialsSection";
+import ImportCredentialModal from "./components/ImportCredentialModal";
+import VerifyCredentialModal from "./components/VerifyCredentialModal";
+import { useImportFlow, useVerifyFlow } from "./hooks/useModalFlows";
 
 
 setLocalStorageImpl(global.localStorage);
 
+
+
 function App() {
-  const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [formattedCredentials, setFormattedCredentials] = useState([]);
-  const [importModalOpen, setImportModalOpen] = useState(false);
-  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
-  const [credentialUrl, setCredentialUrl] = useState("");
-  const [proofRequestUrl, setProofRequestUrl] = useState();
-  const [verifyStep, setVerifyStep] = useState(1);
-  const [selectedCredential, setSelectedCredential] = useState(null);
-  const [walletKeys, setWalletKeys] = useState(null);
-  const [uploadError, setUploadError] = useState(null);
+  const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
+  const [autoCheckMessages, setAutoCheckMessages] = useState(false);
+
+  // Initialize wallet management
+  const walletManager = useWalletManager();
 
   // Styles for the modals
   const modalStyle = {
@@ -37,33 +42,6 @@ function App() {
     p: 4,
   };
 
-  useEffect(() => {
-    try {
-      const jsonKeys = localStorage.getItem("keys");
-      if (jsonKeys) {
-        let masterKeyArray;
-        const parsedKeys = JSON.parse(jsonKeys);
-        if (parsedKeys.masterKey && typeof parsedKeys.masterKey === 'object' && !Array.isArray(parsedKeys.masterKey)) {
-          masterKeyArray = Object.values(parsedKeys.masterKey);
-        } else if (Array.isArray(parsedKeys.masterKey)) {
-          masterKeyArray = parsedKeys.masterKey;
-        } else {
-          console.log('Master key', parsedKeys.masterKey);
-          throw new Error('Invalid master key format');
-        }
-
-        const _walletKeys = {
-          masterKey: new Uint8Array(masterKeyArray),
-          mnemonic: parsedKeys.mnemonic,
-        };
-
-        setWalletKeys(_walletKeys);
-      }
-    } catch (err) {
-      console.error("Error fetching wallet keys:", err);
-    }
-  }, []);
-
   const {
     loading: cloudWalletLoading,
     cloudWallet,
@@ -73,29 +51,7 @@ function App() {
     defaultDID,
     messageProvider,
     provisionNewWallet,
-  } = useCloudWallet(walletKeys);
-
-
-  const handleImportCredential = async () => {
-    if (!credentialProvider) {
-      return
-    }
-
-    // check if the URL is a valid openid-credential-offer
-    if (!credentialUrl.startsWith("openid-credential-offer:")) {
-      alert("Invalid credential offer URL. Check https://docs.truvera.io/truvera-api/openid#credential-offers for more details.");
-      return;
-    }
-
-    await credentialProvider.importCredentialFromURI({
-      uri: credentialUrl,
-      didProvider,
-    });
-
-    refreshDocuments();
-    setImportModalOpen(false);
-    setCredentialUrl("");
-  };
+  } = useCloudWallet(walletManager.walletKeys, walletManager.activeWalletId);
 
   const refreshDocuments = useCallback(async () => {
     if (!credentialProvider) {
@@ -116,6 +72,28 @@ function App() {
     setDocuments(creds);
   }, [credentialProvider]);
 
+  // Extract modal flows using custom hooks
+  const importFlow = useImportFlow(credentialProvider, didProvider, refreshDocuments);
+  const verifyFlow = useVerifyFlow(wallet, credentialProvider, didProvider);
+
+  // Extract credential management
+  const credentialManagement = useCredentialManagement(
+    credentialProvider,
+    wallet,
+    cloudWallet,
+    documents,
+    refreshDocuments
+  );
+
+  const handleFetchMessages = useCallback(async () => {
+    if (!messageProvider) {
+      return;
+    }
+
+    await messageProvider.fetchMessages();
+    await messageProvider.processDIDCommMessages();
+  }, [messageProvider]);
+
   useEffect(() => {
     if (credentialProvider) {
       refreshDocuments();
@@ -130,11 +108,20 @@ function App() {
     const unsubscribe = messageProvider.addMessageListener(async (message) => {
       console.log("Message received", message);
 
-      if (message.body.credentials) {
+      const incomingCredentials = Array.isArray(message?.body?.credentials)
+        ? message.body.credentials
+        : [];
+
+      if (incomingCredentials.length) {
         console.log("adding credential to the wallet");
-        message.body.credentials.forEach(async (credential) => {
-          await credentialProvider.addCredential(credential);
-          refreshDocuments();
+        await Promise.all(
+          incomingCredentials.map((credential) => credentialProvider.addCredential(credential))
+        );
+        await refreshDocuments();
+        importFlow.setImportToast({
+          open: true,
+          severity: "success",
+          message: `Imported ${incomingCredentials.length} credential${incomingCredentials.length === 1 ? "" : "s"} from messages.`,
         });
       }
     });
@@ -142,99 +129,45 @@ function App() {
     return () => unsubscribe && unsubscribe();
   }, [messageProvider, credentialProvider, refreshDocuments]);
 
-  const handleVerifyCredential = async () => {
-    if (!wallet || !credentialProvider || !didProvider) {
+  useEffect(() => {
+    if (!autoCheckMessages || !defaultDID || !messageProvider) {
       return;
     }
 
-    setLoading(true);
-    const { data: proofRequest } = await axios.get(proofRequestUrl);
-    const controller = createVerificationController({
-      wallet,
-      credentialProvider,
-      didProvider,
-    });
+    void handleFetchMessages();
 
-    const credential = selectedCredential;
+    const intervalId = window.setInterval(() => {
+      void handleFetchMessages();
+    }, 30000);
 
-    await controller.start({ template: proofRequest });
+    return () => window.clearInterval(intervalId);
+  }, [autoCheckMessages, defaultDID, messageProvider, handleFetchMessages]);
 
-    const attributesToReveal = ["credentialSubject.name"];
+  const matchingCredentials = formattedCredentials
+    .map((document, idx) => ({
+      document,
+      rawDocument: documents[idx],
+    }))
+    .filter((item) => item.rawDocument && verifyFlow.matchingCredentialIds.includes(item.rawDocument.id));
 
-    controller.selectedCredentials.set(credential.id, {
-      credential,
-      attributesToReveal,
-    });
-
-    const presentation = await controller.createPresentation();
-
-    console.log(presentation);
-
-    try {
-      const { data: verificationResult } = await axios
-        .post(proofRequest.response_url, presentation)
-        .then((res) => res.data);
-
-      console.log("Verification sent", {
-        verificationResult,
-      });
-
-      alert("Verification sent successfully");
-    } catch (err) {
-      console.error("Error sending verification", err);
-      alert("Error sending verification: " + err.response.data.error);
-    }
-
-    setLoading(false);
-    setVerifyModalOpen(false);
-    setVerifyStep(1);
-    setProofRequestUrl("");
-    setSelectedCredential(null);
+  const settingsMenuOpen = Boolean(settingsAnchorEl);
+  const handleOpenSettingsMenu = (event) => {
+    setSettingsAnchorEl(event.currentTarget);
   };
 
-  const handleWalletKeyUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setLoading(true);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const keys = JSON.parse(e.target.result);
-          localStorage.setItem("keys", JSON.stringify(keys));
-          setWalletKeys(keys);
-          setLoading(false);
-        } catch (error) {
-          console.error("Error parsing wallet keys:", error);
-          setUploadError("Invalid wallet key file.");
-          setLoading(false);
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const handleCreateWallet = async () => {
-    setLoading(true);
-    try {
-      const newKeys = await generateCloudWalletMasterKey();
-      console.log("generated new keys for the wallet");
-      localStorage.setItem("keys", JSON.stringify(newKeys));
-      setWalletKeys(newKeys);
-    } catch (err) {
-      console.error("Error generating keys", err);
-    }
-    setLoading(false);
+  const handleCloseSettingsMenu = () => {
+    setSettingsAnchorEl(null);
   };
 
   console.log({
-    walletKeys,
-    loading,
+    walletKeys: walletManager.walletKeys,
+    loading: walletManager.loading,
     cloudWalletLoading,
     documents,
     formattedCredentials,
   });
 
-  if (cloudWalletLoading || loading) {
+  if (cloudWalletLoading || walletManager.loading) {
     return (
       <div className="App">
         <div className="loading-container">
@@ -244,13 +177,13 @@ function App() {
     );
   }
 
-  if (!walletKeys) {
+  if (!walletManager.walletKeys) {
     return (
       <div className="App">
         <div className="setup-container">
           <h2>Welcome to the Wallet App</h2>
           <p>Please upload your wallet key file or create a new wallet.</p>
-          {uploadError && <div className="error">{uploadError}</div>}
+          {walletManager.uploadError && <div className="error">{walletManager.uploadError}</div>}
           <div className="setup-buttons">
             <Button variant="contained" component="label" className="btn primary">
               Upload Wallet Key File
@@ -258,13 +191,13 @@ function App() {
                 type="file"
                 accept=".json"
                 hidden
-                onChange={handleWalletKeyUpload}
+                onChange={walletManager.handleWalletKeyUpload}
               />
             </Button>
             <button
               className="btn primary"
               data-testid="create-wallet-button"
-              onClick={handleCreateWallet}
+              onClick={walletManager.handleCreateWallet}
             >
               Create New Wallet
             </button>
@@ -278,258 +211,219 @@ function App() {
     <div className="App">
       <div className="wallet-container">
         <header className="App-header">
-          <h1>Truvera Wallet React Example</h1>
+          <img
+            src="/truveralogoround.png"
+            alt="Truvera"
+            className="header-logo"
+          />
+          <h1>Truvera Demo Web Wallet</h1>
         </header>
 
         {/* Action Buttons */}
-        <div className="action-buttons">
-          <button
-            className="btn primary"
-            data-testid="import-credential-button"
-            onClick={() => {
-              setImportModalOpen(true);
-              setCredentialUrl("");
+        <ActionButtons
+          onImportClick={() => {
+            importFlow.setImportModalOpen(true);
+            importFlow.setCredentialUrl("");
+          }}
+          onVerifyClick={() => {
+            verifyFlow.setVerifyModalOpen(true);
+            verifyFlow.setVerifyStep(1);
+            verifyFlow.setProofRequestUrl("");
+          }}
+          onRefreshClick={refreshDocuments}
+          onSettingsClick={handleOpenSettingsMenu}
+        />
+        <Menu
+          anchorEl={settingsAnchorEl}
+          open={settingsMenuOpen}
+          onClose={handleCloseSettingsMenu}
+        >
+          <MenuItem
+            onClick={async () => {
+              handleCloseSettingsMenu();
+              await walletManager.handleCreateWallet();
             }}
           >
-            Import Credential
-          </button>
-          <button
-            className="btn primary"
-            data-testid="verify-credential-button"
+            Create New Wallet
+          </MenuItem>
+          {walletManager.walletProfiles.length > 0 && <Divider />}
+          {walletManager.walletProfiles.length > 0 && (
+            <MenuItem disabled>
+              Switch Wallet
+            </MenuItem>
+          )}
+          {walletManager.walletProfiles.map((profile) => (
+            <MenuItem
+              key={profile.id}
+              selected={profile.id === walletManager.activeWalletId}
+              onClick={() => {
+                handleCloseSettingsMenu();
+                walletManager.handleSwitchWallet(profile.id);
+              }}
+            >
+              {profile.name}{profile.id === walletManager.activeWalletId ? " (Current)" : ""}
+            </MenuItem>
+          ))}
+          {walletManager.walletProfiles.length > 0 && <Divider />}
+          {walletManager.walletProfiles.length > 0 && (
+            <MenuItem disabled>
+              Rename Wallet
+            </MenuItem>
+          )}
+          {walletManager.walletProfiles.map((profile) => (
+            <MenuItem
+              key={`rename-${profile.id}`}
+              onClick={() => {
+                handleCloseSettingsMenu();
+                walletManager.handleRenameWallet(profile.id);
+              }}
+            >
+              Rename {profile.name}
+            </MenuItem>
+          ))}
+          {walletManager.walletProfiles.length > 0 && <Divider />}
+          {walletManager.walletProfiles.length > 0 && (
+            <MenuItem disabled>
+              Delete Wallet
+            </MenuItem>
+          )}
+          {walletManager.walletProfiles.map((profile) => (
+            <MenuItem
+              key={`delete-${profile.id}`}
+              onClick={async () => {
+                handleCloseSettingsMenu();
+                await walletManager.handleDeleteWallet(profile.id);
+              }}
+            >
+              Delete {profile.name}
+            </MenuItem>
+          ))}
+          {(walletManager.walletProfiles.length > 0) && <Divider />}
+          <MenuItem
             onClick={() => {
-              setVerifyModalOpen(true);
-              setVerifyStep(1);
-              setProofRequestUrl("");
-              setSelectedCredential(null);
-            }}
-          >
-            Verify Credential
-          </button>
-          <button
-            className="btn secondary"
-            data-testid="refresh-button"
-            onClick={() => {
-              refreshDocuments();
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            className="btn secondary"
-            onClick={() => {
-              const currentKeysStr = localStorage.getItem("keys");
-              const currentKeys = currentKeysStr ? JSON.parse(currentKeysStr) : null;
-              localStorage.clear();
-              if (currentKeys) {
-                localStorage.setItem("keys", JSON.stringify({
-                  masterKey: currentKeys.masterKey,
-                  mnemonic: currentKeys.mnemonic,
-                }));
-              }
-              window.location.reload();
+              handleCloseSettingsMenu();
+              walletManager.handleClearWallet();
             }}
           >
             Clear Wallet
-          </button>
+          </MenuItem>
           {cloudWallet && (
-            <button
-              className="btn secondary"
-              onClick={() => cloudWallet.clearEdvDocuments()}
+            <MenuItem
+              onClick={() => {
+                handleCloseSettingsMenu();
+                cloudWallet.clearEdvDocuments();
+              }}
             >
               Clear EDV
-            </button>
+            </MenuItem>
           )}
-        </div>
+        </Menu>
 
         {/* DID Management */}
-        <div className="did-section">
-          {!defaultDID ? (
-            <div className="create-did">
-              <button
-                className="btn primary"
-                onClick={() => provisionNewWallet()}
-              >
-                Create Default DID
-              </button>
-            </div>
-          ) : (
-            <div className="did-display">
-              <div className="did-info">
-                <strong>Default DID:</strong>
-                <span className="did-value">{defaultDID}</span>
-                <button
-                  className="btn small"
-                  data-testid="copy-did-button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(defaultDID);
-                  }}
-                >
-                  Copy
-                </button>
-                <button
-                  className="btn small"
-                  data-testid="fetch-messages-button"
-                  onClick={async () => {
-                    await messageProvider.fetchMessages();
-                    await messageProvider.processDIDCommMessages();
-                  }}
-                >
-                  Fetch Messages
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <DidSection
+          defaultDID={defaultDID}
+          walletProfiles={walletManager.walletProfiles}
+          activeWalletId={walletManager.activeWalletId}
+          autoCheckMessages={autoCheckMessages}
+          onProvisionNewWallet={provisionNewWallet}
+          onSwitchWallet={walletManager.handleSwitchWallet}
+          onFetchMessages={handleFetchMessages}
+          onAutoCheckToggle={setAutoCheckMessages}
+        />
 
         {/* Credentials List */}
-        <div className="credentials-section">
-          <h3>Credentials ({formattedCredentials.length})</h3>
-
-          {formattedCredentials.length === 0 ? (
-            <div className="no-credentials">
-              No credentials found. Import some credentials to get started.
-            </div>
-          ) : (
-            <div className="credentials-list">
-              {formattedCredentials.map((document) => (
-                <div key={document.id} className="credential-card">
-                  <div className="credential-id">{document.id}</div>
-                  <div className="credential-type">{document.humanizedType || 'Unknown Type'}</div>
-                  <div className="credential-subject">
-                    <pre>{JSON.stringify(document?.credentialSubject, null, 2)}</pre>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <CredentialsSection
+          formattedCredentials={formattedCredentials}
+          documents={documents}
+          deletingCredentialId={credentialManagement.deletingCredentialId}
+          onDeleteCredential={credentialManagement.handleDeleteCredential}
+        />
       </div>
 
       {/* Import Credential Modal */}
-      <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)}>
-        <Box sx={modalStyle}>
-          <h2>Import Credential</h2>
-          <div className="form-group">
-            <label htmlFor="credentialUrl">Credential Offer URL:</label>
-            <TextField
-              id="credentialUrl"
-              fullWidth
-              value={credentialUrl}
-              onChange={(e) => setCredentialUrl(e.target.value)}
-              placeholder="Enter credential offer URL"
-              InputProps={{
-                sx: {
-                  borderRadius: '8px',
-                  '&.Mui-focused': {
-                    boxShadow: '0 0 0 3px rgba(76, 81, 191, 0.1)',
-                  },
-                },
-              }}
-            />
-          </div>
-          <div className="modal-buttons">
-            <button
-              className="btn secondary"
-              onClick={() => setImportModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn primary"
-              onClick={handleImportCredential}
-              disabled={!credentialUrl}
-            >
-              Import
-            </button>
-          </div>
-        </Box>
-      </Modal>
+      <ImportCredentialModal
+        open={importFlow.importModalOpen}
+        isImporting={importFlow.isImporting}
+        credentialUrl={importFlow.credentialUrl}
+        onCredentialUrlChange={importFlow.setCredentialUrl}
+        onImport={importFlow.handleImportCredential}
+        onClose={importFlow.resetImportFlow}
+        modalStyle={modalStyle}
+      />
 
       {/* Verify Credential Modal */}
-      <Modal
-        open={verifyModalOpen}
-        onClose={() => {
-          setVerifyModalOpen(false);
-          setVerifyStep(1);
-          setProofRequestUrl("");
-          setSelectedCredential(null);
-        }}
+      <VerifyCredentialModal
+        open={verifyFlow.verifyModalOpen}
+        isVerifying={verifyFlow.isVerifying}
+        verifyStep={verifyFlow.verifyStep}
+        proofRequestUrl={verifyFlow.proofRequestUrl}
+        loadingMatchingCredentials={verifyFlow.loadingMatchingCredentials}
+        matchingCredentials={matchingCredentials}
+        selectedCredential={verifyFlow.selectedCredential}
+        onProofRequestUrlChange={verifyFlow.setProofRequestUrl}
+        onLoadMatchingCredentials={verifyFlow.handleLoadMatchingCredentials}
+        onVerifyCredential={verifyFlow.handleVerifyCredential}
+        onBackStep={() => verifyFlow.setVerifyStep(1)}
+        onClose={verifyFlow.resetVerifyFlow}
+        onSelectCredential={verifyFlow.setSelectedCredential}
+        modalStyle={modalStyle}
+      />
+      <Snackbar
+        open={verifyFlow.verifyToast.open}
+        autoHideDuration={4000}
+        onClose={() => verifyFlow.setVerifyToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Box sx={modalStyle}>
-          {verifyStep === 1 && (
-            <>
-              <h2>Verify Credential</h2>
-              <div className="form-group">
-                <label htmlFor="proofRequestUrl">Proof Request URL:</label>
-                <TextField
-                  id="proofRequestUrl"
-                  fullWidth
-                  value={proofRequestUrl}
-                  onChange={(e) => setProofRequestUrl(e.target.value)}
-                  placeholder="Enter proof request URL"
-                  InputProps={{
-                    sx: {
-                      borderRadius: '8px',
-                      '&.Mui-focused': {
-                        boxShadow: '0 0 0 3px rgba(76, 81, 191, 0.1)',
-                      },
-                    },
-                  }}
-                />
-              </div>
-              <div className="modal-buttons">
-                <button
-                  className="btn secondary"
-                  onClick={() => setVerifyModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={() => setVerifyStep(2)}
-                  disabled={!proofRequestUrl}
-                >
-                  Next
-                </button>
-              </div>
-            </>
-          )}
-          {verifyStep === 2 && (
-            <>
-              <h2>Select Credential to Present</h2>
-              <div className="credential-selection">
-                {formattedCredentials.map((document, idx) => (
-                  <div
-                    key={document.id}
-                    className={`credential-card selectable ${selectedCredential?.id === document.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedCredential(documents[idx])}
-                  >
-                    <div className="credential-type">{document.humanizedType || 'Unknown Type'}</div>
-                    <div className="credential-subject">
-                      <pre>{JSON.stringify(document.credentialSubject, null, 2)}</pre>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="modal-buttons">
-                <button
-                  className="btn secondary"
-                  onClick={() => setVerifyStep(1)}
-                >
-                  Back
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={handleVerifyCredential}
-                  disabled={!selectedCredential}
-                >
-                  Verify
-                </button>
-              </div>
-            </>
-          )}
-        </Box>
-      </Modal>
+        <Alert
+          severity={verifyFlow.verifyToast.severity}
+          variant="filled"
+          onClose={() => verifyFlow.setVerifyToast((prev) => ({ ...prev, open: false }))}
+        >
+          {verifyFlow.verifyToast.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={importFlow.importToast.open}
+        autoHideDuration={4000}
+        onClose={() => importFlow.setImportToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Alert
+          severity={importFlow.importToast.severity}
+          variant="filled"
+          onClose={() => importFlow.setImportToast((prev) => ({ ...prev, open: false }))}
+        >
+          {importFlow.importToast.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={walletManager.walletToast.open}
+        autoHideDuration={4000}
+        onClose={() => walletManager.setWalletToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          severity={walletManager.walletToast.severity}
+          variant="filled"
+          onClose={() => walletManager.setWalletToast((prev) => ({ ...prev, open: false }))}
+        >
+          {walletManager.walletToast.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={credentialManagement.credentialToast.open}
+        autoHideDuration={4000}
+        onClose={() => credentialManagement.setCredentialToast((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={credentialManagement.credentialToast.severity}
+          variant="filled"
+          onClose={() => credentialManagement.setCredentialToast((prev) => ({ ...prev, open: false }))}
+        >
+          {credentialManagement.credentialToast.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
