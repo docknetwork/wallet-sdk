@@ -1,8 +1,22 @@
 /**
  * @module passkey
- * @description WebAuthn passkey helpers for deriving wallet keys using the PRF extension.
- * Provides browser-side functions for registering passkeys and extracting deterministic
- * key material via the WebAuthn PRF extension (Chrome 116+, Safari 18+).
+ * @description Low-level WebAuthn passkey helpers for the Truvera Wallet SDK.
+ *
+ * These functions handle the browser-side WebAuthn ceremonies for registering passkeys
+ * and extracting deterministic key material via the PRF (Pseudo-Random Function) extension.
+ * The PRF output is a 32-byte secret derived from the passkey's internal key and a
+ * deterministic salt — same passkey + same salt always produces the same bytes.
+ *
+ * For most use cases, prefer the high-level `initialize({ passkey: true })` API in
+ * the main SDK module. Use these helpers directly only when you need full control
+ * over the WebAuthn ceremony flow.
+ *
+ * Browser requirements:
+ * - Chrome 116+ (PRF supported during both create and get)
+ * - Safari 18+ / macOS Sequoia / iOS 18 (PRF supported during get only)
+ * - Edge 116+ (Chromium-based, same as Chrome)
+ *
+ * @see {@link module:@docknetwork/wallet-sdk-web} for the high-level passkey API
  */
 
 /**
