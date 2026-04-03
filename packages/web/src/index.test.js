@@ -24,6 +24,29 @@ jest.mock('@docknetwork/wallet-sdk-core/src/cloud-wallet', () => ({
     mockCallOrder.push('recoverCloudWalletMasterKey');
     return 'mock-master-key';
   }),
+  enrollUserWithPasskey: jest.fn().mockImplementation(async () => ({
+    masterKey: new Uint8Array([1, 2, 3]),
+    mnemonic: 'mock passkey mnemonic',
+  })),
+  authenticateWithPasskey: jest
+    .fn()
+    .mockResolvedValue(new Uint8Array([1, 2, 3])),
+}));
+
+jest.mock('./passkey', () => ({
+  checkPasskeySupport: jest.fn().mockResolvedValue({webauthn: true, prf: true}),
+  registerPasskey: jest.fn().mockResolvedValue({
+    credentialId: new Uint8Array([10, 20, 30]),
+    prfSupported: true,
+  }),
+  getPasskeyPRFKey: jest.fn().mockResolvedValue({
+    prfOutput: new Uint8Array(32).fill(42),
+    credentialId: new Uint8Array([10, 20, 30]),
+  }),
+  credentialIdToBase64url: jest.fn().mockReturnValue('ChQe'),
+  base64urlToCredentialId: jest
+    .fn()
+    .mockReturnValue(new Uint8Array([10, 20, 30])),
 }));
 
 jest.mock('@docknetwork/wallet-sdk-core/src/wallet', () => ({
@@ -201,6 +224,137 @@ describe('WalletSDK initialize', () => {
       await expect(
         WalletSDK.initialize({...validConfig, networkId: 'invalid'}),
       ).rejects.toThrow('networkId is required');
+    });
+
+    it('should throw when passkey is combined with masterKey', async () => {
+      await expect(
+        WalletSDK.initialize({
+          ...validConfig,
+          mnemonic: undefined,
+          masterKey: 'some-key',
+          passkey: true,
+        }),
+      ).rejects.toThrow('Cannot combine passkey with masterKey or mnemonic');
+    });
+
+    it('should throw when passkey is combined with mnemonic', async () => {
+      await expect(
+        WalletSDK.initialize({
+          ...validConfig,
+          passkey: true,
+        }),
+      ).rejects.toThrow('Cannot combine passkey with masterKey or mnemonic');
+    });
+  });
+
+  describe('passkey', () => {
+    const {
+      authenticateWithPasskey,
+      enrollUserWithPasskey,
+    } = require('@docknetwork/wallet-sdk-core/src/cloud-wallet');
+    const {
+      registerPasskey,
+      getPasskeyPRFKey,
+      base64urlToCredentialId,
+    } = require('./passkey');
+
+    const passkeyConfig = {
+      edvUrl: 'https://edv.example.com',
+      edvAuthKey: 'test-auth-key',
+      networkId: 'testnet',
+    };
+
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it('should enroll a new passkey on first use with passkey: true', async () => {
+      const result = await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: true,
+      });
+
+      expect(registerPasskey).toHaveBeenCalled();
+      expect(enrollUserWithPasskey).toHaveBeenCalled();
+      expect(result.mnemonic).toBe('mock passkey mnemonic');
+    });
+
+    it('should store enrollment data in localStorage after enrollment', async () => {
+      await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: true,
+      });
+
+      const stored = JSON.parse(localStorage.getItem('truvera-wallet-passkey'));
+      expect(stored).toBeTruthy();
+      expect(stored.credentialId).toBe('ChQe');
+      expect(stored.identifier).toBeDefined();
+    });
+
+    it('should authenticate with stored passkey on subsequent visits', async () => {
+      localStorage.setItem(
+        'truvera-wallet-passkey',
+        JSON.stringify({
+          credentialId: 'ChQe',
+          identifier: 'localhost',
+        }),
+      );
+
+      const result = await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: true,
+      });
+
+      expect(registerPasskey).not.toHaveBeenCalled();
+      expect(enrollUserWithPasskey).not.toHaveBeenCalled();
+      expect(authenticateWithPasskey).toHaveBeenCalled();
+      expect(result.mnemonic).toBeUndefined();
+    });
+
+    it('should use custom storageKey when provided', async () => {
+      await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: {storageKey: 'custom-key'},
+      });
+
+      expect(localStorage.getItem('custom-key')).toBeTruthy();
+    });
+
+    it('should authenticate directly when credentialId is provided', async () => {
+      const result = await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: {
+          credentialId: 'ChQe',
+          identifier: 'user@example.com',
+        },
+      });
+
+      expect(registerPasskey).not.toHaveBeenCalled();
+      expect(enrollUserWithPasskey).not.toHaveBeenCalled();
+      expect(base64urlToCredentialId).toHaveBeenCalledWith('ChQe');
+      expect(getPasskeyPRFKey).toHaveBeenCalledWith(
+        'user@example.com',
+        expect.objectContaining({
+          credentialId: expect.any(Uint8Array),
+        }),
+      );
+      expect(result.mnemonic).toBeUndefined();
+    });
+
+    it('should pass custom rpId and rpName during enrollment', async () => {
+      await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: {
+          rpId: 'example.com',
+          rpName: 'My App',
+        },
+      });
+
+      expect(registerPasskey).toHaveBeenCalledWith(
+        expect.any(String),
+        'My App',
+        'example.com',
+      );
     });
   });
 });
