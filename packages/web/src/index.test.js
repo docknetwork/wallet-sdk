@@ -171,7 +171,9 @@ describe('WalletSDK initialize', () => {
           mnemonic: undefined,
           masterKey: undefined,
         }),
-      ).rejects.toThrow('Either masterKey or mnemonic must be provided');
+      ).rejects.toThrow(
+        'Provide one of masterKey, mnemonic, or passkey for wallet access',
+      );
     });
 
     it('should throw when both masterKey and mnemonic are provided', async () => {
