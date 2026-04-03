@@ -53,7 +53,7 @@ async function computePRFSalt(identifier) {
  */
 export function credentialIdToBase64url(bytes) {
   const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]/g, '');
 }
 
 /**
