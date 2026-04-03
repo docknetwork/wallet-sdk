@@ -25,10 +25,7 @@
  * @returns {Promise<{webauthn: boolean, prf: boolean}>}
  */
 export async function checkPasskeySupport() {
-  if (
-    typeof window === 'undefined' ||
-    !window.PublicKeyCredential
-  ) {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
     return {webauthn: false, prf: false};
   }
 
@@ -100,8 +97,8 @@ export async function registerPasskey(identifier, rpName, rpId) {
         displayName: identifier,
       },
       pubKeyCredParams: [
-        {alg: -7, type: 'public-key'},   // ES256
-        {alg: -257, type: 'public-key'},  // RS256
+        {alg: -7, type: 'public-key'}, // ES256
+        {alg: -257, type: 'public-key'}, // RS256
       ],
       authenticatorSelection: {
         residentKey: 'required',
@@ -161,9 +158,10 @@ export async function getPasskeyPRFKey(identifier, options = {}) {
   // When omitted, browser shows discoverable credential picker (cross-device friendly)
   if (options.credentialId) {
     // Ensure credentialId is a proper ArrayBuffer (WebAuthn requires BufferSource)
-    const id = options.credentialId instanceof ArrayBuffer
-      ? options.credentialId
-      : new Uint8Array(options.credentialId).buffer;
+    const id =
+      options.credentialId instanceof ArrayBuffer
+        ? options.credentialId
+        : new Uint8Array(options.credentialId).buffer;
 
     publicKeyOptions.allowCredentials = [
       {
@@ -182,7 +180,7 @@ export async function getPasskeyPRFKey(identifier, options = {}) {
   if (!prfResults || !prfResults.first) {
     throw new Error(
       'PRF extension not supported by this authenticator. ' +
-      'Passkey-based wallet access requires Chrome 116+ or Safari 18+.'
+        'Passkey-based wallet access requires Chrome 116+ or Safari 18+.',
     );
   }
 

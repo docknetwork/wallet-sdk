@@ -157,7 +157,9 @@ function resolvePasskeyOptions(passkey) {
  */
 function isPasskeyEnrolled(storageKey) {
   try {
-    return localStorage.getItem(storageKey || DEFAULT_PASSKEY_STORAGE_KEY) !== null;
+    return (
+      localStorage.getItem(storageKey || DEFAULT_PASSKEY_STORAGE_KEY) !== null
+    );
   } catch {
     return false;
   }
@@ -179,32 +181,59 @@ function isPasskeyEnrolled(storageKey) {
  * @returns {Promise<{mnemonic: string, credentialId: string}>} Recovery mnemonic and base64url-encoded credential ID
  * @throws {Error} If WebAuthn or PRF is not supported
  */
-async function enrollPasskey({edvUrl, edvAuthKey, identifier, rpName, rpId, storageKey}) {
-  const resolved = resolvePasskeyOptions({identifier, rpName, rpId, storageKey});
+async function enrollPasskey({
+  edvUrl,
+  edvAuthKey,
+  identifier,
+  rpName,
+  rpId,
+  storageKey,
+}) {
+  const resolved = resolvePasskeyOptions({
+    identifier,
+    rpName,
+    rpId,
+    storageKey,
+  });
 
   const support = await checkPasskeySupport();
   if (!support.webauthn) {
     throw new Error('WebAuthn is not supported in this browser');
   }
 
-  const {credentialId, prfSupported} = await registerPasskey(resolved.identifier, resolved.rpName, resolved.rpId);
+  const {credentialId, prfSupported} = await registerPasskey(
+    resolved.identifier,
+    resolved.rpName,
+    resolved.rpId,
+  );
 
   if (!prfSupported) {
     throw new Error(
-      'PRF extension not supported by this authenticator. Requires Chrome 116+ or Safari 18+.'
+      'PRF extension not supported by this authenticator. Requires Chrome 116+ or Safari 18+.',
     );
   }
 
-  const {prfOutput} = await getPasskeyPRFKey(resolved.identifier, {credentialId, rpId: resolved.rpId});
+  const {prfOutput} = await getPasskeyPRFKey(resolved.identifier, {
+    credentialId,
+    rpId: resolved.rpId,
+  });
 
-  const {mnemonic} = await enrollUserWithPasskey(edvUrl, edvAuthKey, prfOutput, resolved.identifier);
+  const {mnemonic} = await enrollUserWithPasskey(
+    edvUrl,
+    edvAuthKey,
+    prfOutput,
+    resolved.identifier,
+  );
 
   const credentialIdBase64url = credentialIdToBase64url(credentialId);
 
-  localStorage.setItem(resolved.storageKey, JSON.stringify({
-    credentialId: credentialIdBase64url,
-    identifier: resolved.identifier,
-  }));
+  localStorage.setItem(
+    resolved.storageKey,
+    JSON.stringify({
+      credentialId: credentialIdBase64url,
+      identifier: resolved.identifier,
+    }),
+  );
 
   return {mnemonic, credentialId: credentialIdBase64url};
 }
@@ -273,7 +302,12 @@ async function initialize({
       : {rpId};
 
     const {prfOutput} = await getPasskeyPRFKey(identifier, prfOptions);
-    masterKey = await authenticateWithPasskey(edvUrl, edvAuthKey, prfOutput, identifier);
+    masterKey = await authenticateWithPasskey(
+      edvUrl,
+      edvAuthKey,
+      prfOutput,
+      identifier,
+    );
   } else if (!masterKey && !mnemonic) {
     throw new Error(
       'Initialization failed: Provide one of masterKey, mnemonic, or passkey for wallet access',
@@ -637,7 +671,6 @@ async function initialize({
  */
 export {
   initialize,
-
   enrollPasskey,
   isPasskeyEnrolled,
   createDataStore,
