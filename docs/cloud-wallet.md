@@ -191,7 +191,7 @@ The Truvera Cloud Wallet supports multiple authentication methods to unlock the 
 
 1. **Mnemonic-based authentication**: The traditional recovery phrase approach
 2. **Biometric authentication**: Using fingerprints, facial recognition, or other biometric data
-3. **Future extensions**: Can be extended to support passkeys and other authentication methods
+3. **Passkey authentication**: Using WebAuthn passkeys with the PRF extension for browser-based wallets
 
 ### How multi-key authentication works
 
@@ -271,6 +271,91 @@ The authentication process:
 3. Derives decryption keys from the provided biometric data
 4. Decrypts the master key
 5. Uses the master key to access the CloudWalletVault
+
+#### Passkey authentication
+
+Passkeys provide a passwordless authentication method for web wallets using the WebAuthn PRF extension to derive deterministic key material. This approach works the same way as biometric authentication — the passkey PRF output is used to encrypt/decrypt the master key in the KeyMappingVault.
+
+**Browser requirements**: Chrome 116+, Safari 18+ (macOS Sequoia / iOS 18), Edge 116+.
+
+##### Step 1: Register a passkey and enroll
+
+```js
+import {
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  enrollUserWithPasskey,
+} from '@docknetwork/wallet-sdk-web';
+
+const identifier = 'user@example.com';
+
+// Check browser support
+const { webauthn } = await checkPasskeySupport();
+if (!webauthn) {
+  throw new Error('WebAuthn not supported');
+}
+
+// Register a passkey (prompts user for biometric/PIN)
+const { credentialId, prfSupported } = await registerPasskey(identifier);
+if (!prfSupported) {
+  throw new Error('PRF extension not supported. Use Chrome 116+ or Safari 18+.');
+}
+
+// Extract PRF key material (second WebAuthn ceremony, required on Safari)
+const prfOutput = await getPasskeyPRFKey(credentialId, identifier);
+
+// Enroll: generates a new masterKey, encrypts it with the passkey-derived key
+const { masterKey, mnemonic } = await enrollUserWithPasskey(
+  EDV_URL, EDV_AUTH_KEY, prfOutput, identifier
+);
+
+// Store credentialId for future authentication
+localStorage.setItem('walletCredentialId', credentialIdToBase64url(credentialId));
+
+// IMPORTANT: Prompt the user to save the mnemonic for recovery
+```
+
+##### Step 2: Authenticate with passkey
+
+```js
+import {
+  getPasskeyPRFKey,
+  base64urlToCredentialId,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
+} from '@docknetwork/wallet-sdk-web';
+
+const identifier = 'user@example.com';
+const credentialId = base64urlToCredentialId(localStorage.getItem('walletCredentialId'));
+
+// Get PRF key material (prompts user for biometric/PIN)
+const prfOutput = await getPasskeyPRFKey(credentialId, identifier);
+
+// Method 1: Get the master key directly
+const masterKey = await authenticateWithPasskey(
+  EDV_URL, EDV_AUTH_KEY, prfOutput, identifier
+);
+
+// Method 2: Initialize cloud wallet in one step
+const cloudWallet = await initializeCloudWalletWithPasskey(
+  EDV_URL, EDV_AUTH_KEY, prfOutput, identifier, dataStore
+);
+```
+
+The passkey authentication process:
+1. Performs a WebAuthn assertion with the PRF extension to extract deterministic key material
+2. Derives vault access keys from the PRF output using HKDF
+3. Accesses the KeyMappingVault and finds the encrypted master key
+4. Derives the decryption key from the PRF output
+5. Decrypts and returns the master key
+
+**Security notes**:
+- The `credentialId` is a public identifier, safe to store in localStorage
+- PRF output and derived keys exist only in memory during a session
+- Passkeys may sync across devices via iCloud Keychain or Google Password Manager
+- If a passkey is lost, the user can recover using their mnemonic phrase
 
 ### Wallet recovery
 

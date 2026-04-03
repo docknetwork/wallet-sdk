@@ -15,6 +15,7 @@ import { utilCryptoService } from '@docknetwork/wallet-sdk-wasm/src/services/uti
 export const SYNC_MARKER_TYPE = 'SyncMarkerDocument';
 export const MNEMONIC_WORD_COUNT = 12;
 export const KEY_MAPPING_TYPE = 'KeyMappingDocument';
+export const PASSKEY_KEY_MAPPING_TYPE = 'PasskeyKeyMappingDocument';
 const MASTER_KEY_SUFFIX = 'master-key';
 
 /**
@@ -258,6 +259,167 @@ export async function initializeCloudWalletWithBiometrics(
     edvUrl,
     authKey,
     biometricData,
+    identifier
+  );
+
+  return initializeCloudWallet({
+    dataStore,
+    edvUrl,
+    authKey,
+    masterKey
+  });
+}
+
+/**
+ * Derives EDV keys from passkey PRF output for the KeyMappingVault
+ * @param prfOutput 32-byte PRF output from WebAuthn assertion
+ * @param identifier User's identifier as additional entropy (email, phone number, etc.)
+ * @returns Keys for accessing the KeyMappingVault
+ */
+export async function derivePasskeyVaultKeys(
+  prfOutput: Uint8Array,
+  identifier: string
+): Promise<{ hmacKey: string; agreementKey: string; verificationKey: string }> {
+  const seedBuffer = deriveBiometricKey(Buffer.from(prfOutput), identifier);
+  return edvService.deriveKeys(new Uint8Array(seedBuffer));
+}
+
+/**
+ * Generates a key for encrypting/decrypting the master key from passkey PRF output
+ * @param prfOutput 32-byte PRF output from WebAuthn assertion
+ * @param identifier User's identifier as salt (email, phone number, etc.)
+ * @returns Encryption key and IV for AES encryption
+ */
+export async function derivePasskeyEncryptionKey(
+  prfOutput: Uint8Array,
+  identifier: string
+): Promise<{ key: Buffer; iv: Buffer }> {
+  return edvService.deriveBiometricEncryptionKey(Buffer.from(prfOutput), identifier);
+}
+
+/**
+ * Initializes the KeyMappingVault using passkey PRF output
+ * @param edvUrl URL for the edv
+ * @param authKey Auth key for the edv
+ * @param prfOutput 32-byte PRF output from WebAuthn assertion
+ * @param identifier User's identifier (email, phone number, etc.)
+ * @returns Initialized EDV service
+ */
+export async function initializePasskeyKeyMappingVault(
+  edvUrl: string,
+  authKey: string,
+  prfOutput: Uint8Array,
+  identifier: string
+): Promise<typeof edvService> {
+  const {
+    hmacKey,
+    agreementKey,
+    verificationKey
+  } = await derivePasskeyVaultKeys(prfOutput, identifier);
+
+  const keyMappingEdvService = edvService;
+  await keyMappingEdvService.initialize({
+    hmacKey,
+    agreementKey,
+    verificationKey,
+    edvUrl,
+    authKey
+  });
+
+  return keyMappingEdvService;
+}
+
+/**
+ * Enrolls a user by creating a passkey-protected master key in the KeyMappingVault
+ * @param edvUrl URL for the edv
+ * @param authKey Auth key for the edv
+ * @param prfOutput 32-byte PRF output from WebAuthn assertion
+ * @param identifier User's identifier (email, phone number, etc.)
+ * @returns The master key and mnemonic for backup
+ */
+export async function enrollUserWithPasskey(
+  edvUrl: string,
+  authKey: string,
+  prfOutput: Uint8Array,
+  identifier: string
+): Promise<{ masterKey: Uint8Array; mnemonic: string }> {
+  const keyMappingEdv = await initializePasskeyKeyMappingVault(
+    edvUrl,
+    authKey,
+    prfOutput,
+    identifier
+  );
+  const { mnemonic, masterKey } = await generateCloudWalletMasterKey();
+  const { key: encryptionKey, iv } = await derivePasskeyEncryptionKey(prfOutput, identifier);
+  const encryptedMasterKey = await encryptMasterKey(masterKey, encryptionKey, iv);
+
+  const encryptedData = {
+    data: Array.from(encryptedMasterKey),
+    iv: Array.from(iv)
+  };
+
+  const contentId = `${await keyMappingEdv.getController()}#${MASTER_KEY_SUFFIX}`;
+
+  await keyMappingEdv.insert({
+    document: {
+      content: {
+        id: contentId,
+        type: PASSKEY_KEY_MAPPING_TYPE,
+        encryptedKey: encryptedData
+      }
+    }
+  });
+
+  return { masterKey, mnemonic };
+}
+
+/**
+ * Authenticates a user with passkey PRF output and identifier
+ * @param edvUrl URL for the edv
+ * @param authKey Auth key for the edv
+ * @param prfOutput 32-byte PRF output from WebAuthn assertion
+ * @param identifier User's identifier (email, phone number, etc.)
+ * @returns The decrypted master key for CloudWalletVault
+ */
+export async function authenticateWithPasskey(
+  edvUrl: string,
+  authKey: string,
+  prfOutput: Uint8Array,
+  identifier: string
+): Promise<Uint8Array> {
+  const keyMappingEdv = await initializePasskeyKeyMappingVault(
+    edvUrl,
+    authKey,
+    prfOutput,
+    identifier
+  );
+  const { key: decryptionKey } = await derivePasskeyEncryptionKey(prfOutput, identifier);
+
+  const contentId = `${await keyMappingEdv.getController()}#${MASTER_KEY_SUFFIX}`;
+
+  return getKeyMappingMasterKey(keyMappingEdv, contentId, decryptionKey);
+}
+
+/**
+ * Initializes the Cloud Wallet using passkey authentication
+ * @param edvUrl Cloud wallet vault URL
+ * @param authKey Cloud wallet auth key
+ * @param prfOutput 32-byte PRF output from WebAuthn assertion
+ * @param identifier User's identifier (email, phone number, etc.)
+ * @param dataStore Optional data store for the wallet
+ * @returns Initialized cloud wallet
+ */
+export async function initializeCloudWalletWithPasskey(
+  edvUrl: string,
+  authKey: string,
+  prfOutput: Uint8Array,
+  identifier: string,
+  dataStore?: any
+): Promise<any> {
+  const masterKey = await authenticateWithPasskey(
+    edvUrl,
+    authKey,
+    prfOutput,
     identifier
   );
 

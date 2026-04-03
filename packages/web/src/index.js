@@ -13,6 +13,9 @@ import {
   initializeCloudWallet,
   generateCloudWalletMasterKey,
   recoverCloudWalletMasterKey,
+  enrollUserWithPasskey,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
 } from '@docknetwork/wallet-sdk-core/src/cloud-wallet';
 import {createWallet} from '@docknetwork/wallet-sdk-core/src/wallet';
 import {createCredentialProvider} from '@docknetwork/wallet-sdk-core/src/credential-provider';
@@ -20,6 +23,13 @@ import {createDIDProvider} from '@docknetwork/wallet-sdk-core/src/did-provider';
 import {createMessageProvider} from '@docknetwork/wallet-sdk-core/src/message-provider';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
 import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
+import {
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  base64urlToCredentialId,
+} from './passkey';
 
 /**
  * Initializes the Dock Wallet SDK with the provided configuration.
@@ -444,6 +454,14 @@ export {
   generateCloudWalletMasterKey,
   recoverCloudWalletMasterKey,
   createVerificationController,
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  base64urlToCredentialId,
+  enrollUserWithPasskey,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
 };
 
 export default {
@@ -457,4 +475,12 @@ export default {
   generateCloudWalletMasterKey,
   recoverCloudWalletMasterKey,
   createVerificationController,
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  base64urlToCredentialId,
+  enrollUserWithPasskey,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
 };

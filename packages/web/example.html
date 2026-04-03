@@ -9,21 +9,99 @@
 
 <body>
   <!-- Load the Truvera Web Wallet bundle -->
-  <script src="https://unpkg.com/@docknetwork/wallet-sdk-web/dist/wallet-sdk-web.iife.js"></script>
+  <script src="./dist/wallet-sdk-web.iife.js"></script>
 
   <script>
-    // Log initial load
-    window.addEventListener('load', async () => {
+    // ============================================================
+    // Example 1: Mnemonic-based wallet initialization
+    // ============================================================
+    async function initWithMnemonic() {
       const {mnemonic} = await TruveraWebWallet.generateCloudWalletMasterKey();
       const wallet = await TruveraWebWallet.initialize({
         edvUrl: 'https://edv.dock.io',
-        edvAuthKey: '<your-auth-key>',
+        edvAuthKey: 'edv-auth-key',
         networkId: 'testnet',
         mnemonic: mnemonic,
       });
       const credentials = await wallet.getCredentials();
+      console.log('Mnemonic wallet credentials:', credentials);
+    }
 
-      console.log(credentials);
+    // ============================================================
+    // Example 2: Passkey-based wallet enrollment and authentication
+    // Requires Chrome 116+ or Safari 18+ with PRF extension support
+    // ============================================================
+
+    const EDV_URL = 'https://edv.dock.io';
+    const EDV_AUTH_KEY = 'edv-auth-key';
+    const IDENTIFIER = 'truvera-example-wallet';
+
+    // Enrollment: Create a passkey and use it to protect a new wallet
+    async function enrollWithPasskey() {
+      // Step 1: Check browser support
+      const support = await TruveraWebWallet.checkPasskeySupport();
+      if (!support.webauthn) {
+        console.error('WebAuthn is not supported in this browser');
+        return;
+      }
+
+      // Step 2: Register a passkey
+      const {credentialId, prfSupported} = await TruveraWebWallet.registerPasskey(IDENTIFIER);
+
+      if (!prfSupported) {
+        console.error('PRF extension not supported. Use Chrome 116+ or Safari 18+.');
+        return;
+      }
+
+      // Step 3: Get PRF key material (requires a second WebAuthn assertion on Safari)
+      const {prfOutput} = await TruveraWebWallet.getPasskeyPRFKey(IDENTIFIER, {credentialId});
+
+      // Step 4: Enroll — generates masterKey + mnemonic and stores encrypted in vault
+      const {masterKey, mnemonic} = await TruveraWebWallet.enrollUserWithPasskey(
+        EDV_URL, EDV_AUTH_KEY, prfOutput, IDENTIFIER
+      );
+
+      // Optionally store credentialId for faster auth (skips passkey picker)
+      localStorage.setItem(
+        'walletCredentialId',
+        TruveraWebWallet.credentialIdToBase64url(credentialId)
+      );
+
+      console.log('Enrollment complete. Save your recovery mnemonic:', mnemonic);
+    }
+
+    // Authentication: Use an existing passkey to unlock the wallet
+    // Works with or without a stored credentialId
+    async function authenticateWithPasskey() {
+      // Option A: Use stored credentialId (skips passkey picker)
+      const storedId = localStorage.getItem('walletCredentialId');
+      const options = storedId
+        ? {credentialId: TruveraWebWallet.base64urlToCredentialId(storedId)}
+        : {}; // Option B: No credentialId — browser shows passkey picker (cross-device friendly)
+
+      // Step 1: Get PRF key material
+      const {prfOutput} = await TruveraWebWallet.getPasskeyPRFKey(IDENTIFIER, options);
+
+      // Step 2: Authenticate — decrypts the master key from the vault
+      const masterKey = await TruveraWebWallet.authenticateWithPasskey(
+        EDV_URL, EDV_AUTH_KEY, prfOutput, IDENTIFIER
+      );
+
+      // Step 3: Initialize wallet with the recovered master key
+      const wallet = await TruveraWebWallet.initialize({
+        edvUrl: EDV_URL,
+        edvAuthKey: EDV_AUTH_KEY,
+        networkId: 'testnet',
+        masterKey: masterKey,
+      });
+
+      const credentials = await wallet.getCredentials();
+      console.log('Passkey wallet credentials:', credentials);
+    }
+
+    // Run mnemonic example on load
+    window.addEventListener('load', async () => {
+      await authenticateWithPasskey();
     });
   </script>
 </body>
