@@ -93,7 +93,13 @@ export async function registerPasskey(identifier, rpName, rpId) {
         id: rpId || window.location.hostname,
       },
       user: {
-        id: new TextEncoder().encode(identifier),
+        // WebAuthn spec requires user.id to be max 64 bytes; hash to ensure compliance
+        id: new Uint8Array(
+          await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(identifier),
+          ),
+        ),
         name: identifier,
         displayName: identifier,
       },

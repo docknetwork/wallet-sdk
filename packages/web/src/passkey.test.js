@@ -150,6 +150,8 @@ describe('passkey helpers', () => {
       expect(createCall.publicKey.rp.name).toBe('My App');
       expect(createCall.publicKey.rp.id).toBe('example.com');
       expect(createCall.publicKey.user.name).toBe('user@test.com');
+      expect(createCall.publicKey.user.id).toBeInstanceOf(Uint8Array);
+      expect(createCall.publicKey.user.id.length).toBe(32);
       expect(createCall.publicKey.extensions.prf).toEqual({});
       expect(createCall.publicKey.authenticatorSelection.residentKey).toBe(
         'required',
