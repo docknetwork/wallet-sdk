@@ -201,17 +201,13 @@ async function enrollPasskey({
     throw new Error('WebAuthn is not supported in this browser');
   }
 
-  const {credentialId, prfSupported} = await registerPasskey(
+  // Safari 18 does not report PRF support during create, only during get.
+  // Skip the prfSupported check here and rely on getPasskeyPRFKey to surface errors.
+  const {credentialId} = await registerPasskey(
     resolved.identifier,
     resolved.rpName,
     resolved.rpId,
   );
-
-  if (!prfSupported) {
-    throw new Error(
-      'PRF extension not supported by this authenticator. Requires Chrome 116+ or Safari 18+.',
-    );
-  }
 
   const {prfOutput} = await getPasskeyPRFKey(resolved.identifier, {
     credentialId,
