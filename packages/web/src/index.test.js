@@ -34,7 +34,9 @@ jest.mock('@docknetwork/wallet-sdk-core/src/cloud-wallet', () => ({
 }));
 
 jest.mock('./passkey', () => ({
-  checkPasskeySupport: jest.fn().mockResolvedValue({webauthn: true, prf: true}),
+  checkPasskeySupport: jest
+    .fn()
+    .mockResolvedValue({webauthn: true, prf: 'unknown'}),
   registerPasskey: jest.fn().mockResolvedValue({
     credentialId: new Uint8Array([10, 20, 30]),
     prfSupported: true,

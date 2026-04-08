@@ -20,9 +20,10 @@
  */
 
 /**
- * Checks if the browser supports WebAuthn and the PRF extension.
- * Note: PRF support can only be fully confirmed during credential creation.
- * @returns {Promise<{webauthn: boolean, prf: boolean}>}
+ * Checks if the browser supports WebAuthn.
+ * PRF support cannot be determined until a credential ceremony is performed,
+ * so it is reported as `'unknown'` here and confirmed during registration/assertion.
+ * @returns {Promise<{webauthn: boolean, prf: boolean|'unknown'}>}
  */
 export async function checkPasskeySupport() {
   if (typeof window === 'undefined' || !window.PublicKeyCredential) {
@@ -31,7 +32,7 @@ export async function checkPasskeySupport() {
 
   // PRF support is confirmed during registration via getClientExtensionResults().prf.enabled
   // We can only report WebAuthn availability at detection time
-  return {webauthn: true, prf: true};
+  return {webauthn: true, prf: 'unknown'};
 }
 
 /**

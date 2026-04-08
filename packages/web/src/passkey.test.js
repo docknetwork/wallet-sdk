@@ -101,10 +101,10 @@ describe('passkey helpers', () => {
       expect(result).toEqual({webauthn: false, prf: false});
     });
 
-    it('should return true when PublicKeyCredential is available', async () => {
+    it('should return webauthn true and prf unknown when PublicKeyCredential is available', async () => {
       global.window = {PublicKeyCredential: jest.fn()};
       const result = await checkPasskeySupport();
-      expect(result).toEqual({webauthn: true, prf: true});
+      expect(result).toEqual({webauthn: true, prf: 'unknown'});
     });
   });
 
