@@ -140,9 +140,21 @@ const DEFAULT_PASSKEY_STORAGE_KEY = 'truvera-wallet-passkey';
  */
 function resolvePasskeyOptions(passkey) {
   const opts = typeof passkey === 'object' ? passkey : {};
+
+  const hostname =
+    typeof window !== 'undefined' && window.location
+      ? window.location.hostname
+      : undefined;
+
+  if (!opts.identifier && !hostname) {
+    throw new Error(
+      'Passkey requires an identifier. Provide passkey.identifier when using passkeys outside a browser.',
+    );
+  }
+
   return {
-    identifier: opts.identifier || window.location.hostname,
-    rpId: opts.rpId || window.location.hostname,
+    identifier: opts.identifier || hostname,
+    rpId: opts.rpId || hostname,
     rpName: opts.rpName || 'Truvera Wallet',
     storageKey: opts.storageKey || DEFAULT_PASSKEY_STORAGE_KEY,
     credentialId: opts.credentialId || null,
