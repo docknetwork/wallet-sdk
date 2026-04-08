@@ -276,7 +276,7 @@ The authentication process:
 
 Passkeys provide a passwordless authentication method for web wallets using the WebAuthn PRF (Pseudo-Random Function) extension. The PRF extension extracts deterministic 32-byte key material from a passkey — same passkey + same salt always produces the same bytes. This key material is used to encrypt/decrypt the master key in the KeyMappingVault, following the same pattern as biometric authentication.
 
-**Browser requirements**: Chrome 116+, Safari 18+ (macOS Sequoia / iOS 18), Edge 116+.
+**Browser requirements**: Chrome 116+, Safari 18+ (macOS Sequoia / iOS 18), Edge 116+. The PRF extension is a built-in WebAuthn capability — no browser extensions or password manager add-ons are required. It is natively supported by platform authenticators (Touch ID, Windows Hello, Android biometrics) and synced passkey providers (iCloud Keychain, Google Password Manager).
 
 ##### Quick start with the web SDK
 
