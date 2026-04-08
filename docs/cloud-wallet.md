@@ -331,7 +331,7 @@ import {
 } from '@docknetwork/wallet-sdk-web';
 
 // Option A: High-level — handles register + PRF + vault in one call
-const { mnemonic, credentialId } = await enrollPasskey({
+const { mnemonic, passkeyCredentialId } = await enrollPasskey({
   edvUrl: EDV_URL,
   edvAuthKey: EDV_AUTH_KEY,
   identifier: 'user@example.com',
@@ -381,7 +381,7 @@ The `credentialId` can be omitted when calling `getPasskeyPRFKey` — the browse
 
 ##### Security considerations
 
-- The `credentialId` is a public identifier, safe to store in localStorage
+- The `passkeyCredentialId` is a public identifier, safe to store in localStorage
 - PRF output and derived encryption keys exist only in memory during a session — never persisted
 - The PRF salt is deterministic (`SHA-256("truvera-wallet-prf-salt:" + identifier)`) and acts as a domain separator
 - WebAuthn ceremonies require user interaction (biometric/PIN), providing natural rate limiting

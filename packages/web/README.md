@@ -116,7 +116,7 @@ const wallet = await TruveraWebWallet.initialize({
     edvAuthKey: '<your-auth-key>',
     networkId: 'testnet',
     passkey: {
-        credentialId: 'base64url-encoded-credential-id',
+        passkeyCredentialId: 'base64url-encoded-credential-id',
         identifier: 'user@example.com',
     },
 });
@@ -139,7 +139,7 @@ const enrolled = TruveraWebWallet.isPasskeyEnrolled();           // default stor
 const enrolled = TruveraWebWallet.isPasskeyEnrolled('custom-key'); // custom storage key
 
 // Explicitly enroll a passkey (handles register + PRF + vault storage)
-const { mnemonic, credentialId } = await TruveraWebWallet.enrollPasskey({
+const { mnemonic, passkeyCredentialId } = await TruveraWebWallet.enrollPasskey({
     edvUrl: 'https://edv.dock.io',
     edvAuthKey: '<your-auth-key>',
     identifier: 'user@example.com',

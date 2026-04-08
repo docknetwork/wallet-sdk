@@ -62,7 +62,7 @@ import {
  * @param {boolean|Object} [config.passkey] - Passkey authentication configuration.
  *   Pass `true` for zero-config (auto-enroll/authenticate using defaults), or an object:
  * @param {string} [config.passkey.identifier] - User identifier for key derivation salt (defaults to hostname)
- * @param {string} [config.passkey.credentialId] - Base64url-encoded credential ID for direct auth (skips localStorage)
+ * @param {string} [config.passkey.passkeyCredentialId] - Base64url-encoded passkey credential ID for direct auth (skips localStorage)
  * @param {string} [config.passkey.storageKey='truvera-wallet-passkey'] - Custom localStorage key for enrollment data
  * @param {string} [config.passkey.rpName='Truvera Wallet'] - WebAuthn relying party display name
  * @param {string} [config.passkey.rpId] - WebAuthn relying party ID (defaults to hostname)
@@ -126,7 +126,7 @@ import {
  *   edvAuthKey: 'your-auth-key',
  *   networkId: 'testnet',
  *   passkey: {
- *     credentialId: 'base64url-encoded-credential-id',
+ *     passkeyCredentialId: 'base64url-encoded-credential-id',
  *     identifier: 'user@example.com',
  *   },
  * });
@@ -157,7 +157,7 @@ function resolvePasskeyOptions(passkey) {
     rpId: opts.rpId || hostname,
     rpName: opts.rpName || 'Truvera Wallet',
     storageKey: opts.storageKey || DEFAULT_PASSKEY_STORAGE_KEY,
-    credentialId: opts.credentialId || null,
+    passkeyCredentialId: opts.passkeyCredentialId || null,
   };
 }
 
@@ -190,7 +190,7 @@ function isPasskeyEnrolled(storageKey) {
  * @param {string} [config.rpName='Truvera Wallet'] - Relying party display name
  * @param {string} [config.rpId] - Relying party ID (defaults to current hostname)
  * @param {string} [config.storageKey='truvera-wallet-passkey'] - Custom localStorage key
- * @returns {Promise<{mnemonic: string, credentialId: string}>} Recovery mnemonic and base64url-encoded credential ID
+ * @returns {Promise<{mnemonic: string, passkeyCredentialId: string}>} Recovery mnemonic and base64url-encoded passkey credential ID
  * @throws {Error} If WebAuthn or PRF is not supported
  */
 async function enrollPasskey({
@@ -238,12 +238,12 @@ async function enrollPasskey({
   localStorage.setItem(
     resolved.storageKey,
     JSON.stringify({
-      credentialId: credentialIdBase64url,
+      passkeyCredentialId: credentialIdBase64url,
       identifier: resolved.identifier,
     }),
   );
 
-  return {mnemonic, credentialId: credentialIdBase64url};
+  return {mnemonic, passkeyCredentialId: credentialIdBase64url};
 }
 
 async function initialize({
@@ -283,12 +283,12 @@ async function initialize({
     }
 
     const resolved = resolvePasskeyOptions(passkey);
-    let {credentialId} = resolved;
+    let passkeyCredentialId = resolved.passkeyCredentialId;
     let {identifier} = resolved;
     const {rpId, storageKey} = resolved;
 
-    // No explicit credentialId — check localStorage for stored enrollment
-    if (!credentialId) {
+    // No explicit passkeyCredentialId — check localStorage for stored enrollment
+    if (!passkeyCredentialId) {
       if (!isPasskeyEnrolled(storageKey)) {
         // First time: enroll automatically
         const result = await enrollPasskey({
@@ -312,13 +312,13 @@ async function initialize({
         // Malformed JSON or localStorage access error
       }
 
-      if (!stored || !stored.credentialId) {
+      if (!stored || !stored.passkeyCredentialId) {
         throw new Error(
-          `Initialization failed: No valid passkey enrollment data found for key "${storageKey}". Re-enroll or provide passkey.credentialId explicitly.`,
+          `Initialization failed: No valid passkey enrollment data found for key "${storageKey}". Re-enroll or provide passkey.passkeyCredentialId explicitly.`,
         );
       }
 
-      credentialId = stored.credentialId;
+      passkeyCredentialId = stored.passkeyCredentialId;
 
       // Use the identifier from enrollment to ensure PRF salt consistency
       if (
@@ -329,8 +329,8 @@ async function initialize({
       }
     }
 
-    const prfOptions = credentialId
-      ? {credentialId: base64urlToCredentialId(credentialId), rpId}
+    const prfOptions = passkeyCredentialId
+      ? {credentialId: base64urlToCredentialId(passkeyCredentialId), rpId}
       : {rpId};
 
     const {prfOutput} = await getPasskeyPRFKey(identifier, prfOptions);

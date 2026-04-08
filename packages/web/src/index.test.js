@@ -289,7 +289,7 @@ describe('WalletSDK initialize', () => {
 
       const stored = JSON.parse(localStorage.getItem('truvera-wallet-passkey'));
       expect(stored).toBeTruthy();
-      expect(stored.credentialId).toBe('ChQe');
+      expect(stored.passkeyCredentialId).toBe('ChQe');
       expect(stored.identifier).toBeDefined();
     });
 
@@ -297,7 +297,7 @@ describe('WalletSDK initialize', () => {
       localStorage.setItem(
         'truvera-wallet-passkey',
         JSON.stringify({
-          credentialId: 'ChQe',
+          passkeyCredentialId: 'ChQe',
           identifier: 'localhost',
         }),
       );
@@ -317,7 +317,7 @@ describe('WalletSDK initialize', () => {
       localStorage.setItem(
         'truvera-wallet-passkey',
         JSON.stringify({
-          credentialId: 'ChQe',
+          passkeyCredentialId: 'ChQe',
           identifier: 'user@example.com',
         }),
       );
@@ -339,7 +339,7 @@ describe('WalletSDK initialize', () => {
       await expect(
         WalletSDK.initialize({
           ...passkeyConfig,
-          passkey: {credentialId: null},
+          passkey: {passkeyCredentialId: null},
         }),
       ).rejects.toThrow('No valid passkey enrollment data found');
     });
@@ -353,11 +353,11 @@ describe('WalletSDK initialize', () => {
       expect(localStorage.getItem('custom-key')).toBeTruthy();
     });
 
-    it('should authenticate directly when credentialId is provided', async () => {
+    it('should authenticate directly when passkeyCredentialId is provided', async () => {
       const result = await WalletSDK.initialize({
         ...passkeyConfig,
         passkey: {
-          credentialId: 'ChQe',
+          passkeyCredentialId: 'ChQe',
           identifier: 'user@example.com',
         },
       });
