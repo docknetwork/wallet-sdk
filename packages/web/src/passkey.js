@@ -53,7 +53,16 @@ async function computePRFSalt(identifier) {
  * @returns {string}
  */
 export function credentialIdToBase64url(bytes) {
-  const base64 = btoa(String.fromCharCode(...bytes));
+  // Use chunked encoding to avoid call stack overflow on large credential IDs
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+
+  const base64 = btoa(binary);
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]/g, '');
 }
 
