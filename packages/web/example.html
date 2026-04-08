@@ -15,8 +15,8 @@
     async function initWithMnemonic() {
       const {mnemonic} = await TruveraWebWallet.generateCloudWalletMasterKey();
       const wallet = await TruveraWebWallet.initialize({
-        edvUrl: 'https://edv.dock.io',
-        edvAuthKey: 'edv-auth-key',
+        edvUrl: '<your-edv-url>',
+        edvAuthKey: '<your-auth-key>',
         networkId: 'testnet',
         mnemonic: mnemonic,
       });
