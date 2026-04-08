@@ -5,7 +5,6 @@
  */
 
 import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
-import {prefetchWitnessCache} from '@docknetwork/wallet-sdk-wasm/src/services/credential/bbs-revocation';
 import {IWallet, ICredentialProvider} from './types';
 export type {ICredentialProvider};
 import assert from 'assert';
@@ -206,7 +205,10 @@ export async function addCredential({wallet, credential}) {
     });
 
     // Pre-fetch and cache the witness blockchain data in the background
-    prefetchWitnessCache(credential, acummWitness);
+    credentialServiceRPC.prefetchWitnessCache({
+      credential,
+      membershipWitness: acummWitness,
+    });
   }
 
   syncCredentialStatus({wallet, credentialIds: [credential.id]});
