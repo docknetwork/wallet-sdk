@@ -272,7 +272,8 @@ async function initialize({
 
     const resolved = resolvePasskeyOptions(passkey);
     let {credentialId} = resolved;
-    const {identifier, rpId, storageKey} = resolved;
+    let {identifier} = resolved;
+    const {rpId, storageKey} = resolved;
 
     // No explicit credentialId — check localStorage for stored enrollment
     if (!credentialId) {
@@ -289,8 +290,31 @@ async function initialize({
         passkeyMnemonic = result.mnemonic;
       }
 
-      const stored = JSON.parse(localStorage.getItem(storageKey));
+      let stored;
+      try {
+        const storedValue = localStorage.getItem(storageKey);
+        if (storedValue) {
+          stored = JSON.parse(storedValue);
+        }
+      } catch {
+        // Malformed JSON or localStorage access error
+      }
+
+      if (!stored || !stored.credentialId) {
+        throw new Error(
+          `Initialization failed: No valid passkey enrollment data found for key "${storageKey}". Re-enroll or provide passkey.credentialId explicitly.`,
+        );
+      }
+
       credentialId = stored.credentialId;
+
+      // Use the identifier from enrollment to ensure PRF salt consistency
+      if (
+        !resolved.identifier ||
+        resolved.identifier === resolvePasskeyOptions(true).identifier
+      ) {
+        identifier = stored.identifier || identifier;
+      }
     }
 
     const prfOptions = credentialId

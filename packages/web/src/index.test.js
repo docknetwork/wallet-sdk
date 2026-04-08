@@ -313,6 +313,37 @@ describe('WalletSDK initialize', () => {
       expect(result.mnemonic).toBeUndefined();
     });
 
+    it('should use stored identifier for PRF salt consistency on return visits', async () => {
+      localStorage.setItem(
+        'truvera-wallet-passkey',
+        JSON.stringify({
+          credentialId: 'ChQe',
+          identifier: 'user@example.com',
+        }),
+      );
+
+      await WalletSDK.initialize({
+        ...passkeyConfig,
+        passkey: true,
+      });
+
+      expect(getPasskeyPRFKey).toHaveBeenCalledWith(
+        'user@example.com',
+        expect.any(Object),
+      );
+    });
+
+    it('should throw when localStorage has no valid enrollment data', async () => {
+      localStorage.setItem('truvera-wallet-passkey', 'invalid-json');
+
+      await expect(
+        WalletSDK.initialize({
+          ...passkeyConfig,
+          passkey: {credentialId: null},
+        }),
+      ).rejects.toThrow('No valid passkey enrollment data found');
+    });
+
     it('should use custom storageKey when provided', async () => {
       await WalletSDK.initialize({
         ...passkeyConfig,
