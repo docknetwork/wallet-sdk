@@ -9,10 +9,7 @@ import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/ver
 import {ProofTemplateIds, createProofRequest} from '../helpers/certs-helpers';
 import { bbsPlusRevocationCredential, credentialWithUpdatedWitness } from './bbs-plus-revocation-credentials';
 
-// Skip in CI due to network/accumulator access issues - passes locally
-const describeOrSkip = process.env.CI ? describe.skip : describe;
-
-describeOrSkip('BBS+ revocation', () => {
+describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential', async () => {
     const wallet: IWallet = await getWallet();
 
