@@ -329,9 +329,21 @@ async function initialize({
       }
     }
 
-    const prfOptions = passkeyCredentialId
-      ? {credentialId: base64urlToCredentialId(passkeyCredentialId), rpId}
-      : {rpId};
+    let prfOptions;
+    if (passkeyCredentialId) {
+      try {
+        prfOptions = {
+          credentialId: base64urlToCredentialId(passkeyCredentialId),
+          rpId,
+        };
+      } catch {
+        throw new Error(
+          'Initialization failed: invalid passkeyCredentialId',
+        );
+      }
+    } else {
+      prfOptions = {rpId};
+    }
 
     const {prfOutput} = await getPasskeyPRFKey(identifier, prfOptions);
     masterKey = await authenticateWithPasskey(
