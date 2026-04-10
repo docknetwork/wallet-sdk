@@ -151,8 +151,16 @@ export async function registerPasskey(identifier, rpName, rpId) {
  * @throws {Error} If PRF extension is not supported or returns no result
  */
 export async function getPasskeyPRFKey(identifier, options = {}) {
-  if (!window.PublicKeyCredential) {
-    throw new Error('WebAuthn is not supported in this browser');
+  if (
+    typeof window === 'undefined' ||
+    typeof navigator === 'undefined' ||
+    !window.PublicKeyCredential ||
+    !navigator.credentials
+  ) {
+    throw new Error(
+      'WebAuthn APIs are unavailable in this environment. ' +
+        'Passkey operations require a browser with PublicKeyCredential and navigator.credentials support.',
+    );
   }
 
   const salt = await computePRFSalt(identifier);
