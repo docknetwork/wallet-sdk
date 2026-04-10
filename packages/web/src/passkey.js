@@ -90,7 +90,7 @@ export function base64urlToCredentialId(base64url) {
  * @throws {Error} If WebAuthn is not supported or user cancels
  */
 export async function registerPasskey(identifier, rpName, rpId) {
-  if (!window.PublicKeyCredential) {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
     throw new Error('WebAuthn is not supported in this browser');
   }
 
