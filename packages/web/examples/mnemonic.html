@@ -4,26 +4,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Truvera Web Wallet Example</title>
+  <title>Truvera Web Wallet - Mnemonic Example</title>
 </head>
 
 <body>
   <!-- Load the Truvera Web Wallet bundle -->
-  <script src="https://unpkg.com/@docknetwork/wallet-sdk-web/dist/wallet-sdk-web.iife.js"></script>
+  <script src="../dist/wallet-sdk-web.iife.js"></script>
 
   <script>
-    // Log initial load
-    window.addEventListener('load', async () => {
+    async function initWithMnemonic() {
       const {mnemonic} = await TruveraWebWallet.generateCloudWalletMasterKey();
       const wallet = await TruveraWebWallet.initialize({
-        edvUrl: 'https://edv.dock.io',
+        edvUrl: '<your-edv-url>',
         edvAuthKey: '<your-auth-key>',
         networkId: 'testnet',
         mnemonic: mnemonic,
       });
       const credentials = await wallet.getCredentials();
+      console.log('Mnemonic wallet credentials:', credentials);
+    }
 
-      console.log(credentials);
+    window.addEventListener('load', async () => {
+      await initWithMnemonic();
     });
   </script>
 </body>

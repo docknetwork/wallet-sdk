@@ -1,9 +1,15 @@
 /**
- * @fileoverview Dock Wallet SDK for Web
+ * @fileoverview Truvera Wallet SDK for Web
  *
  * This module provides a simplified interface for initializing and working with
- * the Dock Wallet SDK in web environments. It includes functions for managing
+ * the Truvera Wallet SDK in web environments. It includes functions for managing
  * DIDs, credentials, presentations, and cloud wallet synchronization.
+ *
+ * Supports three authentication methods:
+ * - **Mnemonic**: BIP39 recovery phrase (12 words)
+ * - **Master key**: Pre-derived 32-byte Uint8Array
+ * - **Passkey**: WebAuthn passkey with PRF extension — zero-config with `passkey: true`,
+ *   or customizable with passkey options (identifier, storageKey, rpName, etc.)
  *
  * @module @docknetwork/wallet-sdk-web
  */
@@ -13,6 +19,9 @@ import {
   initializeCloudWallet,
   generateCloudWalletMasterKey,
   recoverCloudWalletMasterKey,
+  enrollUserWithPasskey,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
 } from '@docknetwork/wallet-sdk-core/src/cloud-wallet';
 import {createWallet} from '@docknetwork/wallet-sdk-core/src/wallet';
 import {createCredentialProvider} from '@docknetwork/wallet-sdk-core/src/credential-provider';
@@ -20,22 +29,43 @@ import {createDIDProvider} from '@docknetwork/wallet-sdk-core/src/did-provider';
 import {createMessageProvider} from '@docknetwork/wallet-sdk-core/src/message-provider';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
 import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
+import {
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  base64urlToCredentialId,
+} from './passkey';
 
 /**
- * Initializes the Dock Wallet SDK with the provided configuration.
+ * Initializes the Truvera Wallet SDK with the provided configuration.
  *
- * This function sets up all necessary wallet providers and establishes a connection
- * to the cloud wallet for synchronization. It requires either a master key or mnemonic
- * for wallet recovery, but not both.
+ * Sets up all wallet providers and establishes a connection to the cloud wallet
+ * for synchronization. Supports three authentication methods — provide exactly one:
+ *
+ * - **Mnemonic**: `mnemonic` — a BIP39 recovery phrase
+ * - **Master key**: `masterKey` — a pre-derived Uint8Array key
+ * - **Passkey**: `passkey` — WebAuthn passkey with PRF extension (Chrome 116+, Safari 18+)
+ *
+ * When using passkeys, the SDK handles enrollment and authentication automatically.
+ * On first use it registers a passkey, generates a master key, and returns a recovery
+ * mnemonic. On subsequent visits it authenticates with the stored passkey silently.
  *
  * @async
  * @param {Object} config - Configuration object for wallet initialization
  * @param {string} config.edvUrl - The Encrypted Data Vault (EDV) URL for cloud storage
  * @param {string} config.edvAuthKey - Authentication key for accessing the EDV
- * @param {string} [config.masterKey] - Master key for wallet access (required if mnemonic is not provided)
- * @param {string} [config.mnemonic] - BIP39 mnemonic for wallet recovery (required if masterKey is not provided)
  * @param {string} config.networkId - Network identifier ('testnet' or 'mainnet')
  * @param {string} [config.databasePath='truvera-web-wallet'] - Optional path for the local database
+ * @param {Uint8Array} [config.masterKey] - Pre-derived master key for wallet access
+ * @param {string} [config.mnemonic] - BIP39 mnemonic for wallet recovery
+ * @param {boolean|Object} [config.passkey] - Passkey authentication configuration.
+ *   Pass `true` for zero-config (auto-enroll/authenticate using defaults), or an object:
+ * @param {string} [config.passkey.identifier] - User identifier for key derivation salt (defaults to hostname)
+ * @param {string} [config.passkey.passkeyCredentialId] - Base64url-encoded passkey credential ID for direct auth (skips localStorage)
+ * @param {string} [config.passkey.storageKey='truvera-wallet-passkey'] - Custom localStorage key for enrollment data
+ * @param {string} [config.passkey.rpName='Truvera Wallet'] - WebAuthn relying party display name
+ * @param {string} [config.passkey.rpId] - WebAuthn relying party ID (defaults to hostname)
  *
  * @returns {Promise<Object>} Initialized wallet object with the following properties:
  * @returns {Object} returns.wallet - Core wallet instance
@@ -47,15 +77,13 @@ import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/block
  * @returns {Function} returns.addCredential - Function to import a credential from an offer URI
  * @returns {Function} returns.getDID - Function to get the default DID
  * @returns {Function} returns.createPresentation - Function to create a presentation with optional auto-selection
+ * @returns {string} [returns.mnemonic] - Recovery mnemonic phrase (only present on first passkey enrollment)
  *
- * @throws {Error} When neither masterKey nor mnemonic is provided
- * @throws {Error} When both masterKey and mnemonic are provided
- * @throws {Error} When edvUrl is not provided
- * @throws {Error} When edvAuthKey is not provided
- * @throws {Error} When networkId is not provided
+ * @throws {Error} When no authentication method is provided
+ * @throws {Error} When multiple authentication methods are combined
+ * @throws {Error} When edvUrl or edvAuthKey is missing
  * @throws {Error} When networkId is not 'testnet' or 'mainnet'
- * @throws {Error} When wallet initialization fails
- * @throws {Error} When cloud wallet initialization fails
+ * @throws {Error} When passkey PRF extension is not supported by the browser
  *
  * @example
  * // Initialize with mnemonic
@@ -67,15 +95,157 @@ import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/block
  * });
  *
  * @example
- * // Initialize with master key
+ * // Initialize with passkey — zero config, auto enroll/authenticate
  * const wallet = await initialize({
  *   edvUrl: 'https://edv.example.com',
  *   edvAuthKey: 'your-auth-key',
- *   masterKey: 'your-master-key',
- *   networkId: 'mainnet',
- *   databasePath: 'custom-wallet-db'
+ *   networkId: 'testnet',
+ *   passkey: true,
+ * });
+ * if (wallet.mnemonic) {
+ *   console.log('Save your recovery phrase:', wallet.mnemonic);
+ * }
+ *
+ * @example
+ * // Initialize with passkey — custom options
+ * const wallet = await initialize({
+ *   edvUrl: 'https://edv.example.com',
+ *   edvAuthKey: 'your-auth-key',
+ *   networkId: 'testnet',
+ *   passkey: {
+ *     identifier: 'user@example.com',
+ *     storageKey: 'my-app-passkey',
+ *     rpName: 'My App',
+ *   },
+ * });
+ *
+ * @example
+ * // Initialize with passkey — direct auth, no localStorage
+ * const wallet = await initialize({
+ *   edvUrl: 'https://edv.example.com',
+ *   edvAuthKey: 'your-auth-key',
+ *   networkId: 'testnet',
+ *   passkey: {
+ *     passkeyCredentialId: 'base64url-encoded-credential-id',
+ *     identifier: 'user@example.com',
+ *   },
  * });
  */
+const DEFAULT_PASSKEY_STORAGE_KEY = 'truvera-wallet-passkey';
+
+/**
+ * Resolves passkey options from the various input forms.
+ * @param {boolean|Object} passkey - true or options object
+ * @returns {Object} Resolved options with defaults applied
+ */
+function resolvePasskeyOptions(passkey) {
+  const opts = typeof passkey === 'object' ? passkey : {};
+
+  const hostname =
+    typeof window !== 'undefined' && window.location
+      ? window.location.hostname
+      : undefined;
+
+  if (!opts.identifier && !hostname) {
+    throw new Error(
+      'Passkey requires an identifier. Provide passkey.identifier when using passkeys outside a browser.',
+    );
+  }
+
+  return {
+    identifier: opts.identifier || hostname,
+    rpId: opts.rpId || hostname,
+    rpName: opts.rpName || 'Truvera Wallet',
+    storageKey: opts.storageKey || DEFAULT_PASSKEY_STORAGE_KEY,
+    passkeyCredentialId: opts.passkeyCredentialId || null,
+  };
+}
+
+/**
+ * Checks if a passkey has been enrolled on this device.
+ *
+ * @param {string} [storageKey] - Custom localStorage key (defaults to 'truvera-wallet-passkey')
+ * @returns {boolean} True if a passkey is enrolled
+ */
+function isPasskeyEnrolled(storageKey) {
+  try {
+    return (
+      localStorage.getItem(storageKey || DEFAULT_PASSKEY_STORAGE_KEY) !== null
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enrolls a new passkey and creates a passkey-protected wallet.
+ * Handles the full WebAuthn flow: registration, PRF extraction, and master key enrollment.
+ * Stores enrollment metadata in localStorage for future authentication.
+ *
+ * @async
+ * @param {Object} config - Configuration object
+ * @param {string} config.edvUrl - The Encrypted Data Vault (EDV) URL
+ * @param {string} config.edvAuthKey - Authentication key for accessing the EDV
+ * @param {string} [config.identifier] - User's identifier (defaults to current hostname)
+ * @param {string} [config.rpName='Truvera Wallet'] - Relying party display name
+ * @param {string} [config.rpId] - Relying party ID (defaults to current hostname)
+ * @param {string} [config.storageKey='truvera-wallet-passkey'] - Custom localStorage key
+ * @returns {Promise<{mnemonic: string, passkeyCredentialId: string}>} Recovery mnemonic and base64url-encoded passkey credential ID
+ * @throws {Error} If WebAuthn or PRF is not supported
+ */
+async function enrollPasskey({
+  edvUrl,
+  edvAuthKey,
+  identifier,
+  rpName,
+  rpId,
+  storageKey,
+}) {
+  const resolved = resolvePasskeyOptions({
+    identifier,
+    rpName,
+    rpId,
+    storageKey,
+  });
+
+  const support = await checkPasskeySupport();
+  if (!support.webauthn) {
+    throw new Error('WebAuthn is not supported in this browser');
+  }
+
+  // Safari 18 does not report PRF support during create, only during get.
+  // Skip the prfSupported check here and rely on getPasskeyPRFKey to surface errors.
+  const {credentialId} = await registerPasskey(
+    resolved.identifier,
+    resolved.rpName,
+    resolved.rpId,
+  );
+
+  const {prfOutput} = await getPasskeyPRFKey(resolved.identifier, {
+    credentialId,
+    rpId: resolved.rpId,
+  });
+
+  const {mnemonic} = await enrollUserWithPasskey(
+    edvUrl,
+    edvAuthKey,
+    prfOutput,
+    resolved.identifier,
+  );
+
+  const credentialIdBase64url = credentialIdToBase64url(credentialId);
+
+  localStorage.setItem(
+    resolved.storageKey,
+    JSON.stringify({
+      passkeyCredentialId: credentialIdBase64url,
+      identifier: resolved.identifier,
+    }),
+  );
+
+  return {mnemonic, passkeyCredentialId: credentialIdBase64url};
+}
+
 async function initialize({
   edvUrl,
   edvAuthKey,
@@ -83,20 +253,8 @@ async function initialize({
   mnemonic,
   networkId,
   databasePath,
+  passkey,
 }) {
-  // Validate required parameters
-  if (!masterKey && !mnemonic) {
-    throw new Error(
-      'Initialization failed: Either masterKey or mnemonic must be provided for wallet access',
-    );
-  }
-
-  if (masterKey && mnemonic) {
-    throw new Error(
-      'Initialization failed: Cannot provide both masterKey and mnemonic. Please use only one authentication method',
-    );
-  }
-
   if (!edvUrl) {
     throw new Error(
       'Initialization failed: edvUrl is required. Please provide a valid Encrypted Data Vault URL',
@@ -112,6 +270,98 @@ async function initialize({
   if (networkId !== 'testnet' && networkId !== 'mainnet') {
     throw new Error(
       'Initialization failed: networkId is required. Must be either "testnet" or "mainnet"',
+    );
+  }
+
+  let passkeyMnemonic;
+
+  if (passkey) {
+    if (masterKey || mnemonic) {
+      throw new Error(
+        'Initialization failed: Cannot combine passkey with masterKey or mnemonic',
+      );
+    }
+
+    const resolved = resolvePasskeyOptions(passkey);
+    let passkeyCredentialId = resolved.passkeyCredentialId;
+    let {identifier} = resolved;
+    const {rpId, storageKey} = resolved;
+
+    // No explicit passkeyCredentialId — check localStorage for stored enrollment
+    if (!passkeyCredentialId) {
+      if (!isPasskeyEnrolled(storageKey)) {
+        // First time: enroll automatically
+        const result = await enrollPasskey({
+          edvUrl,
+          edvAuthKey,
+          identifier,
+          rpName: resolved.rpName,
+          rpId,
+          storageKey,
+        });
+        passkeyMnemonic = result.mnemonic;
+      }
+
+      let stored;
+      try {
+        const storedValue = localStorage.getItem(storageKey);
+        if (storedValue) {
+          stored = JSON.parse(storedValue);
+        }
+      } catch (error) {
+        console.error(
+          'Error accessing localStorage for passkey enrollment data:',
+          error,
+        );
+      }
+
+      if (!stored || !stored.passkeyCredentialId) {
+        throw new Error(
+          `Initialization failed: No valid passkey enrollment data found for key "${storageKey}". Re-enroll or provide passkey.passkeyCredentialId explicitly.`,
+        );
+      }
+
+      passkeyCredentialId = stored.passkeyCredentialId;
+
+      // Use the identifier from enrollment to ensure PRF salt consistency
+      if (
+        !resolved.identifier ||
+        resolved.identifier === resolvePasskeyOptions(true).identifier
+      ) {
+        identifier = stored.identifier || identifier;
+      }
+    }
+
+    let prfOptions;
+    if (passkeyCredentialId) {
+      try {
+        prfOptions = {
+          credentialId: base64urlToCredentialId(passkeyCredentialId),
+          rpId,
+        };
+      } catch {
+        throw new Error('Initialization failed: invalid passkeyCredentialId');
+      }
+    } else {
+      prfOptions = {rpId};
+    }
+
+    const {prfOutput} = await getPasskeyPRFKey(identifier, prfOptions);
+    masterKey = await authenticateWithPasskey(
+      edvUrl,
+      edvAuthKey,
+      prfOutput,
+      identifier,
+    );
+  } else if (!masterKey && !mnemonic) {
+    throw new Error(
+      'Initialization failed: Provide one of masterKey, mnemonic, or passkey for wallet access',
+    );
+  }
+
+  if (masterKey && mnemonic) {
+    throw new Error(
+      'Initialization failed: Cannot provide both masterKey and mnemonic. Please use only one authentication method',
     );
   }
 
@@ -180,7 +430,7 @@ async function initialize({
     throw new Error(`Failed to initialize wallet providers: ${error.message}`);
   }
 
-  return {
+  const result = {
     wallet,
     messageProvider,
     cloudWallet,
@@ -388,53 +638,86 @@ async function initialize({
       };
     },
   };
+
+  if (passkeyMnemonic) {
+    result.mnemonic = passkeyMnemonic;
+  }
+
+  return result;
 }
 
 /**
- * Dock Wallet SDK - Web Module
+ * Truvera Wallet SDK - Web Module
  *
  * Provides a comprehensive SDK for building decentralized identity wallets in web applications.
- * Includes high-level initialization functions and low-level building blocks for custom implementations.
+ * Supports three authentication methods: mnemonic phrases, master keys, and WebAuthn passkeys.
  *
- * @namespace DockWalletSDK
+ * @namespace TruveraWebWallet
  *
- * @property {Function} initialize - High-level function to initialize a complete wallet with all providers
+ * @property {Function} initialize - Initialize a wallet with mnemonic, masterKey, or passkey authentication
+ *
+ * @property {Function} enrollPasskey - Explicitly enroll a new passkey (register + PRF + vault storage)
+ * @property {Function} isPasskeyEnrolled - Check if a passkey is enrolled in localStorage
+ *
+ * @property {Function} checkPasskeySupport - Check browser WebAuthn/PRF support
+ * @property {Function} registerPasskey - Register a new WebAuthn credential
+ * @property {Function} getPasskeyPRFKey - Extract PRF key material from a passkey assertion
+ * @property {Function} credentialIdToBase64url - Encode a credential ID for storage
+ * @property {Function} base64urlToCredentialId - Decode a stored credential ID
+ * @property {Function} enrollUserWithPasskey - Low-level: encrypt and store masterKey with passkey-derived key
+ * @property {Function} authenticateWithPasskey - Low-level: decrypt masterKey from vault with passkey-derived key
+ * @property {Function} initializeCloudWalletWithPasskey - Low-level: full wallet init from passkey auth
+ *
  * @property {Function} createDataStore - Create a data store for wallet data persistence
  * @property {Function} createWallet - Create a core wallet instance
  * @property {Function} createCredentialProvider - Create a provider for credential management
  * @property {Function} createDIDProvider - Create a provider for DID operations
  * @property {Function} createMessageProvider - Create a provider for wallet messaging
  * @property {Function} initializeCloudWallet - Initialize cloud wallet synchronization
- * @property {Function} generateCloudWalletMasterKey - Generate a new master key for cloud wallet
+ * @property {Function} generateCloudWalletMasterKey - Generate a new master key with BIP39 mnemonic
  * @property {Function} recoverCloudWalletMasterKey - Recover master key from a BIP39 mnemonic
  * @property {Function} createVerificationController - Create a controller for verification presentations
  *
  * @example
- * // Quick start - use the high-level initialize function
+ * // Passkey wallet — zero config, auto enroll/authenticate
+ * import WalletSDK from '@docknetwork/wallet-sdk-web';
+ *
+ * const wallet = await WalletSDK.initialize({
+ *   edvUrl: 'https://edv.dock.io',
+ *   edvAuthKey: 'your-auth-key',
+ *   networkId: 'testnet',
+ *   passkey: true,
+ * });
+ * if (wallet.mnemonic) {
+ *   console.log('Save your recovery phrase:', wallet.mnemonic);
+ * }
+ *
+ * @example
+ * // Mnemonic wallet
  * import WalletSDK from '@docknetwork/wallet-sdk-web';
  *
  * const wallet = await WalletSDK.initialize({
  *   edvUrl: 'https://edv.dock.io',
  *   edvAuthKey: 'your-auth-key',
  *   mnemonic: 'your mnemonic phrase...',
- *   networkId: 'testnet'
+ *   networkId: 'testnet',
  * });
  *
  * @example
- * // Advanced usage - build custom wallet with individual components
+ * // Advanced: build custom wallet with individual components
  * import WalletSDK from '@docknetwork/wallet-sdk-web';
  *
  * const dataStore = await WalletSDK.createDataStore({
  *   databasePath: 'my-wallet',
- *   defaultNetwork: 'mainnet'
+ *   defaultNetwork: 'mainnet',
  * });
- *
  * const wallet = await WalletSDK.createWallet({ dataStore });
  * const didProvider = WalletSDK.createDIDProvider({ wallet });
- * // ... configure additional providers as needed
  */
 export {
   initialize,
+  enrollPasskey,
+  isPasskeyEnrolled,
   createDataStore,
   createWallet,
   createCredentialProvider,
@@ -444,10 +727,21 @@ export {
   generateCloudWalletMasterKey,
   recoverCloudWalletMasterKey,
   createVerificationController,
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  base64urlToCredentialId,
+  enrollUserWithPasskey,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
 };
 
 export default {
   initialize,
+
+  enrollPasskey,
+  isPasskeyEnrolled,
   createDataStore,
   createWallet,
   createCredentialProvider,
@@ -457,4 +751,12 @@ export default {
   generateCloudWalletMasterKey,
   recoverCloudWalletMasterKey,
   createVerificationController,
+  checkPasskeySupport,
+  registerPasskey,
+  getPasskeyPRFKey,
+  credentialIdToBase64url,
+  base64urlToCredentialId,
+  enrollUserWithPasskey,
+  authenticateWithPasskey,
+  initializeCloudWalletWithPasskey,
 };
