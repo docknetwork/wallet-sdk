@@ -308,8 +308,11 @@ async function initialize({
         if (storedValue) {
           stored = JSON.parse(storedValue);
         }
-      } catch {
-        // Malformed JSON or localStorage access error
+      } catch (error) {
+        console.error(
+          'Error accessing localStorage for passkey enrollment data:',
+          error,
+        );
       }
 
       if (!stored || !stored.passkeyCredentialId) {
