@@ -229,7 +229,7 @@ describe('passkey helpers', () => {
       global.window = {PublicKeyCredential: undefined};
 
       await expect(getPasskeyPRFKey('user@test.com')).rejects.toThrow(
-        'WebAuthn is not supported in this browser',
+        'WebAuthn APIs are unavailable in this environment',
       );
     });
 

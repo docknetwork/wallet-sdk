@@ -337,9 +337,7 @@ async function initialize({
           rpId,
         };
       } catch {
-        throw new Error(
-          'Initialization failed: invalid passkeyCredentialId',
-        );
+        throw new Error('Initialization failed: invalid passkeyCredentialId');
       }
     } else {
       prfOptions = {rpId};
