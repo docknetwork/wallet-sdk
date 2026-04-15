@@ -23,7 +23,7 @@ jobs:
         node-version: '20.2.0'
     
     - name: Install dependencies
-      run: npm install --force
+      run: npm install
       working-directory: examples/web-example
 
     - name: Install Playwright browsers
