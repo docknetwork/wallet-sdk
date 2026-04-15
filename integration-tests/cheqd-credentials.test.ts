@@ -4,7 +4,7 @@ import { CheqdCredentialNonZKP, CheqdCredentialZKP } from './data/credentials/ch
 import { addCredentialIfNotExists, closeWallet, createNewWallet, getCredentialProvider, getWallet } from './helpers';
 import { ProofTemplateIds, createProofRequest } from './helpers/certs-helpers';
 
-describe.skip('Cheq integration tests', () => {
+describe('Cheq integration tests', () => {
   beforeAll(async () => {
     await createNewWallet();
   });
@@ -30,27 +30,10 @@ describe.skip('Cheq integration tests', () => {
       template: proofRequest,
     });
 
-    controller.selectedCredentials.set(CheqdCredentialNonZKP.id, {
-      credential: CheqdCredentialNonZKP,
-    });
+    const presentation = await controller.createDefaultPresentation();
+    const evaluation = await controller.evaluatePresentation(presentation);
 
-    const presentation = await controller.createPresentation();
-    console.log('Presentation generated');
-    console.log(JSON.stringify(presentation, null, 2));
-    console.log('Sending presentation to Certs API');
-
-    let certsResponse;
-    try {
-      certsResponse = await controller.submitPresentation(presentation);
-      console.log('CERTS response');
-      console.log(JSON.stringify(certsResponse, null, 2));
-    } catch (err) {
-      certsResponse = err.response.data;
-      console.log('Certs API returned an error');
-      console.log(JSON.stringify(certsResponse, null, 2));
-    }
-
-    expect(certsResponse.verified).toBe(true);
+    expect(evaluation.isValid).toBe(true);
   });
 
   afterAll(() => closeWallet());

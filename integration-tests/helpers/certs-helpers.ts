@@ -20,9 +20,27 @@ export function getCertsApiToken(): string {
   return certsApiToken;
 }
 
+async function axiosWithRetry(requestFn: () => Promise<any>, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await requestFn();
+    } catch (err) {
+      const httpStatus = err?.response?.status;
+      const isRetryable = !httpStatus || httpStatus === 429 || httpStatus >= 500;
+
+      if (!isRetryable || attempt === maxRetries - 1) {
+        throw err;
+      }
+      const delay = Math.min(1000 * 2 ** attempt, 8000);
+      console.log(`Request failed with status ${httpStatus ?? 'network error'}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 export async function createProofRequest(templateId: string) {
   console.log('Requesting proof from Certs API');
-  const {data} = await axios.post(
+  const {data} = await axiosWithRetry(() => axios.post(
     `${getCertsApiURL()}/proof-templates/${templateId}/request`,
     {},
     {
@@ -30,7 +48,7 @@ export async function createProofRequest(templateId: string) {
         'DOCK-API-TOKEN': getCertsApiToken(),
       },
     },
-  );
+  ));
 
   if (!data.request.id) {
     data.request.id = data.id;
@@ -46,7 +64,7 @@ export async function createProofRequest(templateId: string) {
 export function issueCredential({subjectDID}) {
   console.log('Issuing credential for DID', subjectDID);
 
-  return axios.post(
+  return axiosWithRetry(() => axios.post(
     `${certsApiURL}/credentials`,
     {
       anchor: false,
@@ -70,5 +88,5 @@ export function issueCredential({subjectDID}) {
         'Content-Type': 'application/json',
       },
     },
-  );
+  ));
 }
