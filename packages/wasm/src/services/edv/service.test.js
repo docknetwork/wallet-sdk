@@ -139,7 +139,7 @@ describe('EDVService', () => {
 
     it('should return empty documents array when vault indices do not exist', async () => {
       service.storageInterface = {
-        find: jest.fn().mockRejectedValue(new Error('Vault indices does not exist')),
+        find: jest.fn().mockRejectedValue(new Error('Vault indices do not exist')),
       };
 
       const result = await service.find({});
@@ -150,7 +150,7 @@ describe('EDVService', () => {
     it('should return empty documents array for partial vault indices error message', async () => {
       service.storageInterface = {
         find: jest.fn().mockRejectedValue(
-          new Error('Vault indices for controller did:key:z6Mk... does not exist'),
+          new Error('Vault indices for controller did:key:z6Mk... do not exist'),
         ),
       };
 
