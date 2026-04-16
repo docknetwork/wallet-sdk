@@ -129,7 +129,9 @@ describe('EDVService', () => {
   describe('find', () => {
     it('should return documents from storageInterface.find', async () => {
       const mockResult = {documents: [{content: {id: 'doc-1'}}]};
-      service.storageInterface = {find: jest.fn().mockResolvedValue(mockResult)};
+      service.storageInterface = {
+        find: jest.fn().mockResolvedValue(mockResult),
+      };
 
       const result = await service.find({});
 
@@ -139,7 +141,9 @@ describe('EDVService', () => {
 
     it('should return empty documents array when vault indices do not exist', async () => {
       service.storageInterface = {
-        find: jest.fn().mockRejectedValue(new Error('Vault indices do not exist')),
+        find: jest
+          .fn()
+          .mockRejectedValue(new Error('Vault indices do not exist')),
       };
 
       const result = await service.find({});
@@ -149,12 +153,18 @@ describe('EDVService', () => {
 
     it('should return empty documents array for partial vault indices error message', async () => {
       service.storageInterface = {
-        find: jest.fn().mockRejectedValue(
-          new Error('Vault indices for controller did:key:z6Mk... do not exist'),
-        ),
+        find: jest
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              'Vault indices for controller did:key:z6Mk... do not exist',
+            ),
+          ),
       };
 
-      const result = await service.find({equals: {'content.type': 'Credential'}});
+      const result = await service.find({
+        equals: {'content.type': 'Credential'},
+      });
 
       expect(result).toEqual({documents: []});
     });
@@ -178,9 +188,14 @@ describe('EDVService', () => {
     });
 
     it('should pass query params through to storageInterface.find', async () => {
-      const params = {equals: {'content.type': 'VerifiableCredential'}, limit: 10};
+      const params = {
+        equals: {'content.type': 'VerifiableCredential'},
+        limit: 10,
+      };
       const mockResult = {documents: []};
-      service.storageInterface = {find: jest.fn().mockResolvedValue(mockResult)};
+      service.storageInterface = {
+        find: jest.fn().mockResolvedValue(mockResult),
+      };
 
       await service.find(params);
 

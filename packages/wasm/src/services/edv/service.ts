@@ -283,7 +283,7 @@ export class EDVService {
     } catch (error) {
       if (
         error.message.includes('Vault indices') &&
-        error.message.includes('not exist')
+        error.message.includes('do not exist')
       ) {
         return {
           documents: [],
