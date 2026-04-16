@@ -251,20 +251,47 @@ export class EDVService {
   }
 
   /**
-   * Finds documents in the EDV based on query parameters
-   * @param {Object} params - Query parameters
-   * @param {Object} [params.equals] - Equality-based query conditions
+   * Finds documents in the EDV based on query parameters.
+   *
+   * If the vault has not been indexed yet (e.g. a freshly created cloud wallet
+   * with no documents), the EDV server responds with a "Vault indices do not
+   * exist" error. This method catches that specific error and returns an empty
+   * result set instead of throwing, so callers can treat an uninitialised vault
+   * the same as an empty one. All other errors are re-thrown.
+   *
+   * @param {Object} params - Query parameters forwarded to the EDV storage interface
+   * @param {Object} [params.equals] - Equality-based query conditions (e.g. `{ 'content.type': 'VerifiableCredential' }`)
    * @param {boolean} [params.has] - Existence-based query conditions
-   * @param {number} [params.limit] - Maximum number of results
-   * @returns {Promise<Array>} Array of matching documents
+   * @param {number} [params.limit] - Maximum number of results to return
+   * @returns {Promise<{ documents: Array }>} Object containing an array of matching documents
+   * @throws {Error} If the EDV query fails for reasons other than missing vault indices
    * @example
-   * const documents = await edvService.find({
+   * // Query all documents
+   * const result = await edvService.find({});
+   * console.log(result.documents);
+   *
+   * @example
+   * // Query with filters
+   * const result = await edvService.find({
    *   equals: { 'content.type': 'VerifiableCredential' },
    *   limit: 10
    * });
    */
-  find(params: any) {
-    return this.storageInterface.find(params);
+  async find(params: any) {
+    try {
+      return await this.storageInterface.find(params);
+    } catch (error) {
+      if (
+        error.message.includes('Vault indices') &&
+        error.message.includes('not exist')
+      ) {
+        return {
+          documents: [],
+        };
+      }
+
+      throw error;
+    }
   }
 
   /**
