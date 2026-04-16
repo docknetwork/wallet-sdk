@@ -678,23 +678,29 @@ export async function initializeCloudWallet({
 
   async function pullDocuments() {
     logger.debug('Pulling documents from EDV');
-    const allDocs = await edvService.find({});
 
-    logger.debug(`Documents found in EDV: ${allDocs.documents.length}`);
+    try {
+      const allDocs = await edvService.find({});
 
-    for (const doc of allDocs.documents) {
-      const edvDoc = doc.content;
-      const walletDoc = await dataStore.documents.getDocumentById(edvDoc.id);
+      logger.debug(`Documents found in EDV: ${allDocs.documents.length}`);
 
-      if (!walletDoc) {
-        logger.debug(`Document ${edvDoc.id} not found in data store, adding to data store`);
-        await dataStore.documents.addDocument(edvDoc, {
-          stopPropagation: true,
-        });
+      for (const doc of allDocs.documents) {
+        const edvDoc = doc.content;
+        const walletDoc = await dataStore.documents.getDocumentById(edvDoc.id);
+
+        if (!walletDoc) {
+          logger.debug(`Document ${edvDoc.id} not found in data store, adding to data store`);
+          await dataStore.documents.addDocument(edvDoc, {
+            stopPropagation: true,
+          });
+        }
       }
+      return allDocs;
+    } catch (err) {
+      logger.error(`Error pulling documents from EDV: ${err.message}`);
     }
 
-    return allDocs;
+    return [];
   }
 
   async function clearEdvDocuments() {

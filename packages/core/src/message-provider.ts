@@ -151,7 +151,6 @@ export function createMessageProvider({
 
   async function fetchMessages() {
     try {
-      logger.debug('Fetching messages');
       const fetchMessagesStartTime = Date.now();
       const keyPairDocs = await getKeyPairDocs(didProvider);
       let encryptedMessages = await relayService.getMessages({
@@ -227,6 +226,7 @@ export function createMessageProvider({
 
       return encryptedMessages;
     } catch (error) {
+      logger.error(`Failed to fetch messages: ${error.message}`);
       captureException(error);
       throw new Error(`Failed to fetch messages: ${error.message}`);
     }
