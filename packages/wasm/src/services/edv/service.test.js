@@ -151,24 +151,6 @@ describe('EDVService', () => {
       expect(result).toEqual({documents: []});
     });
 
-    it('should return empty documents array for partial vault indices error message', async () => {
-      service.storageInterface = {
-        find: jest
-          .fn()
-          .mockRejectedValue(
-            new Error(
-              'Vault indices for controller did:key:z6Mk... do not exist',
-            ),
-          ),
-      };
-
-      const result = await service.find({
-        equals: {'content.type': 'Credential'},
-      });
-
-      expect(result).toEqual({documents: []});
-    });
-
     it('should re-throw errors that are not related to vault indices', async () => {
       const error = new Error('Network error');
       service.storageInterface = {
