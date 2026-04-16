@@ -1,0 +1,44 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://ld.truvera.io/credentials/extensions-v1",
+    "https://w3id.org/vc/status-list/2021/v1",
+    {
+      "UniversityDegree2": "dk:UniversityDegree2",
+      "age": "dk:age",
+      "dk": "https://ld.truvera.io/credentials#"
+    }
+  ],
+  "credentialStatus": {
+    "id": "status-list2021:cheqd:testnet:d4861645-b956-4bba-95a9-9fd8ae5c7ad4:1d1612e7-73d7-4250-b190-f219b333d6d0#24",
+    "type": "StatusList2021Entry",
+    "statusListIndex": "24",
+    "statusListCredential": "status-list2021:cheqd:testnet:d4861645-b956-4bba-95a9-9fd8ae5c7ad4:1d1612e7-73d7-4250-b190-f219b333d6d0",
+    "statusPurpose": "suspension"
+  },
+  "id": "https://creds-staging.truvera.io/3ac2d7d0221b100514f8259fc2b4aae0e5a977325628f8d2acc757223c367544",
+  "type": ["VerifiableCredential", "UniversityDegree2"],
+  "credentialSubject": {
+    "id": "did:key:z6MkiAAJs6JabUgqh7ZJYNPfwmZL3Usg7YBNgkEwTyE5PYiz",
+    "age": 28
+  },
+  "issuanceDate": "2026-04-16T16:59:19.984Z",
+  "expirationDate": "2027-04-16T16:59:21.456Z",
+  "issuer": {
+    "name": "TCR",
+    "logo": "https://img.truvera.io/d010e26eb41795394685d6345d96dafb",
+    "id": "did:cheqd:testnet:d4861645-b956-4bba-95a9-9fd8ae5c7ad4"
+  },
+  "credentialSchema": {
+    "id": "https://schema.truvera.io/UniversityDegree2-V1-1776358662265.json",
+    "type": "JsonSchemaValidator2018"
+  },
+  "name": "University degree2",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2026-04-16T17:00:15Z",
+    "verificationMethod": "did:cheqd:testnet:d4861645-b956-4bba-95a9-9fd8ae5c7ad4#keys-1",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PeOWp8TD7-Li4qh31l_8GV4M0WU7hfOkCk6J6dIhz-6ploLqqGe6J92e4_UgbjUVEI6_ruO8cXDBjzMTR1SuAA"
+  }
+}

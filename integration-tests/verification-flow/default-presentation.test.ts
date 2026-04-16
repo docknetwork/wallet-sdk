@@ -8,8 +8,10 @@ import {
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
 import {CredentialStatus} from '@docknetwork/wallet-sdk-core/src/credential-provider';
 import universityDegree from '../data/default-presentation-tests/university-degree.json';
+import universityDegreeNonBBS from '../data/default-presentation-tests/university-degree-non-bbs.json';
 import universityDegree2 from '../data/default-presentation-tests/university-degree-2.json';
 import equinetCreditScore from '../data/default-presentation-tests/equinet-credit-score.json';
+
 import {createProofRequest} from '../helpers/certs-helpers';
 import {setWitnessCacheTTL} from '@docknetwork/wallet-sdk-wasm/src/services/credential/bbs-revocation';
 
@@ -48,6 +50,7 @@ describe('Default presentation', () => {
     const credentialProvider = getCredentialProvider();
 
     await didProvider.ensureDID();
+    await credentialProvider.addCredential(universityDegreeNonBBS);
     await credentialProvider.addCredential(universityDegree);
     await credentialProvider.addCredential(universityDegree2);
     await credentialProvider.addCredential(equinetCreditScore);
@@ -111,6 +114,29 @@ describe('Default presentation', () => {
 
   it('should create a default presentation with range proof', async () => {
     const proofRequest = await createProofRequest(template2);
+
+    const controller = createVerificationController({
+      wallet,
+      didProvider,
+    });
+
+    await controller.start({
+      template: proofRequest,
+    });
+
+    const presentation = await controller.createDefaultPresentation();
+
+    expect(presentation).toBeDefined();
+    expect(presentation.type).toEqual(['VerifiablePresentation']);
+    expect(presentation.verifiableCredential).toBeDefined();
+    expect(presentation.verifiableCredential.length).toBe(1);
+
+    const submitResult = await controller.submitPresentation(presentation);
+    expect(submitResult.verified).toBe(true);
+  });
+
+  it('should create a default presentation for non bbs credentials', async () => {
+    const proofRequest = await createProofRequest(template1);
 
     const controller = createVerificationController({
       wallet,
