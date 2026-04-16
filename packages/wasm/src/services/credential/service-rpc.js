@@ -47,4 +47,7 @@ export class CredentialServiceRPC extends RpcService {
   async generatePresentationFromPex(params) {
     return this.call('generatePresentationFromPex', params);
   }
+  async prefetchWitnessCache(params) {
+    return this.call('prefetchWitnessCache', params);
+  }
 }

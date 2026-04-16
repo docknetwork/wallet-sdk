@@ -9,7 +9,7 @@ import { createMessageProvider } from '@docknetwork/wallet-sdk-core/lib/message-
 const EDV_URL = 'https://edv.dock.io';
 const EDV_AUTH_KEY = 'DOCKWALLET-TEST';
 
-function useCloudWallet(walletKeys) {
+function useCloudWallet(walletKeys, walletProfileId) {
   const [loading, setLoading] = useState(false);
   const [cloudWallet, setCloudWallet] = useState(null);
   const [wallet, setWallet] = useState(null);
@@ -58,9 +58,18 @@ function useCloudWallet(walletKeys) {
       }
 
       setLoading(true);
+      setCloudWallet(null);
+      setWallet(null);
+      setCredentialProvider(null);
+      setDidProvider(null);
+      setDefaultDID(null);
+      setMessageProvider(null);
+      setDataStore(null);
+
       try {
         const _dataStore = await createDataStore({
-          databasePath: 'dock-wallet',
+          // Keep each wallet profile in an isolated local datastore.
+          databasePath: `dock-wallet-${walletProfileId || 'default'}`,
           defaultNetwork: 'testnet',
         });
         setDataStore(_dataStore);
@@ -107,7 +116,7 @@ function useCloudWallet(walletKeys) {
         cloudWallet.unsubscribeEventListeners();
       }
     };
-  }, [walletKeys]);
+  }, [walletKeys, walletProfileId]);
 
   return {
     loading,

@@ -44,7 +44,7 @@ import {
 import {LegoProvingKey} from '@docknetwork/crypto-wasm-ts/lib/legosnark';
 import assert from 'assert';
 import axios from 'axios';
-import {getIsRevoked, getWitnessDetails} from './bbs-revocation';
+import {getIsRevoked, getWitnessDetails, prefetchWitnessCache} from './bbs-revocation';
 import {getPexRequiredAttributes, shouldSkipAttribute, findMatchingDescriptor} from './pex-helpers';
 import {didService} from '../dids/service';
 import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialToW3C, verifySDJWT, createSDJWTPresentation} from './sd-jwt';
@@ -196,7 +196,13 @@ class CredentialService {
     CredentialService.prototype.createSDJWTPresentation,
     CredentialService.prototype.acquireOIDCredential,
     CredentialService.prototype.generatePresentationFromPex,
+    CredentialService.prototype.prefetchWitnessCache,
   ];
+
+  async prefetchWitnessCache(params) {
+    const {credential, membershipWitness} = params;
+    return prefetchWitnessCache(credential, membershipWitness);
+  }
 
 
   createSDJWTPresentation(params) {
