@@ -7,12 +7,11 @@ import {
 } from '../helpers/wallet-helpers';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
 import {ProofTemplateIds, createProofRequest} from '../helpers/certs-helpers';
-import { bbsPlusRevocationCredential, credentialWithUpdatedWitness } from './bbs-plus-revocation-credentials';
+import bbsPlusRevocationCredential from '../data/default-presentation-tests/equinet-credit-score.json';
+import credentialWithUpdatedWitness from '../data/default-presentation-tests/university-degree-2.json';
 
-// Skip in CI due to network/accumulator access issues - passes locally
-const describeOrSkip = process.env.CI ? describe.skip : describe;
 
-describeOrSkip('BBS+ revocation', () => {
+describe('BBS+ revocation', () => {
   it('should verify a revokable bbs+ credential', async () => {
     const wallet: IWallet = await getWallet();
 
@@ -34,14 +33,7 @@ describeOrSkip('BBS+ revocation', () => {
       template: proofRequest,
     });
 
-    let attributesToReveal = ['credentialSubject.name'];
-
-    controller.selectedCredentials.set(bbsPlusRevocationCredential.id, {
-      credential: bbsPlusRevocationCredential,
-      attributesToReveal,
-    });
-
-    const presentation = await controller.createPresentation();
+    const presentation = await controller.createDefaultPresentation();
     console.log('Presentation generated');
     console.log(JSON.stringify(presentation, null, 2));
     console.log('Sending presentation to Certs API');
@@ -71,41 +63,33 @@ describeOrSkip('BBS+ revocation', () => {
 
     const result: any = await getCredentialProvider().isValid(credentialWithUpdatedWitness);
 
-    // TODO: Uncomment this when gets done https://dock-team.atlassian.net/browse/DCKM-483
-    // expect(result.status).toBe('verified');
+    expect(result.status).toBe('verified');
 
-    // const controller = await createVerificationController({
-    //   wallet,
-    // });
+    const controller = await createVerificationController({
+      wallet,
+    });
 
-    // await controller.start({
-    //   template: proofRequest,
-    // });
+    await controller.start({
+      template: proofRequest,
+    });
 
-    // let attributesToReveal = ['credentialSubject.name'];
+    const presentation = await controller.createDefaultPresentation();
+    console.log('Presentation generated');
+    console.log(JSON.stringify(presentation, null, 2));
+    console.log('Sending presentation to Certs API');
 
-    // controller.selectedCredentials.set(credential.id, {
-    //   credential: credential,
-    //   attributesToReveal,
-    // });
-
-    // const presentation = await controller.createPresentation();
-    // console.log('Presentation generated');
-    // console.log(JSON.stringify(presentation, null, 2));
-    // console.log('Sending presentation to Certs API');
-
-    // let certsResponse;
-    // try {
-    //   certsResponse = await controller.submitPresentation(presentation);
-    //   console.log('CERTS response');
-    //   console.log(JSON.stringify(certsResponse, null, 2));
-    // } catch (err) {
-    //   certsResponse = err.response.data;
-    //   console.log('Certs API returned an error');
-    //   console.log(JSON.stringify(certsResponse, null, 2));
-    // }
-    // 
-    // expect(certsResponse.verified).toBe(false);
+    let certsResponse;
+    try {
+      certsResponse = await controller.submitPresentation(presentation);
+      console.log('CERTS response');
+      console.log(JSON.stringify(certsResponse, null, 2));
+    } catch (err) {
+      certsResponse = err.response.data;
+      console.log('Certs API returned an error');
+      console.log(JSON.stringify(certsResponse, null, 2));
+    }
+    
+    expect(certsResponse.verified).toBe(true);
   });
 
   // Working to fix that under: https://dock-team.atlassian.net/browse/DCKM-453

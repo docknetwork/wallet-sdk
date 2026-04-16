@@ -8,8 +8,16 @@ class SlackReporter {
     let totalTests = 0;
     let blocks = []; // Slack Blocks array
 
+    // Deduplicate test results by fullName to avoid counting retries as failures.
+    // With jest.retryTimes(), each retry attempt appears as a separate entry.
+    // We keep only the last result for each test (the final outcome).
     results.testResults.forEach(testResult => {
+      const finalResults = new Map();
       testResult.testResults.forEach(result => {
+        finalResults.set(result.fullName, result);
+      });
+
+      finalResults.forEach(result => {
         totalTests++;
         const symbol =
           result.status === 'passed' ? ':large_green_circle:' : ':x:';

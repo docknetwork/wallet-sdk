@@ -524,7 +524,7 @@ export function createVerificationController({
       regularSelections,
     );
     const presentation = await assembleSignedPresentation(credentials, keyDoc);
-    return ensureDescriptorMap(presentation);
+    return presentation;
   }
 
   /**
