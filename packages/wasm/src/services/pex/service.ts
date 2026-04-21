@@ -87,7 +87,7 @@ class PEXService {
     const result = pex.selectFrom(
       removeOptionalAttribute(presentationDefinition),
       credentials,
-      holderDIDs,
+      {holderDIDs},
     );
 
     return result;
@@ -99,7 +99,7 @@ class PEXService {
     const result = pex.selectFrom(
       removeOptionalAttribute(presentationDefinition),
       credentials,
-      holderDIDs,
+      {holderDIDs},
     );
 
     return result.errors.length === 0;
@@ -121,16 +121,16 @@ class PEXService {
     const evaluateResult = pex.evaluateCredentials(
       removeOptionalAttribute(presentationDefinition),
       credentials,
-      holderDID,
+      {holderDIDs: holderDID ? [holderDID] : undefined},
     );
 
-    const result: IPresentation = pex.presentationFrom(
+    const result = pex.presentationFrom(
       presentationDefinition,
       evaluateResult.verifiableCredential,
-      holderDID,
+      {holderDID},
     );
 
-    return result;
+    return result.presentation;
   }
 }
 
