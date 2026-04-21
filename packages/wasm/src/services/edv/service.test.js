@@ -126,6 +126,65 @@ describe('EDVService', () => {
     });
   });
 
+  describe('find', () => {
+    it('should return documents from storageInterface.find', async () => {
+      const mockResult = {documents: [{content: {id: 'doc-1'}}]};
+      service.storageInterface = {
+        find: jest.fn().mockResolvedValue(mockResult),
+      };
+
+      const result = await service.find({});
+
+      expect(result).toEqual(mockResult);
+      expect(service.storageInterface.find).toHaveBeenCalledWith({});
+    });
+
+    it('should return empty documents array when vault indices do not exist', async () => {
+      service.storageInterface = {
+        find: jest
+          .fn()
+          .mockRejectedValue(new Error('Vault indices do not exist')),
+      };
+
+      const result = await service.find({});
+
+      expect(result).toEqual({documents: []});
+    });
+
+    it('should re-throw errors that are not related to vault indices', async () => {
+      const error = new Error('Network error');
+      service.storageInterface = {
+        find: jest.fn().mockRejectedValue(error),
+      };
+
+      await expect(service.find({})).rejects.toThrow('Network error');
+    });
+
+    it('should re-throw errors with unrelated messages', async () => {
+      const error = new Error('Permission denied');
+      service.storageInterface = {
+        find: jest.fn().mockRejectedValue(error),
+      };
+
+      await expect(service.find({})).rejects.toThrow('Permission denied');
+    });
+
+    it('should pass query params through to storageInterface.find', async () => {
+      const params = {
+        equals: {'content.type': 'VerifiableCredential'},
+        limit: 10,
+      };
+      const mockResult = {documents: []};
+      service.storageInterface = {
+        find: jest.fn().mockResolvedValue(mockResult),
+      };
+
+      await service.find(params);
+
+      expect(service.storageInterface.find).toHaveBeenCalledWith(params);
+    });
+  });
+
   describe('encryptMasterKey', () => {
     it('should encrypt with proper Uint8Array inputs', async () => {
       const masterKey = new Uint8Array([1, 2, 3]);

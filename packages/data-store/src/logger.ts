@@ -13,7 +13,7 @@ const ConsoleTransport = {
   },
   performance: (action: string, startTime: number) => {
     console.log(`[PERFORMANCE] ${action} in ${new Date().getTime() - startTime}ms`);
-  }
+  },
 };
 
 export let logger = ConsoleTransport;
