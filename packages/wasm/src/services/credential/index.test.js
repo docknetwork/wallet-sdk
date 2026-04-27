@@ -5,7 +5,6 @@ import {
   pexUtils,
 } from './service';
 import {validation} from './config';
-import * as credentialUtils from '@docknetwork/credential-sdk/vc';
 import {CredentialServiceRPC} from './service-rpc';
 import {OpenID4VCIClientV1_0_13} from '@sphereon/oid4vci-client';
 import {didService} from '../dids/service';
@@ -17,17 +16,19 @@ describe('Credential Service', () => {
     const mockCreatePresentation = jest.fn();
     const mockDeriveCredentials = jest.fn(() => []);
 
-    jest.spyOn(serviceCredentialUtils, 'Presentation').mockImplementation(() => {
-      return {
-        addCredentialToPresent: mockAddCredentialToPresent,
-        addAttributeToReveal: mockAddAttributeToReveal,
-        createPresentation: mockCreatePresentation,
-        deriveCredentials: mockDeriveCredentials,
-        presBuilder: {
-          enforceBounds: jest.fn(),
-        },
-      };
-    });
+    jest
+      .spyOn(serviceCredentialUtils, 'Presentation')
+      .mockImplementation(() => {
+        return {
+          addCredentialToPresent: mockAddCredentialToPresent,
+          addAttributeToReveal: mockAddAttributeToReveal,
+          createPresentation: mockCreatePresentation,
+          deriveCredentials: mockDeriveCredentials,
+          presBuilder: {
+            enforceBounds: jest.fn(),
+          },
+        };
+      });
   });
   it('ServiceRpc', () => {
     assertRpcService(CredentialServiceRPC, service, validation);
