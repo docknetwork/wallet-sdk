@@ -15,7 +15,8 @@ export async function getDelegationChain(credential, wallet) {
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
 
   const delegationChainId = buildDelegationChainId(credential.id);
-  return wallet.getDocument(delegationChainId);
+  const document = await wallet.getDocument(delegationChainId);
+  return document?.delegationChain ?? null;
 }
 
 type DelegationDetails = {

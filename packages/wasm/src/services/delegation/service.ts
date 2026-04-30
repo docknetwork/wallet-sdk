@@ -39,7 +39,6 @@ class DelegationService {
     DelegationService.prototype.fetchDelegationPolicyJson,
   ];
 
-  // Move this to credentil serivce?
   async issueCredential(keyPair, credential): Promise<Credential> {
     const preparedKey = prepareKeyForSigning(keyPair);
     return issueCredential(preparedKey, credential);
