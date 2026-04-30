@@ -9,7 +9,7 @@ import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/deleg
  */
 export async function fetchDelegationPolicyJson(
   credential,
-): Promise<DelegationPolicy[]> {
+): Promise<DelegationPolicy> {
   assert(
     credential.delegationPolicyId,
     'Credential does not contain a delegation policy ID',

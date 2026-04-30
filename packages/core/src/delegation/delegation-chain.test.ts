@@ -6,8 +6,15 @@ describe('getDelegationChain', () => {
       addDocument: jest.fn(),
       getDocument: jest.fn().mockResolvedValue(null),
     };
+    const credential = {
+      id: 'cred-123',
+      '@context': [
+        'https://www.w3.org/2018/credentials/v1',
+        'https://ld.truvera.io/credentials/delegation',
+      ],
+    };
 
-    await getDelegationChain({id: 'cred-123'}, wallet);
+    await getDelegationChain(credential, wallet);
 
     expect(wallet.getDocument).toHaveBeenCalledWith('cred-123#delegationChain');
   });
