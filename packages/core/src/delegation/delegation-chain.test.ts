@@ -1,10 +1,4 @@
-import {
-  addDelegationChain,
-  getDelegationChain,
-  getDelegationDetails,
-} from './delegation-chain';
-import {delegationPolicyTravelAgent} from './delegation-fixtures';
-import {DelegationPolicy} from './delegation-types';
+import {addDelegationChain, getDelegationChain} from './delegation-chain';
 
 describe('getDelegationChain', () => {
   it('looks up the chain document by `${credential.id}#delegationChain`', async () => {
@@ -61,4 +55,3 @@ describe('addDelegationChain', () => {
     expect(wallet.addDocument).not.toHaveBeenCalled();
   });
 });
-
