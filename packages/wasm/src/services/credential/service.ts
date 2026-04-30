@@ -18,10 +18,10 @@ import {OpenID4VCIClientV1_0_13} from '@sphereon/oid4vci-client';
 import {Alg} from '@sphereon/oid4vci-common';
 import {getKeypairFromDoc} from '@docknetwork/universal-wallet/methods/keypairs';
 import {hexToU8a} from '@docknetwork/credential-sdk/utils';
+import * as credentialSdkVc from '@docknetwork/credential-sdk/vc';
 import {
   VerifiablePresentation,
   Presentation,
-  verifyCredential,
   verifyPresentation,
   VerifiableCredential,
   getSuiteFromKeyDoc,
@@ -49,6 +49,12 @@ import {getPexRequiredAttributes, shouldSkipAttribute, findMatchingDescriptor} f
 import {didService} from '../dids/service';
 import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialToW3C, verifySDJWT, createSDJWTPresentation} from './sd-jwt';
 
+
+export const credentialUtils = {...credentialSdkVc};
+export const pexUtils = {
+  generatePresentationFromPexRequest,
+  GeneratePresentationStatus,
+};
 /**
  * PEX (Presentation Exchange) instance for credential filtering
  * @private
@@ -365,7 +371,7 @@ class CredentialService {
       return verifySDJWT(credential);
     }
 
-    const result = await verifyCredential(credential, {
+    const result = await credentialUtils.verifyCredential(credential, {
       resolver: blockchainService.resolver,
       revocationApi: {dock: blockchainService.dock},
     });
@@ -606,7 +612,7 @@ class CredentialService {
     validation.createBBSPresentation(params);
     const {credentials} = params;
 
-    const bbsPlusPresentation = new Presentation();
+    const bbsPlusPresentation = new credentialUtils.Presentation();
     for (const {credential, attributesToReveal} of credentials) {
       const idx = await bbsPlusPresentation.addCredentialToPresent(credential, {
         resolver: blockchainService.resolver,
@@ -738,7 +744,7 @@ class CredentialService {
   async deriveVCFromPresentation(params) {
     validation.deriveVCFromPresentation(params);
     const {credentials, options = {}, proofRequest} = params;
-    const presentation = new Presentation();
+    const presentation = new credentialUtils.Presentation();
     const selectedCredentials = credentials.map(({credential}) => credential);
     let descriptorBounds = [];
 
@@ -864,7 +870,7 @@ class CredentialService {
       resolvedKeyDoc.signer = resolvedKeyDoc.signer();
     }
 
-    const result = await generatePresentationFromPexRequest({
+    const result = await pexUtils.generatePresentationFromPexRequest({
       credentials: credentials.map(c => c.credential),
       pexRequest,
       holderKeyDoc: resolvedKeyDoc,
@@ -882,7 +888,7 @@ class CredentialService {
       },
     });
 
-    if (result.status !== GeneratePresentationStatus.SUCCESS) {
+    if (result.status !== pexUtils.GeneratePresentationStatus.SUCCESS) {
       throw result.error || new Error(`Presentation generation failed: ${result.status}`);
     }
 
