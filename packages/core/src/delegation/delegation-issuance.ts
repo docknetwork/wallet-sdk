@@ -2,7 +2,7 @@ import assert from 'assert';
 import {DelegationPolicy} from './delegation-types';
 import {isDelegatableCredential} from './delegation-utils';
 import {buildDelegationPolicyAttributes} from './delegation-policy';
-import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation/service';
+import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation';
 import {v4 as uuidv4} from 'uuid';
 
 /**

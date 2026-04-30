@@ -38,7 +38,7 @@ export async function addDelegationChain(credential, delegationChain, wallet) {
 
   // store delegation chain in the wallet
   const delegationChainDocument = {
-    id: `${credential.id}#delegationChain`,
+    id: delegationChainId,
     type: 'DelegationChain',
     credentialId: credential.id,
     delegationChain,

@@ -1,6 +1,6 @@
 import assert from 'assert';
 import {DelegationPolicy} from './delegation-types';
-import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation/service';
+import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation';
 
 /**
  * Fetch the delegation policy for a given credential
