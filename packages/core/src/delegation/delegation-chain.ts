@@ -1,6 +1,5 @@
 import assert from 'assert';
-import {isDelegatableCredential} from './delegation-policy';
-import {DelegationPolicy} from './delegation-types';
+import {isDelegatableCredential} from './delegation-utils';
 
 function buildDelegationChainId(credentialId) {
   return `${credentialId}#delegationChain`;
