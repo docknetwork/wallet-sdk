@@ -34,7 +34,7 @@
         "@sphereon/oid4vci-client": "^0.16.0",
         "@sphereon/oid4vci-common": "^0.16.0",
         "@sphereon/pex": "^1.1.4",
-        "axios": "^0.25.0",
+        "axios": "^1.15.2",
         "axios-retry": "^3.2.5",
         "base64url": "^3.0.1",
         "cwait": "1.1.2",
