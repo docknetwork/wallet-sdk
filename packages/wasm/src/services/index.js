@@ -7,6 +7,7 @@ import {credentialService} from './credential/service';
 import {relayService} from './relay-service/service';
 import {pexService} from './pex/service';
 import {edvService} from './edv/service';
+import {delegationService} from './delegation/service';
 
 export default [
   blockchainService,
@@ -18,4 +19,5 @@ export default [
   relayService,
   pexService,
   edvService,
+  delegationService,
 ];

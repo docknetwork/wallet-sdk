@@ -1,42 +1,20 @@
 import assert from 'assert';
 import {isDelegatableCredential} from './delegation-utils';
 
-function buildDelegationChainId(credentialId) {
-  return `${credentialId}#delegationChain`;
-}
-/**
- * Return the list of credentials that are part of the delegation chain for a given credential.
- * @param credential
- * @param wallet
- * @returns
- */
 export async function getDelegationChain(credential, wallet) {
-  // assert credential is delegatable
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
-
-  const delegationChainId = buildDelegationChainId(credential.id);
-  const document = await wallet.getDocument(delegationChainId);
+  const document = await wallet.getDocumentById(`${credential.id}#delegationChain`);
   return document?.delegationChain ?? null;
 }
 
-type DelegationDetails = {
-  yourRole: string;
-  expires: Date;
-  maxDelegationDepth: number;
-  currentDelegationDepth: number;
-  capabilities;
-};
-
 export async function addDelegationChain(credential, delegationChain, wallet) {
-  // check if delegation chain exists
-  const delegationChainId = buildDelegationChainId(credential.id);
-  const existingChain = await wallet.getDocument(delegationChainId);
+  const delegationChainId = `${credential.id}#delegationChain`;
+  const existingChain = await wallet.getDocumentById(delegationChainId);
 
   if (existingChain) {
     throw new Error('Delegation chain already exists for this credential');
   }
 
-  // store delegation chain in the wallet
   const delegationChainDocument = {
     id: delegationChainId,
     type: 'DelegationChain',

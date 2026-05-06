@@ -1,6 +1,17 @@
 import assert from 'assert';
-import {DelegationPolicy} from './delegation-types';
+import {
+  DelegationDetails,
+  DelegationPolicy,
+  Role,
+  RoleNode,
+} from './delegation-types';
 import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation';
+import {getDelegationChain} from './delegation-chain';
+import {
+  buildDelegationRoleTree,
+  getRemainingDelegationDepth,
+  getRoleNodeById,
+} from './delegation-tree';
 
 /**
  * Fetch the delegation policy for a given credential
@@ -38,37 +49,51 @@ export async function buildDelegationPolicyAttributes(
   };
 }
 
-type RoleNode = {
-  name: string;
-  level: number;
-  children?: RoleNode[];
-};
+export function getRole(
+  roleId: string,
+  delegationPolicy: DelegationPolicy,
+): Role {
+  if (!delegationPolicy) return null;
 
-/**
- * Build a tree structure representing the roles in a delegation policy, based on their parent-child relationships
- * @param policy - The delegation policy containing the roles and their relationships
- * @returns A tree structure representing the roles in the delegation policy, where each node contains the role name, level in the hierarchy, and its children roles (if any)
- */
-export function buildDelegationRoleTree(policy: DelegationPolicy): RoleNode {
-  const root = policy.ruleset.roles.find(r => r.parentRoleId === null);
-  assert(root, 'Delegation policy has no root role');
+  return delegationPolicy.ruleset.roles.find(r => r.roleId === roleId);
+}
 
-  const childrenByParent = new Map<string, any[]>();
-  for (const role of policy.ruleset.roles) {
-    if (role.parentRoleId === null) continue;
-    const siblings = childrenByParent.get(role.parentRoleId) ?? [];
-    siblings.push(role);
-    childrenByParent.set(role.parentRoleId, siblings);
-  }
-
-  const toNode = (role, level: number): RoleNode => {
-    const children = childrenByParent.get(role.roleId);
-    const node: RoleNode = {name: role.label, level};
-    if (children?.length) {
-      node.children = children.map(c => toNode(c, level + 1));
-    }
-    return node;
+export function getDelegationOptions(roleTree: RoleNode): RoleNode[] {
+  const roles: RoleNode[] = [];
+  const traverse = (node: RoleNode) => {
+    roles.push(node);
+    node.children?.forEach(traverse);
   };
 
-  return toNode(root, 1);
+  roleTree.children?.forEach(traverse);
+
+  return roles;
+}
+
+export async function getDelegationDetails(
+  credential,
+  wallet,
+): Promise<DelegationDetails> {
+  const delegationChain = await getDelegationChain(credential, wallet);
+  const policy = await fetchDelegationPolicyJson(credential);
+  const roleTree = buildDelegationRoleTree(policy);
+  const role = getRoleNodeById(roleTree.roleId, roleTree);
+  const delegationOptions = getDelegationOptions(roleTree);
+  const remainingDelegationDepth = getRemainingDelegationDepth(role, policy);
+
+  return {
+    delegationPolicy: policy,
+    roleTree,
+    role,
+    remainingDelegationDepth,
+    delegatedBy: {
+      role:
+        delegationChain?.length > 0
+          ? getRole(delegationChain[0]?.roleId, policy)
+          : null,
+      issuerName: credential?.issuer?.name,
+      issuerDid: credential?.issuer?.id,
+    },
+    delegationOptions,
+  };
 }

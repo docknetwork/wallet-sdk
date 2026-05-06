@@ -42,3 +42,21 @@ export type DelegationPolicy = {
   createdAt: string;
   name: string;
 };
+
+export type RoleNode = Role & {
+  level: number;
+  children?: RoleNode[];
+};
+
+export type DelegationDetails = {
+  delegationPolicy: DelegationPolicy | null;
+  delegatedBy: {
+    role: Role | null;
+    issuerName: string;
+    issuerDid: string;
+  };
+  role: RoleNode | null;
+  roleTree: RoleNode | null;
+  remainingDelegationDepth: number | null;
+  delegationOptions: RoleNode[];
+};
