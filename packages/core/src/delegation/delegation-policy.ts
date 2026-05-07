@@ -86,6 +86,7 @@ export async function getDelegationDetails(
     roleTree,
     role,
     remainingDelegationDepth,
+    delegationChain,
     delegatedBy: {
       role:
         delegationChain?.length > 0

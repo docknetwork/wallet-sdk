@@ -1,3 +1,5 @@
+import {Credential} from '../credential-provider';
+
 export type JsonSchema = Record<string, unknown>;
 
 export type CapabilityGrant = {
@@ -50,6 +52,7 @@ export type RoleNode = Role & {
 
 export type DelegationDetails = {
   delegationPolicy: DelegationPolicy | null;
+  delegationChain: Credential[];
   delegatedBy: {
     role: Role | null;
     issuerName: string;

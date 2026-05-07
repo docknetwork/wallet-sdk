@@ -3,8 +3,14 @@ import {isDelegatableCredential} from './delegation-utils';
 
 export async function getDelegationChain(credential, wallet) {
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
-  const document = await wallet.getDocumentById(`${credential.id}#delegationChain`);
-  return document?.delegationChain ?? null;
+  const document = await wallet.getDocumentById(
+    `${credential.id}#delegationChain`,
+  );
+  const delegationChain = Array.isArray(document?.delegationChain)
+    ? document.delegationChain
+    : [];
+
+  return [credential, ...delegationChain];
 }
 
 export async function addDelegationChain(credential, delegationChain, wallet) {
