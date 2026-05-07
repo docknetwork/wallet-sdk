@@ -1,8 +1,10 @@
 import {assertRpcService, getPromiseError} from '../test-utils';
-import {credentialService as service} from './service';
+import {
+  credentialService as service,
+  credentialUtils as serviceCredentialUtils,
+  pexUtils,
+} from './service';
 import {validation} from './config';
-import * as credentialUtils from '@docknetwork/credential-sdk/vc';
-import * as pexUtils from '@docknetwork/credential-sdk/pex';
 import {CredentialServiceRPC} from './service-rpc';
 import {OpenID4VCIClientV1_0_13} from '@sphereon/oid4vci-client';
 import {didService} from '../dids/service';
@@ -14,17 +16,19 @@ describe('Credential Service', () => {
     const mockCreatePresentation = jest.fn();
     const mockDeriveCredentials = jest.fn(() => []);
 
-    jest.spyOn(credentialUtils, 'Presentation').mockImplementation(() => {
-      return {
-        addCredentialToPresent: mockAddCredentialToPresent,
-        addAttributeToReveal: mockAddAttributeToReveal,
-        createPresentation: mockCreatePresentation,
-        deriveCredentials: mockDeriveCredentials,
-        presBuilder: {
-          enforceBounds: jest.fn(),
-        },
-      };
-    });
+    jest
+      .spyOn(serviceCredentialUtils, 'Presentation')
+      .mockImplementation(() => {
+        return {
+          addCredentialToPresent: mockAddCredentialToPresent,
+          addAttributeToReveal: mockAddAttributeToReveal,
+          createPresentation: mockCreatePresentation,
+          deriveCredentials: mockDeriveCredentials,
+          presBuilder: {
+            enforceBounds: jest.fn(),
+          },
+        };
+      });
   });
   it('ServiceRpc', () => {
     assertRpcService(CredentialServiceRPC, service, validation);
@@ -35,7 +39,7 @@ describe('Credential Service', () => {
   });
   it('expect to verify credential', async () => {
     jest
-      .spyOn(credentialUtils, 'verifyCredential')
+      .spyOn(serviceCredentialUtils, 'verifyCredential')
       .mockImplementationOnce(async () => ({verified: true}));
     const credential = {
       '@context': [
@@ -87,7 +91,7 @@ describe('Credential Service', () => {
       },
     };
     await service.verifyCredential({credential});
-    expect(credentialUtils.verifyCredential).toBeCalled();
+    expect(serviceCredentialUtils.verifyCredential).toBeCalled();
   });
   it('should create a vc', async () => {
     const subject = {
@@ -312,7 +316,7 @@ describe('Credential Service', () => {
       credentials,
     });
 
-    const bbsPresentation = new credentialUtils.Presentation();
+    const bbsPresentation = new serviceCredentialUtils.Presentation();
     expect(bbsPresentation.addCredentialToPresent).toBeCalledWith(
       credential,
       expect.any(Object),
@@ -382,7 +386,7 @@ describe('Credential Service', () => {
       credentials,
     });
 
-    const bbsPresentation = new credentialUtils.Presentation();
+    const bbsPresentation = new serviceCredentialUtils.Presentation();
     expect(bbsPresentation.addCredentialToPresent).toBeCalledWith(
       credential,
       expect.any(Object),
