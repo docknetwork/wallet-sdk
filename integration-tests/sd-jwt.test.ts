@@ -50,6 +50,38 @@ describe('SD JWT Credentials', () => {
     expect(credential.expirationDate).toBe(undefined);
   });
 
+  it('expect to import a decoded SD-JWT payload object', async () => {
+    const decodedPayload = {
+      iat: 1778854828,
+      iss: 'did:cheqd:testnet:c0890f1c-c7bb-4ea6-be7a-8c31404743b7#keys-1',
+      vct: 'BasicCredential',
+      _sd: [
+        '4bqpGCWfOvT_RcZYuyteRnUuFMaHsynG6RNQDh0v4UA',
+        'ocOxmMDZJuQvIaHsCFPur2fkM6q6eeAMGvS5uvBRvJ8',
+      ],
+      _sd_alg: 'sha-256',
+    };
+
+    const result = await addCredentialIfNotExists(decodedPayload);
+    expect(result?.id).toBeDefined();
+
+    const credential = await getCredentialProvider().getById(result.id);
+
+    expect(credential).toBeDefined();
+    expect(credential.type).toEqual([
+      'VerifiableCredential',
+      decodedPayload.vct,
+    ]);
+    expect(credential.issuer).toBe(decodedPayload.iss);
+    expect(credential.issuanceDate).toBe(
+      new Date(decodedPayload.iat * 1000).toISOString(),
+    );
+
+    expect(credential.credentialSubject).toEqual({});
+    expect(credential._sd_jwt).toBeDefined();
+    expect(credential._sd_jwt.encoded).toBeUndefined();
+  });
+
   it('expect to create presentation from SD-JWT credential', async () => {
     const credential = await getCredentialProvider().getById(credentialId);
 

@@ -173,18 +173,22 @@ export const ACUMM_WITNESS_PROP_KEY = '$$accum__witness$$';
  * @private
  */
 export async function addCredential({wallet, credential}) {
-  // Check if the credential is an SD-JWT (string format)
-  if (typeof credential === 'string') {
-    try {
-      const isSDJWT = await credentialServiceRPC.isSDJWTCredential({credential});
+  if (
+    credential &&
+    (typeof credential === 'string' || typeof credential === 'object')
+  ) {
+    const isSDJWT = await credentialServiceRPC.isSDJWTCredential({credential});
 
-      if (isSDJWT) {
+    if (isSDJWT) {
+      try {
         // Convert SD-JWT to W3C format (includes _sd_jwt metadata for unwrapping)
         credential = await credentialServiceRPC.credentialToW3C({credential});
+      } catch (error) {
+        console.error('Error checking/converting SD-JWT credential:', error);
+        throw new Error(
+          'Failed to process SD-JWT credential: ' + error.message,
+        );
       }
-    } catch (error) {
-      console.error('Error checking/converting SD-JWT credential:', error);
-      throw new Error('Failed to process SD-JWT credential: ' + error.message);
     }
   }
 

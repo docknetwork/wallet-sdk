@@ -3,10 +3,33 @@ import {digest, generateSalt} from '@sd-jwt/crypto-nodejs';
 import base64url from 'base64url';
 
 /**
- * Checks if a JWT string is an SD-JWT credential
+ * Checks if a value is a decoded SD-JWT payload object — i.e. an SD-JWT VC
+ * payload returned as JSON rather than the compact `header.payload.sig~...` form.
  */
-export function isSDJWTCredential(jwt) {
-  const jwtHeader = jwt.split('.')[0];
+export function isDecodedSDJWTPayload(value): boolean {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Array.isArray((value as any)._sd) &&
+    typeof (value as any)._sd_alg === 'string'
+  );
+}
+
+/**
+ * Checks if a credential is an SD-JWT credential.
+ * Accepts either the compact SD-JWT string or a decoded SD-JWT VC payload object.
+ */
+export function isSDJWTCredential(credential) {
+  if (isDecodedSDJWTPayload(credential)) {
+    return true;
+  }
+
+  if (typeof credential !== 'string') {
+    return false;
+  }
+
+  const jwtHeader = credential.split('.')[0];
   const decodedHeader = JSON.parse(base64url.decode(jwtHeader));
   return decodedHeader.typ === 'dc+sd-jwt' || decodedHeader.typ === 'vc+sd-jwt';
 }
