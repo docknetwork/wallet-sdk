@@ -41,14 +41,14 @@
         "@rollup/plugin-json": "^6.1.0",
         "@rollup/plugin-node-resolve": "^16.0.3",
         "@rollup/plugin-replace": "^6.0.3",
-        "@rollup/plugin-terser": "^0.4.4",
+        "@rollup/plugin-terser": "^1.0.0",
         "@rollup/plugin-typescript": "^12.3.0",
         "@rollup/plugin-wasm": "^6.2.2",
         "babel-loader": "^8.4.1",
         "buffer": "^6.0.3",
-        "crypto-browserify": "^3.12.1",
+        "crypto-browserify": "^3.5.1",
         "http-server": "^14.1.1",
-        "node-polyfill-webpack-plugin": "^2.0.1",
+        "node-polyfill-webpack-plugin": "^4.1.0",
         "rollup": "^4.57.0",
         "rollup-plugin-node-polyfills": "^0.2.1",
         "rollup-plugin-polyfill-node": "^0.13.0",
@@ -58,5 +58,17 @@
         "webpack": "^5.67.0",
         "webpack-cli": "^4.10.0"
     },
-    "dependencies": {}
+    "dependencies": {
+        "@cosmjs/proto-signing": "0.39.0",
+        "@docknetwork/cheqd-blockchain-api": "4.1.1",
+        "@docknetwork/credential-sdk": "0.4.0",
+        "@docknetwork/universal-wallet": "3.3.4",
+        "better-docs": "1.2.2",
+        "documentation": "14.0.3",
+        "inquirer": "8.2.7",
+        "jest-environment-jsdom": "30.4.1",
+        "jsdom": "29.1.1",
+        "rollup-plugin-terser": "4.0.3",
+        "semver": "7.8.0"
+    }
 }
