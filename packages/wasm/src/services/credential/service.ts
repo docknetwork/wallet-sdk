@@ -48,6 +48,7 @@ import {getIsRevoked, getWitnessDetails, prefetchWitnessCache} from './bbs-revoc
 import {getPexRequiredAttributes, shouldSkipAttribute, findMatchingDescriptor} from './pex-helpers';
 import {didService} from '../dids/service';
 import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialToW3C, verifySDJWT, createSDJWTPresentation} from './sd-jwt';
+import {resolveOfferedCredentialConfig, resolveFormatAndType} from './oid4vci';
 
 
 export const credentialUtils = {...credentialSdkVc};
@@ -540,10 +541,8 @@ class CredentialService {
       },
     });
 
-    const format = 'ldp_vc';
-    const { scope }  = client.getCredentialsSupported()[0];
-    const scopeSplit = scope.split(':');
-    const credentialTypes = scopeSplit[scopeSplit.length - 1];
+    const config = resolveOfferedCredentialConfig(client);
+    const {format, credentialTypes} = resolveFormatAndType(config);
 
     let code;
 

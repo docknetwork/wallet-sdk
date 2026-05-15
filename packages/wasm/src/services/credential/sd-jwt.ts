@@ -223,6 +223,11 @@ export async function decodeSDJWTToW3C(sdJwtString) {
  * @returns {Promise<Object>} W3C Verifiable Credential format
  */
 export async function credentialToW3C(credential) {
+  // Decoded SD-JWT VC payload (no compact serialization available)
+  if (isDecodedSDJWTPayload(credential)) {
+    return sdJwtToW3C({jwt: {header: {}, payload: credential}, disclosures: []});
+  }
+
   // If it's already an object with a type field, assume it's already W3C format
   if (typeof credential === 'object' && credential.type) {
     return credential;
@@ -233,6 +238,9 @@ export async function credentialToW3C(credential) {
     // First try to parse as JSON
     try {
       const parsed = JSON.parse(credential);
+      if (isDecodedSDJWTPayload(parsed)) {
+        return sdJwtToW3C({jwt: {header: {}, payload: parsed}, disclosures: []});
+      }
       if (parsed.type) {
         return parsed;
       }
