@@ -1,7 +1,4 @@
-import {
-  resolveOfferedCredentialConfig,
-  resolveFormatAndType,
-} from './oid4vci';
+import {resolveOfferedCredentialConfig, resolveFormatAndType} from './oid4vci';
 
 function makeClient({supported, offerIds}) {
   return {
@@ -36,7 +33,9 @@ describe('OID4VCI offer resolution', () => {
       };
       const client = makeClient({supported, offerIds: ['nonexistent']});
 
-      expect(resolveOfferedCredentialConfig(client)).toBe(supported['ldp_vc:A']);
+      expect(resolveOfferedCredentialConfig(client)).toBe(
+        supported['ldp_vc:A'],
+      );
     });
 
     it('handles array-shaped credentialsSupported by returning the first entry', () => {
