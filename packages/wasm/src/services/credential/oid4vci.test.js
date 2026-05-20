@@ -112,5 +112,31 @@ describe('OID4VCI offer resolution', () => {
         credentialTypes: undefined,
       });
     });
+
+    it('derives format from a known scope prefix when format is missing', () => {
+      const result = resolveFormatAndType({
+        scope: 'vc+sd-jwt:MyCredential',
+        vct: 'MyCredential',
+      });
+
+      expect(result).toEqual({
+        format: 'vc+sd-jwt',
+        credentialTypes: 'MyCredential',
+      });
+    });
+
+    it('defaults to ldp_vc when format and a recognizable scope prefix are missing', () => {
+      const result = resolveFormatAndType({
+        scope: 'MyCredential',
+        credential_definition: {
+          type: ['VerifiableCredential', 'MyCredential'],
+        },
+      });
+
+      expect(result).toEqual({
+        format: 'ldp_vc',
+        credentialTypes: 'MyCredential',
+      });
+    });
   });
 });

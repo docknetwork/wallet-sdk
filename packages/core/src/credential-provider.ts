@@ -177,18 +177,17 @@ export async function addCredential({wallet, credential}) {
     credential &&
     (typeof credential === 'string' || typeof credential === 'object')
   ) {
-    const isSDJWT = await credentialServiceRPC.isSDJWTCredential({credential});
+    try {
+      const isSDJWT = await credentialServiceRPC.isSDJWTCredential({
+        credential,
+      });
 
-    if (isSDJWT) {
-      try {
-        // Convert SD-JWT to W3C format (includes _sd_jwt metadata for unwrapping)
+      if (isSDJWT) {
         credential = await credentialServiceRPC.credentialToW3C({credential});
-      } catch (error) {
-        console.error('Error checking/converting SD-JWT credential:', error);
-        throw new Error(
-          'Failed to process SD-JWT credential: ' + error.message,
-        );
       }
+    } catch (error) {
+      console.error('Error checking/converting SD-JWT credential:', error);
+      throw new Error('Failed to process SD-JWT credential: ' + error.message);
     }
   }
 

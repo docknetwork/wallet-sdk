@@ -13,13 +13,29 @@ export function resolveOfferedCredentialConfig(client) {
   return matched ?? Object.values(supported)[0];
 }
 
+const KNOWN_FORMATS = new Set([
+  'vc+sd-jwt',
+  'dc+sd-jwt',
+  'ldp_vc',
+  'jwt_vc_json',
+  'jwt_vc_json-ld',
+  'jwt_vc',
+]);
+
 export function resolveFormatAndType(config) {
-  const format = config.format;
-  const scopeTail = config.scope?.split(':').slice(-1)[0];
+  const scopeSegments = config.scope?.split(':') ?? [];
+  const scopeTail = scopeSegments.slice(-1)[0];
+  const scopePrefix = scopeSegments.length > 1 ? scopeSegments[0] : undefined;
   const definitionType = config.credential_definition?.type?.slice(-1)[0];
 
+  const format =
+    config.format ??
+    (scopePrefix && KNOWN_FORMATS.has(scopePrefix) ? scopePrefix : 'ldp_vc');
+
   const credentialTypes =
-    format === 'vc+sd-jwt' ? config.vct : definitionType ?? scopeTail;
+    format === 'vc+sd-jwt' || format === 'dc+sd-jwt'
+      ? config.vct
+      : definitionType ?? scopeTail;
 
   return {format, credentialTypes};
 }

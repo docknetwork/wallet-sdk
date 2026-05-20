@@ -25,13 +25,18 @@ export function isSDJWTCredential(credential) {
     return true;
   }
 
-  if (typeof credential !== 'string') {
+  if (typeof credential !== 'string' || !credential.includes('.')) {
     return false;
   }
 
-  const jwtHeader = credential.split('.')[0];
-  const decodedHeader = JSON.parse(base64url.decode(jwtHeader));
-  return decodedHeader.typ === 'dc+sd-jwt' || decodedHeader.typ === 'vc+sd-jwt';
+  try {
+    const decodedHeader = JSON.parse(base64url.decode(credential.split('.')[0]));
+    return (
+      decodedHeader?.typ === 'dc+sd-jwt' || decodedHeader?.typ === 'vc+sd-jwt'
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function createSDJWTPresentation({
