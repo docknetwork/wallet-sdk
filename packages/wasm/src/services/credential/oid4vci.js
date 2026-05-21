@@ -6,7 +6,10 @@ export function resolveOfferedCredentialConfig(client) {
     [];
 
   if (Array.isArray(supported)) {
-    return supported[0];
+    const matchedLegacy = supported.find(
+      entry => entry?.id && offerIds.includes(entry.id),
+    );
+    return matchedLegacy ?? supported[0];
   }
 
   const matched = offerIds.map(id => supported[id]).find(Boolean);

@@ -48,6 +48,26 @@ describe('OID4VCI offer resolution', () => {
       expect(resolveOfferedCredentialConfig(client)).toBe(supported[0]);
     });
 
+    it('matches an array-shaped entry by id when the offer provides one', () => {
+      const supported = [
+        {id: 'ldp_vc:A', format: 'ldp_vc'},
+        {id: 'sdjwt:B', format: 'vc+sd-jwt', vct: 'B'},
+      ];
+      const client = makeClient({supported, offerIds: ['sdjwt:B']});
+
+      expect(resolveOfferedCredentialConfig(client)).toBe(supported[1]);
+    });
+
+    it('falls back to the first array entry when no offered id matches', () => {
+      const supported = [
+        {id: 'ldp_vc:A', format: 'ldp_vc'},
+        {id: 'sdjwt:B', format: 'vc+sd-jwt'},
+      ];
+      const client = makeClient({supported, offerIds: ['nonexistent']});
+
+      expect(resolveOfferedCredentialConfig(client)).toBe(supported[0]);
+    });
+
     it('reads offer ids from credentialOffer.credential_configuration_ids when not nested', () => {
       const supported = {
         'ldp_vc:Wanted': {format: 'vc+sd-jwt', vct: 'Wanted'},
