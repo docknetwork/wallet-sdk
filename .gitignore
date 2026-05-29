@@ -33,3 +33,5 @@ poc
 reports/
 .turbo
 packages/react-native/public/*.module.wasm
+
+integration-tests/debugging/*
