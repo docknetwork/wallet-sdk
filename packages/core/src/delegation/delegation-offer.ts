@@ -10,6 +10,7 @@ const REQUEST_CREDENTIAL =
   'https://didcomm.org/issue-credential/3.0/request-credential';
 const ISSUE_CREDENTIAL =
   'https://didcomm.org/issue-credential/3.0/issue-credential';
+const ACK = 'https://didcomm.org/issue-credential/3.0/ack';
 
 function base64urlEncode(input: string): string {
   return Buffer.from(input, 'utf8')
@@ -270,9 +271,74 @@ export const DELEGATION_REQUEST_HANDLER = {
   },
 };
 
+export const ISSUE_CREDENTIAL_HANDLER = {
+  check: function (message) {
+    return (
+      message.type === ISSUE_CREDENTIAL &&
+      message.body?.goal_code === GOAL_CODE
+    );
+  },
+  handle: async function (message, {wallet, messageProvider}) {
+    const offerId = message.body.delegationOfferId;
+    const credentials = message.body.credentials ?? [];
+    const delegationChain = message.body.delegationChain ?? [];
+
+    if (credentials.length === 0) {
+      logger.debug(
+        `ISSUE_CREDENTIAL_HANDLER: no credentials in message for offer ${offerId}`,
+      );
+      return;
+    }
+
+    for (const credential of credentials) {
+      await wallet.addDocument(credential);
+    }
+
+    for (const ancestor of delegationChain) {
+      const existing = await wallet.getDocumentById(ancestor.id);
+      if (!existing) {
+        await wallet.addDocument(ancestor);
+      }
+    }
+
+    if (offerId) {
+      const storedOffer = await wallet.getDocumentById(offerId);
+      if (storedOffer) {
+        await wallet.updateDocument({
+          ...storedOffer,
+          status: 'accepted',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    const holderDID = Array.isArray(message.to) ? message.to[0] : message.to;
+    const issuerDID = message.from;
+
+    await messageProvider.sendMessage({
+      type: ACK,
+      from: holderDID,
+      to: issuerDID,
+      pthid: message.id,
+      body: {
+        goal_code: GOAL_CODE,
+        delegationOfferId: offerId,
+        status: 'OK',
+      },
+    });
+
+    wallet.eventManager.emit('delegatedCredentialReceived', {
+      delegationOfferId: offerId,
+      credentials,
+      delegationChain,
+    });
+  },
+};
+
 export const messageHandlers = [
   INVITATION_HANDLER,
   DELEGATION_REQUEST_HANDLER,
+  ISSUE_CREDENTIAL_HANDLER,
 ];
 
 export async function handleMessage(

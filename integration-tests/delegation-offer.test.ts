@@ -181,5 +181,47 @@ describe('Credential Distribution', () => {
     expect(Array.isArray(delegationChain)).toBe(true);
     expect(delegationChain.length).toBeGreaterThan(0);
     expect(delegationChain[0].id).toBe(rootCredential.id);
+
+    // Step 5: Holder dispatches the issue-credential message — the handler
+    // stores the delegated credential, sends an ACK back, and emits an event.
+    const credentialReceivedPromise = new Promise<any>(resolve => {
+      holderWallet.wallet.eventManager.addListener(
+        'delegatedCredentialReceived',
+        payload => {
+          console.log('[holder] delegatedCredentialReceived event:', payload);
+          resolve(payload);
+        },
+      );
+    });
+
+    await handleMessage(delegatableCredential, {
+      wallet: holderWallet.wallet,
+      messageProvider: holderWallet.messageProvider,
+    });
+
+    const receivedPayload = await credentialReceivedPromise;
+    expect(receivedPayload.delegationOfferId).toBe(acceptedOffer.id);
+    expect(receivedPayload.credentials[0].id).toBe(issuedCredential.id);
+
+    // Verify the delegated credential was persisted on the holder side.
+    const storedCredential = await holderWallet.wallet.getDocumentById(
+      issuedCredential.id,
+    );
+    expect(storedCredential).toBeDefined();
+    expect(storedCredential.rootCredentialId).toBe(rootCredential.id);
+
+    // Verify the holder's stored offer was advanced to 'accepted'.
+    const holderStoredOffer = await holderWallet.wallet.getDocumentById(
+      acceptedOffer.id,
+    );
+    expect(holderStoredOffer.status).toBe('accepted');
+
+    // Step 6: The issuer should receive an ACK from the holder.
+    const ackMessage = await issuerWallet.messageProvider.waitForMessage();
+    console.log('[issuer] received ACK:', ackMessage);
+    expect(ackMessage.type).toBe('https://didcomm.org/issue-credential/3.0/ack');
+    expect(ackMessage.from).toBe(holderWallet.did);
+    expect(ackMessage.body.delegationOfferId).toBe(acceptedOffer.id);
+    expect(ackMessage.body.status).toBe('OK');
   }, 60_000);
 });
