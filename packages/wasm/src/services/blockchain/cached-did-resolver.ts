@@ -1,4 +1,5 @@
 import { storageService } from '../storage';
+import { normalizeDIDDocument } from './normalize-did-document';
 
 interface CacheEntry {
   value: any;
@@ -76,7 +77,7 @@ export class CachedDIDResolver {
     }
 
     console.log('Cache miss, resolving:', did);
-    const result = await this.router.resolve(did);
+    const result = normalizeDIDDocument(await this.router.resolve(did));
 
     await this.setCacheEntry(result.id, {
       value: result,
@@ -90,8 +91,8 @@ export class CachedDIDResolver {
   private async refreshInBackground(did: string): Promise<void> {
     try {
       console.log('Refreshing cache in background for:', did);
-      const result = await this.router.resolve(did);
-      
+      const result = normalizeDIDDocument(await this.router.resolve(did));
+
       await this.setCacheEntry(did, {
         value: result,
         id: did,
