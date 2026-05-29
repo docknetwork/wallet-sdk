@@ -1,8 +1,10 @@
+import assert from 'assert';
 import {v4 as uuid} from 'uuid';
 import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {getAllDIDs, getDefaultDID} from '../did-provider';
 import {delegateCredential} from './delegation-issuance';
 import {getDelegationChain} from './delegation-chain';
+import {isDelegatableCredential} from './delegation-utils';
 
 const GOAL_CODE = 'dock.offer-delegation';
 const OOB_INVITATION = 'https://didcomm.org/out-of-band/2.0/invitation';
@@ -26,32 +28,69 @@ function base64urlDecode(input: string): string {
   return Buffer.from(padded + '='.repeat(padLen), 'base64').toString('utf8');
 }
 
+function pickDID(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
 type DelegationOffer = {
   id: string;
   messageId?: string;
   issuerDID?: string;
-  status: 'sent' | 'accepted' | 'rejected';
+  status: 'sent' | 'requested' | 'accepted' | 'rejected';
+  expiresAt?: string;
   [key: string]: any;
 };
 
-export async function createDelegationOffer(walletClient, {
+export type DelegationOfferPreview = {
+  id: string;
+  issuerDID: string;
+  issuerName?: string;
+  role: string;
+  createdAt: string;
+  expiresAt?: string;
+};
+
+const DEFAULT_OFFER_EXPIRATION_MS = 24 * 60 * 60 * 1000;
+
+export async function createDelegationOffer({
+  wallet,
+  issuerDID,
   delegationPolicy,
   delegationRole,
   credentialId,
+  expiresInMs = DEFAULT_OFFER_EXPIRATION_MS,
 }: {
+  wallet: any;
+  issuerDID: string;
   delegationPolicy: any;
   delegationRole: string;
   credentialId?: string;
+  expiresInMs?: number;
 }) {
-  // TODO: Check if credential is delegatable
+  if (credentialId) {
+    const parentCredential = await wallet.getDocumentById(credentialId);
+    if (parentCredential) {
+      assert(
+        isDelegatableCredential(parentCredential),
+        `Credential ${credentialId} is not delegatable`,
+      );
+    }
+  }
+
+  const dids = await getAllDIDs({wallet});
+  const issuer = dids.find(d => d.didDocument.id === issuerDID);
+  const issuerName = issuer?.name;
 
   const offerId = uuid();
+  const sentAt = new Date();
   const delegationOffer = {
     id: offerId,
     credentialId: credentialId,
-    issuerDID: walletClient.did,
+    issuerDID,
+    issuerName,
     issuer: {
-      did: walletClient.did,
+      did: issuerDID,
     },
     to: undefined,
     delegationPolicy,
@@ -59,14 +98,15 @@ export async function createDelegationOffer(walletClient, {
     capabilities: [],
     attributes: [],
     delegationConstraints: {},
-    sentAt: new Date().toISOString(),
+    sentAt: sentAt.toISOString(),
+    expiresAt: new Date(sentAt.getTime() + expiresInMs).toISOString(),
     updatedAt: null,
     status: 'sent',
   };
 
   // Persist on the issuer side so DELEGATION_REQUEST_HANDLER can look it up
   // when the holder replies with a credential request.
-  await walletClient.wallet.addDocument({
+  await wallet.addDocument({
     type: 'DelegationOffer',
     ...delegationOffer,
   });
@@ -80,6 +120,17 @@ export function createOOBInvitation(
   delegationOffer,
   {goal, issuerName}: {goal?: string; issuerName?: string} = {},
 ) {
+  const finalIssuerName = issuerName ?? delegationOffer.issuerName;
+
+  const preview: DelegationOfferPreview = {
+    id: delegationOffer.id,
+    issuerDID: issuerDID,
+    issuerName: finalIssuerName,
+    role: delegationOffer.delegationRole,
+    createdAt: delegationOffer.sentAt,
+    expiresAt: delegationOffer.expiresAt,
+  };
+
   const delegationOfferMessage = {
     type: OOB_INVITATION,
     id: delegationOffer.id,
@@ -88,8 +139,8 @@ export function createOOBInvitation(
       goal_code: GOAL_CODE,
       goal:
         goal ??
-        (issuerName
-          ? `${issuerName} is offering you a delegation`
+        (finalIssuerName
+          ? `${finalIssuerName} is offering you a delegation`
           : 'You have received a delegation offer'),
       offer_id: delegationOffer.id,
     },
@@ -97,7 +148,7 @@ export function createOOBInvitation(
       {
         id: delegationOffer.id,
         media_type: 'application/json',
-        data: {json: delegationOffer},
+        data: {json: preview},
       },
     ],
   };
@@ -142,9 +193,8 @@ export async function acceptDelegationOffer({
 }) {
   const issuerDID = delegationOffer.issuerDID;
   const holderDID = await getDefaultDID({wallet});
-  const holderName = await getAllDIDs({wallet}).then(
-    dids => dids.find(d => d.didDocument.id === holderDID)?.name,
-  );
+  const dids = await getAllDIDs({wallet});
+  const holderName = dids.find(d => d.didDocument.id === holderDID)?.name;
 
   const requestCredentialMessage = {
     type: REQUEST_CREDENTIAL,
@@ -165,7 +215,7 @@ export async function acceptDelegationOffer({
   if (storedOffer) {
     await wallet.updateDocument({
       ...storedOffer,
-      status: 'accepted',
+      status: 'requested',
       updatedAt: new Date().toISOString(),
     });
   }
@@ -220,15 +270,30 @@ export const DELEGATION_REQUEST_HANDLER = {
     // Authorization checks: only the targeted holder (if any) may accept,
     // and the offer must still be in the 'sent' state to prevent replay.
     if (delegationOffer.status !== 'sent') {
-      logger.debug(
+      logger.warn(
         `DELEGATION_REQUEST_HANDLER: rejecting request for offer ${offerId} — already ${delegationOffer.status}`,
       );
       return;
     }
 
-    if (delegationOffer.to && delegationOffer.to !== message.from) {
+    if (delegationOffer.to) {
+      const targets = Array.isArray(delegationOffer.to)
+        ? delegationOffer.to
+        : [delegationOffer.to];
+      if (!targets.includes(message.from)) {
+        logger.warn(
+          `DELEGATION_REQUEST_HANDLER: rejecting request for offer ${offerId} — sender does not match offer.to`,
+        );
+        return;
+      }
+    }
+
+    if (
+      delegationOffer.expiresAt &&
+      new Date(delegationOffer.expiresAt) < new Date()
+    ) {
       logger.debug(
-        `DELEGATION_REQUEST_HANDLER: rejecting request for offer ${offerId} — sender does not match offer.to`,
+        `DELEGATION_REQUEST_HANDLER: rejecting expired offer ${offerId}`,
       );
       return;
     }
@@ -245,7 +310,7 @@ export const DELEGATION_REQUEST_HANDLER = {
       delegationOffer.credentialId,
     );
 
-    const issuerDID = Array.isArray(message.to) ? message.to[0] : message.to;
+    const issuerDID = pickDID(message.to);
 
     const delegatedCredential = await delegateCredential({
       credential: parentCredential,
@@ -280,6 +345,30 @@ export const ISSUE_CREDENTIAL_HANDLER = {
   },
   handle: async function (message, {wallet, messageProvider}) {
     const offerId = message.body.delegationOfferId;
+
+    if (!offerId) {
+      logger.debug(
+        'ISSUE_CREDENTIAL_HANDLER: missing delegationOfferId in message body',
+      );
+      return;
+    }
+
+    const storedOffer = await wallet.getDocumentById(offerId);
+    if (!storedOffer) {
+      logger.debug(
+        `ISSUE_CREDENTIAL_HANDLER: no stored offer found for ${offerId}`,
+      );
+      return;
+    }
+
+    // SECURITY: only accept credentials from the DID that originally made the offer
+    if (message.from !== storedOffer.issuerDID) {
+      logger.debug(
+        `ISSUE_CREDENTIAL_HANDLER: rejecting credential for offer ${offerId} — sender ${message.from} does not match stored issuerDID ${storedOffer.issuerDID}`,
+      );
+      return;
+    }
+
     const credentials = message.body.credentials ?? [];
     const delegationChain = message.body.delegationChain ?? [];
 
@@ -301,18 +390,13 @@ export const ISSUE_CREDENTIAL_HANDLER = {
       }
     }
 
-    if (offerId) {
-      const storedOffer = await wallet.getDocumentById(offerId);
-      if (storedOffer) {
-        await wallet.updateDocument({
-          ...storedOffer,
-          status: 'accepted',
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    }
+    await wallet.updateDocument({
+      ...storedOffer,
+      status: 'accepted',
+      updatedAt: new Date().toISOString(),
+    });
 
-    const holderDID = Array.isArray(message.to) ? message.to[0] : message.to;
+    const holderDID = pickDID(message.to);
     const issuerDID = message.from;
 
     await messageProvider.sendMessage({

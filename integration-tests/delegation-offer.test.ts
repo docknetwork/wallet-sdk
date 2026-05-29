@@ -86,7 +86,9 @@ describe('Credential Distribution', () => {
     const rootCredential = await issueRootCredential(issuerWallet);
 
     // Step 1: Issuer creates a delegation offer and shares the OOB invitation URL with the holder
-    const delegationOffer = await createDelegationOffer(issuerWallet, {
+    const delegationOffer = await createDelegationOffer({
+      wallet: issuerWallet.wallet,
+      issuerDID: issuerWallet.did,
       delegationPolicy: travelAgencyPolicy,
       credentialId: rootCredential.id,
       delegationRole: 'e79c0d16-8739-4e54-94d7-53d9f1c97c71',
