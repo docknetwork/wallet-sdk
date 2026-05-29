@@ -160,9 +160,10 @@ describe('EDVService', () => {
       await expect(service.find({})).rejects.toThrow('Network error');
     });
 
-    it('should return empty documents array when EDV responds with 404', async () => {
+    it('should return empty documents array when /query responds with 404', async () => {
       const error = new Error('Request failed with status code 404 Not Found');
       error.status = 404;
+      error.requestUrl = 'https://edv.example.com/edvs/abc/query';
       service.storageInterface = {
         find: jest.fn().mockRejectedValue(error),
       };
@@ -170,6 +171,19 @@ describe('EDVService', () => {
       const result = await service.find({});
 
       expect(result).toEqual({documents: []});
+    });
+
+    it('should re-throw 404 errors from non-query endpoints', async () => {
+      const error = new Error('Request failed with status code 404 Not Found');
+      error.status = 404;
+      error.requestUrl = 'https://edv.example.com/edvs/abc/documents/123';
+      service.storageInterface = {
+        find: jest.fn().mockRejectedValue(error),
+      };
+
+      await expect(service.find({})).rejects.toThrow(
+        'Request failed with status code 404 Not Found',
+      );
     });
 
     it('should re-throw errors with unrelated messages', async () => {

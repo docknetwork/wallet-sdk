@@ -281,9 +281,14 @@ export class EDVService {
     try {
       return await this.storageInterface.find(params);
     } catch (error) {
+      const isQuery404 =
+        error.status === 404 &&
+        typeof error.requestUrl === 'string' &&
+        error.requestUrl.endsWith('/query');
+
       if (
         error.message.includes('Vault indices do not exist') ||
-        error.status === 404
+        isQuery404
       ) {
         return {
           documents: [],
