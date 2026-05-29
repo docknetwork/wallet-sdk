@@ -160,6 +160,18 @@ describe('EDVService', () => {
       await expect(service.find({})).rejects.toThrow('Network error');
     });
 
+    it('should return empty documents array when EDV responds with 404', async () => {
+      const error = new Error('Request failed with status code 404 Not Found');
+      error.status = 404;
+      service.storageInterface = {
+        find: jest.fn().mockRejectedValue(error),
+      };
+
+      const result = await service.find({});
+
+      expect(result).toEqual({documents: []});
+    });
+
     it('should re-throw errors with unrelated messages', async () => {
       const error = new Error('Permission denied');
       service.storageInterface = {

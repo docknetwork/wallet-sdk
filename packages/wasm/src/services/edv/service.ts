@@ -281,7 +281,10 @@ export class EDVService {
     try {
       return await this.storageInterface.find(params);
     } catch (error) {
-      if (error.message.includes('Vault indices do not exist')) {
+      if (
+        error.message.includes('Vault indices do not exist') ||
+        error.status === 404
+      ) {
         return {
           documents: [],
         };
