@@ -33,6 +33,44 @@ let didProvider: IDIDProvider;
 let credentialProvider: ICredentialProvider;
 let messageProvider: IMessageProvider;
 
+
+type FullWalletClient = {
+  wallet: IWallet;
+  did: string;
+  dataStore: DataStore;
+  didProvider: IDIDProvider;
+  credentialProvider: ICredentialProvider;
+  messageProvider: IMessageProvider;
+}
+
+export async function createFullWalletClient(): Promise<FullWalletClient> {
+  const dataStore = await createDataStore({
+    databasePath: ':memory:',
+    dbType: 'sqlite',
+    defaultNetwork: 'testnet',
+  });
+  const wallet = await createWallet({
+    dataStore,
+  });
+  const didProvider = createDIDProvider({wallet});
+  const credentialProvider = createCredentialProvider({wallet});
+  const messageProvider = createMessageProvider({wallet, didProvider}) as any;
+  await wallet.waitForEvent(WalletEvents.networkConnected);
+  
+  const did = await didProvider.getDefaultDID();
+
+  console.log('Wallet created with default DID:', did);
+
+  return {
+    did,
+    wallet,
+    dataStore,
+    didProvider,
+    credentialProvider,
+    messageProvider,
+  };
+}
+
 export async function createNewWallet({
   dontWaitForNetwork,
   dataStore,
