@@ -1,7 +1,8 @@
 import {v4 as uuid} from 'uuid';
+import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {getAllDIDs, getDefaultDID} from '../did-provider';
-import { delegateCredential, issueCredential } from './delegation-issuance';
-import { getDelegationChain } from './delegation-chain';
+import {delegateCredential} from './delegation-issuance';
+import {getDelegationChain} from './delegation-chain';
 
 const GOAL_CODE = 'dock.offer-delegation';
 const OOB_INVITATION = 'https://didcomm.org/out-of-band/2.0/invitation';
@@ -9,7 +10,6 @@ const REQUEST_CREDENTIAL =
   'https://didcomm.org/issue-credential/3.0/request-credential';
 const ISSUE_CREDENTIAL =
   'https://didcomm.org/issue-credential/3.0/issue-credential';
-const ACK = 'https://didcomm.org/issue-credential/3.0/ack';
 
 function base64urlEncode(input: string): string {
   return Buffer.from(input, 'utf8')
@@ -24,25 +24,6 @@ function base64urlDecode(input: string): string {
   const padLen = (4 - (padded.length % 4)) % 4;
   return Buffer.from(padded + '='.repeat(padLen), 'base64').toString('utf8');
 }
-
-type CapabilityPreview = {
-  name: string;
-  value: string;
-};
-
-// Simplified preview of a delegation offer, used for display in the wallet UI
-type DelegationOfferPreview = {
-  id: string;
-  issuer: {
-    did: string;
-    name: string;
-  };
-  createdAt: string;
-  role: string;
-  expirationDate: string;
-  capabilities: CapabilityPreview[];
-  attributes: string[];
-};
 
 type DelegationOffer = {
   id: string;
@@ -93,21 +74,28 @@ export async function createDelegationOffer(walletClient, {
 }
 
 // OOB invitation (issuer → holder via QR/link)
-export function createOOBInvitation(issuerDID, delegationOffer) {
+export function createOOBInvitation(
+  issuerDID,
+  delegationOffer,
+  {goal, issuerName}: {goal?: string; issuerName?: string} = {},
+) {
   const delegationOfferMessage = {
     type: OOB_INVITATION,
     id: delegationOffer.id,
     from: issuerDID,
     body: {
       goal_code: GOAL_CODE,
-      goal: 'Acme is offering you a delegation',
+      goal:
+        goal ??
+        (issuerName
+          ? `${issuerName} is offering you a delegation`
+          : 'You have received a delegation offer'),
       offer_id: delegationOffer.id,
     },
     attachments: [
       {
         id: delegationOffer.id,
         media_type: 'application/json',
-        // TODO: create delegation offer preview
         data: {json: delegationOffer},
       },
     ],
@@ -129,7 +117,7 @@ export function decodeMessage(message) {
 
   const oobPrefix = 'didcomm://?_oob=';
   if (!message.startsWith(oobPrefix)) {
-    console.log('[decodeMessage] unrecognized URL scheme, skipping');
+    logger.debug('decodeMessage: unrecognized URL scheme, skipping');
     return null;
   }
 
@@ -137,7 +125,7 @@ export function decodeMessage(message) {
   try {
     return JSON.parse(base64urlDecode(encoded));
   } catch (err) {
-    console.log('[decodeMessage] failed to decode OOB payload:', err);
+    logger.error(`decodeMessage: failed to decode OOB payload: ${err}`);
     return null;
   }
 }
@@ -157,12 +145,6 @@ export async function acceptDelegationOffer({
     dids => dids.find(d => d.didDocument.id === holderDID)?.name,
   );
 
-  console.log('[holder] accepting delegation offer:', {
-    issuerDID,
-    holderDID,
-    holderName,
-  });
-
   const requestCredentialMessage = {
     type: REQUEST_CREDENTIAL,
     pthid: delegationOffer.messageId, // parent thread = the OOB invitation
@@ -175,12 +157,17 @@ export async function acceptDelegationOffer({
     },
   };
 
-  console.log(
-    '[holder] sending delegation request to issuer:',
-    requestCredentialMessage,
-  );
-
   await messageProvider.sendMessage(requestCredentialMessage);
+
+  // Mirror issuer-side bookkeeping: mark the holder's stored offer as accepted.
+  const storedOffer = await wallet.getDocumentById(delegationOffer.id);
+  if (storedOffer) {
+    await wallet.updateDocument({
+      ...storedOffer,
+      status: 'accepted',
+      updatedAt: new Date().toISOString(),
+    });
+  }
 }
 
 // Delegation message handlers
@@ -190,16 +177,7 @@ export const INVITATION_HANDLER = {
       message.type === OOB_INVITATION && message.body?.goal_code === GOAL_CODE
     );
   },
-  handle: async function (
-    message,
-    {
-      // context
-      messageProvider,
-      wallet,
-    },
-  ) {
-    console.log('[INVITATION_HANDLER] handling message:', message);
-
+  handle: async function (message, {wallet}) {
     const offerAttachment = message.attachments?.[0]?.data?.json ?? {};
     const delegationOffer: DelegationOffer = {
       ...offerAttachment,
@@ -214,9 +192,8 @@ export const INVITATION_HANDLER = {
       ...delegationOffer,
     });
 
-    console.log(
-      '[INVITATION_HANDLER] emitting delegationOfferReceived for offer:',
-      delegationOffer.id,
+    logger.debug(
+      `INVITATION_HANDLER: emitting delegationOfferReceived for offer ${delegationOffer.id}`,
     );
     wallet.eventManager.emit('delegationOfferReceived', delegationOffer);
   },
@@ -230,21 +207,33 @@ export const DELEGATION_REQUEST_HANDLER = {
     );
   },
   handle: async function (message, {wallet, messageProvider}) {
-    console.log('[DELEGATION_REQUEST_HANDLER] handling message:', message);
-
     const offerId = message.body.offer_id;
     const delegationOffer = await wallet.getDocumentById(offerId);
     if (!delegationOffer) {
-      console.log(
-        '[DELEGATION_REQUEST_HANDLER] no matching delegation offer found for request:',
-        offerId,
+      logger.debug(
+        `DELEGATION_REQUEST_HANDLER: no matching delegation offer found for request ${offerId}`,
+      );
+      return;
+    }
+
+    // Authorization checks: only the targeted holder (if any) may accept,
+    // and the offer must still be in the 'sent' state to prevent replay.
+    if (delegationOffer.status !== 'sent') {
+      logger.debug(
+        `DELEGATION_REQUEST_HANDLER: rejecting request for offer ${offerId} — already ${delegationOffer.status}`,
+      );
+      return;
+    }
+
+    if (delegationOffer.to && delegationOffer.to !== message.from) {
+      logger.debug(
+        `DELEGATION_REQUEST_HANDLER: rejecting request for offer ${offerId} — sender does not match offer.to`,
       );
       return;
     }
 
     const holderDID = message.from;
 
-    // update delegation offer status to accepted and add holder DID
     delegationOffer.status = 'accepted';
     delegationOffer.holderDID = holderDID;
     delegationOffer.updatedAt = new Date().toISOString();
@@ -255,16 +244,17 @@ export const DELEGATION_REQUEST_HANDLER = {
       delegationOffer.credentialId,
     );
 
+    const issuerDID = Array.isArray(message.to) ? message.to[0] : message.to;
+
     const delegatedCredential = await delegateCredential({
       credential: parentCredential,
       wallet,
       delegationPolicy: delegationOffer.delegationPolicy,
       roleId: delegationOffer.delegationRole,
+      delegatorDID: delegationOffer.issuerDID || issuerDID,
     });
 
     const delegationChain = await getDelegationChain(parentCredential, wallet);
-
-    const issuerDID = Array.isArray(message.to) ? message.to[0] : message.to;
 
     await messageProvider.sendMessage({
       type: ISSUE_CREDENTIAL,
@@ -292,26 +282,19 @@ export async function handleMessage(
     messageProvider;
   },
 ) {
-  console.log('[handleMessage] called with:', message);
-
   const decoded = decodeMessage(message);
   if (!decoded) {
-    console.log('[handleMessage] message could not be decoded, skipping');
+    logger.debug('handleMessage: message could not be decoded, skipping');
     return;
   }
 
   const handler = messageHandlers.find(h => h.check(decoded));
   if (!handler) {
-    console.log(
-      '[handleMessage] no handler matched message type:',
-      decoded.type,
+    logger.debug(
+      `handleMessage: no handler matched message type ${decoded.type}`,
     );
     return;
   }
 
-  console.log(
-    '[handleMessage] dispatching to handler for type:',
-    decoded.type,
-  );
   return handler.handle(decoded, context);
 }

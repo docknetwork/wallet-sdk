@@ -4,7 +4,7 @@ import {isDelegatableCredential} from './delegation-utils';
 import {buildDelegationPolicyAttributes} from './delegation-policy';
 import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation';
 import {v4 as uuidv4} from 'uuid';
-import { getAllDIDs, getDefaultDID, getDIDKeyPair } from '../did-provider';
+import {getAllDIDs, getDIDKeyPair} from '../did-provider';
 
 /**
  * Issue a delegatable credential
@@ -50,13 +50,23 @@ export async function delegateCredential({
   wallet,
   delegationPolicy,
   roleId,
+  delegatorDID,
+}: {
+  credential: any;
+  wallet: any;
+  delegationPolicy: DelegationPolicy;
+  roleId: string;
+  delegatorDID: string;
 }) {
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
+  assert(!!delegatorDID, 'delegatorDID is required');
 
-  const [issuerDID] = await getAllDIDs({wallet});
+  const allDIDs = await getAllDIDs({wallet});
+  const issuerDID = allDIDs.find(d => d.didDocument.id === delegatorDID);
+  assert(!!issuerDID, `delegatorDID ${delegatorDID} not found in wallet`);
+
   const keyPair = await getDIDKeyPair(wallet, issuerDID);
 
-  // get credential data from the original credential, excluding delegation metadata
   const credentialData = {
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     '@context': credential['@context'],
@@ -72,16 +82,11 @@ export async function delegateCredential({
     credentialSubject: credential.credentialSubject,
   };
 
-  const delegationCredential = await issueCredential(
+  return issueCredential(
     credentialData,
     keyPair,
     delegationPolicy,
     roleId,
     credential.rootCredentialId || credential.id,
   );
-
-  console.log('[delegateCredential] delegating credential with data:', credentialData);
-  
-  return delegationCredential;
-  // define issuer
 }
