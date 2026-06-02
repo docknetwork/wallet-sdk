@@ -94,7 +94,9 @@ describe('Credential Distribution', () => {
       delegationRole: 'e79c0d16-8739-4e54-94d7-53d9f1c97c71',
     });
 
-    const qrCode = createOOBInvitation(issuerWallet.did, delegationOffer);
+    const qrCode = createOOBInvitation(issuerWallet.did, delegationOffer, {
+      goal: 'Test issuer is offering you a delegation',
+    });
     console.log('[issuer] OOB invitation URL created:', qrCode);
 
     // Listens for delegation offer events and accepts them when received

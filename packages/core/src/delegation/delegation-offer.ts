@@ -118,8 +118,10 @@ export async function createDelegationOffer({
 export function createOOBInvitation(
   issuerDID,
   delegationOffer,
-  {goal, issuerName}: {goal?: string; issuerName?: string} = {},
+  {goal, issuerName}: {goal: string; issuerName?: string},
 ) {
+  assert(!!goal, 'goal is required');
+
   const finalIssuerName = issuerName ?? delegationOffer.issuerName;
 
   const preview: DelegationOfferPreview = {
@@ -137,11 +139,7 @@ export function createOOBInvitation(
     from: issuerDID,
     body: {
       goal_code: GOAL_CODE,
-      goal:
-        goal ??
-        (finalIssuerName
-          ? `${finalIssuerName} is offering you a delegation`
-          : 'You have received a delegation offer'),
+      goal,
       offer_id: delegationOffer.id,
     },
     attachments: [
