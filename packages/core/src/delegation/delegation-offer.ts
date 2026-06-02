@@ -4,7 +4,12 @@ import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {getAllDIDs, getDefaultDID} from '../did-provider';
 import {delegateCredential} from './delegation-issuance';
 import {getDelegationChain} from './delegation-chain';
+import {getDelegationDetails} from './delegation-policy';
 import {isDelegatableCredential} from './delegation-utils';
+import {
+  assertPolicyConformsToParent,
+  validateDelegationPolicy,
+} from './delegation-policy-validation';
 
 const GOAL_CODE = 'dock.offer-delegation';
 const OOB_INVITATION = 'https://didcomm.org/out-of-band/2.0/invitation';
@@ -68,6 +73,12 @@ export async function createDelegationOffer({
   credentialId?: string;
   expiresInMs?: number;
 }) {
+  validateDelegationPolicy(delegationPolicy);
+  assert(
+    delegationPolicy.ruleset.roles.some(r => r.roleId === delegationRole),
+    `delegationRole "${delegationRole}" not found in delegationPolicy.ruleset.roles`,
+  );
+
   if (credentialId) {
     const parentCredential = await wallet.getDocumentById(credentialId);
     if (parentCredential) {
@@ -75,6 +86,13 @@ export async function createDelegationOffer({
         isDelegatableCredential(parentCredential),
         `Credential ${credentialId} is not delegatable`,
       );
+      const parentDetails = await getDelegationDetails(parentCredential, wallet);
+      if (parentDetails.delegationPolicy) {
+        assertPolicyConformsToParent(delegationPolicy, parentDetails.delegationPolicy, {
+          delegationRole,
+          remainingDepth: parentDetails.remainingDelegationDepth,
+        });
+      }
     }
   }
 
@@ -296,6 +314,32 @@ export const DELEGATION_REQUEST_HANDLER = {
       return;
     }
 
+    const parentCredential = await wallet.getDocumentById(
+      delegationOffer.credentialId,
+    );
+
+    try {
+      validateDelegationPolicy(delegationOffer.delegationPolicy);
+      if (parentCredential && isDelegatableCredential(parentCredential)) {
+        const parentDetails = await getDelegationDetails(parentCredential, wallet);
+        if (parentDetails.delegationPolicy) {
+          assertPolicyConformsToParent(
+            delegationOffer.delegationPolicy,
+            parentDetails.delegationPolicy,
+            {
+              delegationRole: delegationOffer.delegationRole,
+              remainingDepth: parentDetails.remainingDelegationDepth,
+            },
+          );
+        }
+      }
+    } catch (err: any) {
+      logger.warn(
+        `DELEGATION_REQUEST_HANDLER: rejecting offer ${offerId} — policy validation failed: ${err.message}`,
+      );
+      return;
+    }
+
     const holderDID = message.from;
 
     delegationOffer.status = 'accepted';
@@ -303,10 +347,6 @@ export const DELEGATION_REQUEST_HANDLER = {
     delegationOffer.updatedAt = new Date().toISOString();
 
     await wallet.updateDocument(delegationOffer);
-
-    const parentCredential = await wallet.getDocumentById(
-      delegationOffer.credentialId,
-    );
 
     const issuerDID = pickDID(message.to);
 
