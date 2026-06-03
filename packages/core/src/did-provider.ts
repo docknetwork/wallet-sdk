@@ -174,7 +174,7 @@ export async function createDIDKey({wallet, name, derivePath=undefined, type=und
  * Internal function to retrieve all DIDs stored in the wallet
  * @private
  */
-export async function getAll({wallet}) {
+export async function getAllDIDs({wallet}) {
   assert(!!wallet, 'wallet is required');
   const dids = await wallet.getDocumentsByType('DIDResolutionResponse');
   return dids;
@@ -186,8 +186,12 @@ export async function getAll({wallet}) {
  */
 export async function getDefaultDID({wallet}) {
   assert(!!wallet, 'wallet is required');
-  const allDids = await getAll({ wallet });
+  const allDids = await getAllDIDs({ wallet });
   return allDids[0]?.didDocument.id;
+}
+
+export async function getDIDKeyPair(wallet, didDoc) {
+  return wallet.getDocumentById(didDoc.correlation[0])
 }
 
 /**
@@ -196,10 +200,10 @@ export async function getDefaultDID({wallet}) {
  */
 export async function getDIDKeyPairs({wallet}) {
   assert(!!wallet, 'wallet is required');
-  const didDocs = await getAll({wallet});
+  const didDocs = await getAllDIDs({wallet});
   const keyPairs = [];
   for (const didDoc of didDocs) {
-    const keyPair = await wallet.getDocumentById(didDoc.correlation[0]);
+    const keyPair = await getDIDKeyPair(wallet, didDoc);
     keyPairs.push(keyPair);
   }
   return keyPairs;
@@ -208,7 +212,7 @@ export async function getDIDKeyPairs({wallet}) {
 
 export async function ensureDID({wallet}) {
   assert(!!wallet, 'wallet is required');
-  const dids = await getAll({wallet});
+  const dids = await getAllDIDs({wallet});
   if (dids.length === 0) {
     return createDIDKey({wallet, name: 'Default DID'});
   }
@@ -335,7 +339,7 @@ export function createDIDProvider({wallet}): IDIDProvider {
      * console.log(`Found ${allDIDs.length} DIDs in wallet`);
      */
     async getAll() {
-      return getAll({wallet});
+      return getAllDIDs({wallet});
     },
     /**
      * Retrieves all keypairs associated with DIDs in the wallet
