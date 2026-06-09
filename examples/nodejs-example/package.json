@@ -8,7 +8,7 @@
     "@docknetwork/wallet-sdk-data-store-web": "1.5.14",
     "@docknetwork/wallet-sdk-dids": "1.5.14",
     "@docknetwork/wallet-sdk-wasm": "1.5.14",
-    "axios": "^1.7.7",
+    "axios": "^1.16.0",
     "sqlite3": "^5.1.7",
     "typeorm": "^0.3.20"
   },
