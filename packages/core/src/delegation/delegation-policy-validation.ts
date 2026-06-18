@@ -95,7 +95,10 @@ export function validateDelegationPolicy(policy: any): asserts policy is Delegat
     policy.type === 'DelegationPolicy',
     `delegationPolicy.type must be 'DelegationPolicy'`,
   );
-  assert(typeof policy.name === 'string', 'delegationPolicy.name is required');
+  assert(
+    policy.name === undefined || typeof policy.name === 'string',
+    'delegationPolicy.name must be a string when present',
+  );
   assert(isPlainObject(policy.ruleset), 'delegationPolicy.ruleset must be an object');
 
   const ruleset = policy.ruleset;

@@ -21,6 +21,12 @@ describe('validateDelegationPolicy', () => {
     expect(() => validateDelegationPolicy(delegationPolicyPharmacy)).not.toThrow();
   });
 
+  it('accepts a policy without a top-level `name`', () => {
+    const policy = clonePolicy(delegationPolicyTravelAgent);
+    delete (policy as any).name;
+    expect(() => validateDelegationPolicy(policy)).not.toThrow();
+  });
+
   it('rejects a non-object', () => {
     expect(() => validateDelegationPolicy(null)).toThrow(/must be an object/);
     expect(() => validateDelegationPolicy('foo')).toThrow(/must be an object/);
