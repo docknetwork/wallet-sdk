@@ -27,13 +27,16 @@ class RpcStorageInterface extends StorageInterface {
         Logger.debug('Wallet: no storage found, creating empty wallet');
         this.documents = {};
       } else {
-        Logger.debug(`Wallet: existing storage found: ${JSON.stringify(data)}`);
+        Logger.debug(
+          `Wallet: existing storage found with ${
+            Object.keys(this.documents).length
+          } documents`,
+        );
       }
     } catch (err) {
       Logger.error(
         `error to retrieve data from rpc storage: ${err.toString()}`,
       );
-      Logger.info(JSON.stringify(data));
       this.documents = {};
 
       throw err;
@@ -80,12 +83,14 @@ class RpcStorageInterface extends StorageInterface {
   }
 
   async find({has = undefined, equals = undefined} = {}) {
+    const documentIds = Object.keys(this.documents || {});
+
     Logger.debug('Execute find', {
       equals,
-      documents: this.documents,
+      documentCount: documentIds.length,
     });
 
-    const documents = Object.keys(this.documents || {})
+    const documents = documentIds
       .map(docId => {
         const content = this.documents[docId];
 
