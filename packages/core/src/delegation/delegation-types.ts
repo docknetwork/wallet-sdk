@@ -42,7 +42,7 @@ export type DelegationPolicy = {
   type: 'DelegationPolicy';
   ruleset: Ruleset;
   createdAt: string;
-  name: string;
+  name?: string;
 };
 
 export type RoleNode = Role & {
