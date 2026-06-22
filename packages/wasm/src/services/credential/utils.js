@@ -30,11 +30,9 @@ export async function keyDocToKeypair(keyDoc) {
     privateKeyBase58 || (privateKeyMultibase && privateKeyMultibase.substr(1));
   if (!privateKeyEncoded) {
     throw new Error(
-      `No private key in document found, this should not happen. Got: ${JSON.stringify(
-        keyDoc,
-        null,
-        2,
-      )}`,
+      `No private key in document found, this should not happen. keyDoc id: ${
+        keyDoc.id || '<unknown>'
+      }, type: ${keyDoc.type || '<unknown>'}`,
     );
   }
 
