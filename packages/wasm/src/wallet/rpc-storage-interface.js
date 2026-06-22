@@ -83,12 +83,14 @@ class RpcStorageInterface extends StorageInterface {
   }
 
   async find({has = undefined, equals = undefined} = {}) {
+    const documentIds = Object.keys(this.documents || {});
+
     Logger.debug('Execute find', {
       equals,
-      documentCount: Object.keys(this.documents || {}).length,
+      documentCount: documentIds.length,
     });
 
-    const documents = Object.keys(this.documents || {})
+    const documents = documentIds
       .map(docId => {
         const content = this.documents[docId];
 

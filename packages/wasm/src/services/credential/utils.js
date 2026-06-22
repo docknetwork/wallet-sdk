@@ -32,7 +32,7 @@ export async function keyDocToKeypair(keyDoc) {
     throw new Error(
       `No private key in document found, this should not happen. keyDoc id: ${
         keyDoc.id || '<unknown>'
-      }, type: ${keyDoc.type || '<unknown>'}`,
+      }, type: ${type || '<unknown>'}`,
     );
   }
 
