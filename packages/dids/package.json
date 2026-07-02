@@ -10,7 +10,7 @@
     "main": "lib/index.js",
     "dependencies": {
         "@digitalbazaar/did-method-key": "^2.0.0",
-        "uuid": "^8.3.2"
+        "uuid": "^14.0.1"
     },
     "scripts": {
         "prepublishOnly": "npm run build",
