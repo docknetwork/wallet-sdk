@@ -234,4 +234,48 @@ describe('assertPolicyConformsToParent', () => {
       }),
     ).toThrow(/items\.enum is not a subset/);
   });
+
+  it('rejects delegating to the same role when nestedRoleOnly is set on the parent', () => {
+    const parent = clonePolicy(delegationPolicyTravelAgent);
+    parent.ruleset.overallConstraints.nestedRoleOnly = true;
+    expect(() =>
+      assertPolicyConformsToParent(clonePolicy(delegationPolicyTravelAgent), parent, {
+        ...baseOpts,
+        parentRoleId: PARENT_ROLE,
+      }),
+    ).toThrow(/nestedRoleOnly/);
+  });
+
+  it('allows delegating to a descendant role when nestedRoleOnly is set', () => {
+    const CHILD_ROLE = delegationPolicyTravelAgent.ruleset.roles.find(
+      r => r.parentRoleId === PARENT_ROLE,
+    )!.roleId;
+    const parent = clonePolicy(delegationPolicyTravelAgent);
+    parent.ruleset.overallConstraints.nestedRoleOnly = true;
+    expect(() =>
+      assertPolicyConformsToParent(clonePolicy(delegationPolicyTravelAgent), parent, {
+        delegationRole: CHILD_ROLE,
+        remainingDepth: 3,
+        parentRoleId: PARENT_ROLE,
+      }),
+    ).not.toThrow();
+  });
+
+  it('ignores the same-role check when nestedRoleOnly is absent (back-compat)', () => {
+    expect(() =>
+      assertPolicyConformsToParent(
+        clonePolicy(delegationPolicyTravelAgent),
+        delegationPolicyTravelAgent,
+        {...baseOpts, parentRoleId: PARENT_ROLE},
+      ),
+    ).not.toThrow();
+  });
+
+  it('ignores the same-role check when parentRoleId is omitted', () => {
+    const parent = clonePolicy(delegationPolicyTravelAgent);
+    parent.ruleset.overallConstraints.nestedRoleOnly = true;
+    expect(() =>
+      assertPolicyConformsToParent(clonePolicy(delegationPolicyTravelAgent), parent, baseOpts),
+    ).not.toThrow();
+  });
 });

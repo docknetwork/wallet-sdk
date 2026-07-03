@@ -225,9 +225,17 @@ export function assertPolicyConformsToParent(
   {
     delegationRole,
     remainingDepth,
-  }: {delegationRole: string; remainingDepth: number},
+    parentRoleId,
+  }: {delegationRole: string; remainingDepth: number; parentRoleId?: string},
 ) {
   assert(remainingDepth > 0, 'parent credential has no remaining delegation depth');
+
+  if (parentPolicy.ruleset.overallConstraints.nestedRoleOnly && parentRoleId) {
+    assert(
+      delegationRole !== parentRoleId,
+      `nestedRoleOnly: cannot delegate role "${delegationRole}" to the same role`,
+    );
+  }
 
   const childConstraints = policy.ruleset.overallConstraints;
   const parentConstraints = parentPolicy.ruleset.overallConstraints;
