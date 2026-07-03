@@ -91,6 +91,7 @@ export async function createDelegationOffer({
         assertPolicyConformsToParent(delegationPolicy, parentDetails.delegationPolicy, {
           delegationRole,
           remainingDepth: parentDetails.remainingDelegationDepth,
+          parentRoleId: parentDetails.role?.roleId,
         });
       }
     }
@@ -329,6 +330,7 @@ export const DELEGATION_REQUEST_HANDLER = {
             {
               delegationRole: delegationOffer.delegationRole,
               remainingDepth: parentDetails.remainingDelegationDepth,
+              parentRoleId: parentDetails.role?.roleId,
             },
           );
         }

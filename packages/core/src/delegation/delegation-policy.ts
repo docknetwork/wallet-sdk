@@ -58,14 +58,14 @@ export function getRole(
   return delegationPolicy.ruleset.roles.find(r => r.roleId === roleId);
 }
 
-export function getDelegationOptions(roleTree: RoleNode): RoleNode[] {
+export function getDelegationOptions(holderNode: RoleNode): RoleNode[] {
   const roles: RoleNode[] = [];
   const traverse = (node: RoleNode) => {
     roles.push(node);
     node.children?.forEach(traverse);
   };
 
-  roleTree.children?.forEach(traverse);
+  holderNode.children?.forEach(traverse);
 
   return roles;
 }
@@ -77,8 +77,9 @@ export async function getDelegationDetails(
   const delegationChain = await getDelegationChain(credential, wallet);
   const policy = await fetchDelegationPolicyJson(credential);
   const roleTree = buildDelegationRoleTree(policy);
-  const role = getRoleNodeById(roleTree.roleId, roleTree);
-  const delegationOptions = getDelegationOptions(roleTree);
+  const role = getRoleNodeById(credential.roleId, roleTree);
+  assert(role, `credential role ${credential.roleId} not found in policy`);
+  const delegationOptions = getDelegationOptions(role);
   const remainingDelegationDepth = getRemainingDelegationDepth(role, policy);
 
   return {
