@@ -28,6 +28,7 @@ export type DelegatedCredentialLifetime = {
 export type OverallConstraints = {
   maxDelegationDepth: number;
   delegatedCredentialLifetime: DelegatedCredentialLifetime;
+  nestedRoleOnly?: boolean;
 };
 
 export type Ruleset = {
