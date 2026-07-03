@@ -5,8 +5,8 @@ function getStore() {
     return _store;
   }
 
-  if (typeof global !== 'undefined' && global.localStorage) {
-    _store = global.localStorage;
+  if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
+    _store = globalThis.localStorage;
     return _store;
   }
 
@@ -43,7 +43,10 @@ export class StorageService {
     const store = getStore();
     const keys = [];
     for (let i = 0; i < store.length; i++) {
-      keys.push(store.key(i));
+      const key = store.key(i);
+      if (typeof key === 'string') {
+        keys.push(key);
+      }
     }
     return Promise.resolve(keys);
   }
