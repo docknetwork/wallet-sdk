@@ -20,7 +20,7 @@ export default async function () {
         typescript(),
       ],
       input: ['src/**/*.ts', 'src/**/*.js', '!src/**/*.test.ts', '!src/**/*.test.js', '!src/**/*.d.ts'],
-      external: ['assert'],
+      external: ['assert', 'node-localstorage'],
       output: [
         {
           dir: 'lib',

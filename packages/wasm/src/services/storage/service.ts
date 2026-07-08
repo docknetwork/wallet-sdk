@@ -1,4 +1,20 @@
 // @ts-nocheck
+let _store;
+function getStore() {
+  if (_store) {
+    return _store;
+  }
+
+  if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
+    _store = globalThis.localStorage;
+    return _store;
+  }
+
+  const {LocalStorage} = require('node-localstorage');
+  _store = new LocalStorage('./local-storage');
+  return _store;
+}
+
 export class StorageService {
   rpcMethods = [
     StorageService.prototype.setItem,
@@ -12,19 +28,27 @@ export class StorageService {
   }
 
   setItem(...args): Promise<any> {
-    return global.localStorage.setItem(...args);
+    return getStore().setItem(...args);
   }
 
   removeItem(...args): Promise<any> {
-    return global.localStorage.removeItem(...args);
+    return getStore().removeItem(...args);
   }
 
   getItem(...args): Promise<any> {
-    return global.localStorage.getItem(...args);
+    return getStore().getItem(...args);
   }
 
   getAllKeys(): Promise<string[]> {
-    return Promise.resolve(Object.keys(global.localStorage));
+    const store = getStore();
+    const keys = [];
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (typeof key === 'string') {
+        keys.push(key);
+      }
+    }
+    return Promise.resolve(keys);
   }
 }
 
