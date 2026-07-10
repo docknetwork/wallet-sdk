@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 npm run build -w @docknetwork/wallet-sdk-data-store-typeorm
 npm run build -w @docknetwork/wallet-sdk-data-store-web

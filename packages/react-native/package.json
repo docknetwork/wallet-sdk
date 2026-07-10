@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-react-native",
-    "version": "1.9.0",
+    "version": "1.9.1",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -21,10 +21,10 @@
     },
     "browserslist": "> 0.01%",
     "dependencies": {
-        "@docknetwork/wallet-sdk-core": "1.9.0",
-        "@docknetwork/wallet-sdk-data-store-typeorm": "1.9.0",
-        "@docknetwork/wallet-sdk-dids": "^1.9.0",
-        "@docknetwork/wallet-sdk-wasm": "1.9.0",
+        "@docknetwork/wallet-sdk-core": "^1.9.1",
+        "@docknetwork/wallet-sdk-data-store-typeorm": "^1.9.1",
+        "@docknetwork/wallet-sdk-dids": "^1.9.1",
+        "@docknetwork/wallet-sdk-wasm": "1.9.1",
         "react-native-webview": "^11.4.3",
         "rollup": "^4.57.0"
     },
