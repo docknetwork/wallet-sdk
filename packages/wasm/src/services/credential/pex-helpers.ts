@@ -1,5 +1,9 @@
 import {JSONPath} from '@astronautlabs/jsonpath';
 
+function jsonPaths(obj: any, path: string, count?: number): any[] {
+  return JSONPath.paths(obj, path, count);
+}
+
 export const EPSILON_NUMBER = 0.001;
 export const EPSILON_INT = 1;
 
@@ -44,7 +48,7 @@ function getAttributeName({field, selectedCredentials, index}) {
     const pathCount = field.path.length;
     for (let i = 0; i < pathCount; i++) {
       const path = field.path[i];
-      const paths = JSONPath.paths(selectedCredential, path);
+      const paths = jsonPaths(selectedCredential, path);
       if (paths.length) {
         // First come first served
         attributeName = correctFieldPath(JSONPath.stringify(paths[0]));
@@ -133,7 +137,7 @@ export function pexToBounds(
         const pathCount = field.path.length;
         for (let i = 0; i < pathCount; i++) {
           const path = field.path[i];
-          const paths = JSONPath.paths(selectedCredential, path);
+          const paths = jsonPaths(selectedCredential, path);
           if (paths.length) {
             // First come first served
             attributeName = correctFieldPath(JSONPath.stringify(paths[0]));
@@ -303,9 +307,9 @@ export function getPexRequiredAttributes(pexRequest, selectedCredentials = []) {
         try {
           const paths = Array.isArray(field.path)
             ? field.path.flatMap(singlePath =>
-                JSONPath.paths(credential, singlePath),
+                jsonPaths(credential, singlePath),
               )
-            : JSONPath.paths(credential, field.path);
+            : jsonPaths(credential, field.path);
 
           return paths.length !== 0;
         } catch (error) {
@@ -339,7 +343,7 @@ export function findMatchingDescriptor(inputDescriptors, credential) {
           ? field.path
           : [field.path];
         for (const p of fieldPaths) {
-          const paths = JSONPath.paths(credential, p);
+          const paths = jsonPaths(credential, p);
           if (paths.length > 0) {
             matched++;
             break;
