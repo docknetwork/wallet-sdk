@@ -1,3 +1,9 @@
+// @ts-nocheck - @docknetwork/credential-sdk subpaths ship no type declarations
+import {SDJwtVcInstance} from '@sd-jwt/sd-jwt-vc';
+import {digest, generateSalt} from '@sd-jwt/crypto-nodejs';
+import bs58 from 'bs58';
+import {Ed25519Keypair} from '@docknetwork/credential-sdk/keypairs';
+import {blockchainService} from '../blockchain/service';
 import {
   isSDJWTCredential,
   sdJwtToW3C,
@@ -7,6 +13,33 @@ import {
   decodeSDJWT,
   createSDJWTPresentation,
 } from './sd-jwt';
+
+// Deterministic Ed25519 issuer key used to sign the fixtures below. The DID
+// resolver is mocked so verifySDJWT resolves `iss` to this key's public key.
+const ISSUER_DID = 'did:example:issuer#keys-1';
+const issuerKeypair = new Ed25519Keypair(Buffer.alloc(32, 7));
+const issuerVerificationMethod = {
+  id: ISSUER_DID,
+  type: 'Ed25519VerificationKey2020',
+  publicKeyBase58: bs58.encode(Buffer.from(issuerKeypair.keyPair.publicKey)),
+};
+
+// Signs an SD-JWT with the test issuer key. `disclosableClaims` lists the
+// claim keys that become selectively-disclosable.
+async function issueTestSDJWT(claims, disclosableClaims: string[] = []) {
+  const instance = new SDJwtVcInstance({
+    signAlg: 'EdDSA',
+    signer: async data =>
+      Buffer.from(issuerKeypair._sign(Buffer.from(data))).toString('base64url'),
+    hasher: digest,
+    hashAlg: 'sha-256',
+    saltGenerator: generateSalt,
+  });
+  return instance.issue(
+    {iss: ISSUER_DID, iat: 1700000000, vct: 'TestCredential', ...claims},
+    disclosableClaims.length ? {_sd: disclosableClaims} : undefined,
+  );
+}
 
 // Test SD-JWT credential provided by the user
 const TEST_SD_JWT = 'eyJ0eXAiOiJ2YytzZC1qd3QiLCJraWQiOiJkaWQ6Y2hlcWQ6dGVzdG5ldDpjMDg5MGYxYy1jN2JiLTRlYTYtYmU3YS04YzMxNDA0NzQzYjcja2V5cy0xIiwiYWxnIjoiRWREU0EifQ.eyJpYXQiOjE3NTk0MTQzOTQsImlzcyI6ImRpZDpjaGVxZDp0ZXN0bmV0OmMwODkwZjFjLWM3YmItNGVhNi1iZTdhLThjMzE0MDQ3NDNiNyNrZXlzLTEiLCJ2Y3QiOiJJbnRlcm5hbFRlc3RpbmciLCJfc2QiOlsiM3JVUGt1Mk5XckFFeTV3ZE9uVms5TkJBa0haMWE4RDB6Y2liMFNQdmthWSIsIkhjNHAxMnZTTWNMQ0piNVRYVlFrdFFMR2xjM0J3SDNWN2ltakV5ZDdvdzAiLCJNZWNNZEd6NjAxY3kwTTdvanRtSjR1LUI5LTJxSXAya1RvbFpDUm1GZ1pFIiwiZmo4WHdBb0lERmRsWmpEa0NTVzVpeXBPYUZBcVplTWZDRncwTWd3cHhOQSJdLCJfc2RfYWxnIjoic2hhLTI1NiJ9.FcYvNrldceL5BTNmoIaS4Mub8a5NcbiseUeSmmvUpOW8SUom-bchV5AEefrH1VMECbdc2whhk2sW4_jmZo7_Dw~WyI1YTRkZWY1MTAzYjRiYjc0IiwiaWQiLCJkaWQ6a2V5Ono2TWt1OVI4emRBOExENmhjRlhrbjQ3akxuZmNLWk5HbXdhVHJEbmFDQmtTYjhVbiJd~WyJiZDUyMjQ5ZjAyNjk3NWRkIiwiZGF0ZSIsIjIwMjUtMTAtMDkiXQ~WyJlMjcxNzExNzVkODdlMWE1IiwibmFtZSIsIm1heWNvbiJd~WyIwZDFiOTBlNTlhNmMyNDNiIiwibnVtYmVyIiwxMjNd~';
@@ -402,53 +435,117 @@ describe('SD-JWT Service', () => {
   });
 
   describe('verifySDJWT', () => {
-    it('should verify valid SD-JWT successfully', async () => {
-      const result = await verifySDJWT(TEST_SD_JWT);
+    let resolveDIDSpy: jest.SpyInstance;
 
-      expect(result).toHaveProperty('verified');
-      expect(result.verified).toBe(true);
-      expect(result.error).toBeUndefined();
+    beforeEach(() => {
+      // Resolve the issuer DID to the test key's public verification method.
+      resolveDIDSpy = jest
+        .spyOn(blockchainService, 'resolveDID')
+        .mockResolvedValue({
+          verificationMethod: [issuerVerificationMethod],
+        } as any);
     });
 
-    it('should fail verification for expired SD-JWT', async () => {
-      // Create an expired SD-JWT (exp in the past)
-      const expiredJWT = 'eyJ0eXAiOiJ2YytzZC1qd3QiLCJhbGciOiJFZERTQSJ9.eyJpc3MiOiJkaWQ6ZXhhbXBsZTppc3N1ZXIiLCJ2Y3QiOiJUZXN0Q3JlZGVudGlhbCIsImV4cCI6MTYwOTQ1OTIwMCwiaWF0IjoxNjA5NDU5MjAwfQ.signature~';
+    afterEach(() => {
+      resolveDIDSpy.mockRestore();
+    });
 
-      const result = await verifySDJWT(expiredJWT);
+    it('should verify a validly-signed SD-JWT via DID resolution', async () => {
+      const jwt = await issueTestSDJWT({name: 'maycon', number: 123}, [
+        'name',
+        'number',
+      ]);
+
+      const result = await verifySDJWT(jwt);
+
+      expect(result.verified).toBe(true);
+      expect(result.error).toBeUndefined();
+      expect(resolveDIDSpy).toHaveBeenCalledWith(ISSUER_DID);
+    });
+
+    it('should reject an SD-JWT with a tampered signature', async () => {
+      const jwt = await issueTestSDJWT({name: 'maycon'}, ['name']);
+
+      // Flip the last chars of the JWT signature segment.
+      const parts = jwt.split('~');
+      const jwtParts = parts[0].split('.');
+      jwtParts[2] =
+        jwtParts[2].slice(0, -2) +
+        (jwtParts[2].slice(-2) === 'AA' ? 'BB' : 'AA');
+      const tampered = [jwtParts.join('.'), ...parts.slice(1)].join('~');
+
+      const result = await verifySDJWT(tampered);
+
+      expect(result.verified).toBe(false);
+      expect(result.error).toContain('Signature');
+    });
+
+    it('should reject when the issuer key does not match the signature', async () => {
+      const jwt = await issueTestSDJWT({name: 'maycon'}, ['name']);
+
+      // Resolve to a different key than the one that signed it.
+      const otherKey = new Ed25519Keypair(Buffer.alloc(32, 9));
+      resolveDIDSpy.mockResolvedValue({
+        verificationMethod: [
+          {
+            id: ISSUER_DID,
+            type: 'Ed25519VerificationKey2020',
+            publicKeyBase58: bs58.encode(Buffer.from(otherKey.keyPair.publicKey)),
+          },
+        ],
+      } as any);
+
+      const result = await verifySDJWT(jwt);
+
+      expect(result.verified).toBe(false);
+      expect(result.error).toContain('Signature');
+    });
+
+    it('should reject an expired SD-JWT even when correctly signed', async () => {
+      const jwt = await issueTestSDJWT(
+        {name: 'maycon', exp: 1609459200}, // 2021-01-01, in the past
+        ['name'],
+      );
+
+      const result = await verifySDJWT(jwt);
 
       expect(result.verified).toBe(false);
       expect(result.error).toContain('expired');
     });
 
-    it('should fail verification for not-yet-valid SD-JWT', async () => {
-      // Create an SD-JWT with nbf in the future
-      const futureJWT = 'eyJ0eXAiOiJ2YytzZC1qd3QiLCJhbGciOiJFZERTQSJ9.eyJpc3MiOiJkaWQ6ZXhhbXBsZTppc3N1ZXIiLCJ2Y3QiOiJUZXN0Q3JlZGVudGlhbCIsIm5iZiI6OTk5OTk5OTk5OSwiaWF0IjoxNjA5NDU5MjAwfQ.signature~';
+    it('should reject a not-yet-valid SD-JWT even when correctly signed', async () => {
+      const jwt = await issueTestSDJWT(
+        {name: 'maycon', nbf: 9999999999}, // year 2286, in the future
+        ['name'],
+      );
 
-      const result = await verifySDJWT(futureJWT);
+      const result = await verifySDJWT(jwt);
 
       expect(result.verified).toBe(false);
       expect(result.error).toContain('not yet valid');
     });
 
-    it('should fail verification for invalid SD-JWT format', async () => {
+    it('should fail when the issuer DID cannot be resolved', async () => {
+      const jwt = await issueTestSDJWT({name: 'maycon'}, ['name']);
+      resolveDIDSpy.mockResolvedValue({verificationMethod: []} as any);
+
+      const result = await verifySDJWT(jwt);
+
+      expect(result.verified).toBe(false);
+      expect(result.error).toContain('Cannot find issuer key');
+    });
+
+    it('should fail for invalid SD-JWT format', async () => {
       const result = await verifySDJWT('invalid-jwt-string');
 
       expect(result.verified).toBe(false);
       expect(result.error).toBeDefined();
     });
 
-    it('should verify SD-JWT without expiration date', async () => {
-      // The TEST_SD_JWT doesn't have an expiration date, so it should verify
-      const result = await verifySDJWT(TEST_SD_JWT);
-
-      expect(result.verified).toBe(true);
-    });
-
-    it('should return error message on verification failure', async () => {
+    it('should return a string error message on failure', async () => {
       const result = await verifySDJWT('');
 
       expect(result.verified).toBe(false);
-      expect(result).toHaveProperty('error');
       expect(typeof result.error).toBe('string');
     });
   });
@@ -607,9 +704,11 @@ describe('SD-JWT Service', () => {
         credential: TEST_SD_JWT,
       });
 
-      // The presentation should be verifiable
-      const verificationResult = await verifySDJWT(presentation);
-      expect(verificationResult.verified).toBe(true);
+      // The presentation should stay in compact SD-JWT form (jwt~disclosures~).
+      // Signature verification against the real issuer key is covered in the
+      // verifySDJWT suite; here we only assert the format is preserved.
+      expect(typeof presentation).toBe('string');
+      expect(presentation.split('~').length).toBeGreaterThan(1);
     });
   });
 
@@ -630,11 +729,7 @@ describe('SD-JWT Service', () => {
 
       expect(typeof presentation).toBe('string');
 
-      // Step 3: Verify presentation
-      const verificationResult = await verifySDJWT(presentation);
-      expect(verificationResult.verified).toBe(true);
-
-      // Step 4: Decode presentation to check disclosed claims
+      // Step 3: Decode presentation to check disclosed claims
       const decoded = await decodeSDJWT(presentation);
       const disclosureKeys = decoded.disclosures.map((d: any) => d.key);
 
@@ -661,13 +756,6 @@ describe('SD-JWT Service', () => {
 
       // They should be different (different disclosures)
       expect(presentation1).not.toBe(presentation2);
-
-      // Both should verify
-      const result1 = await verifySDJWT(presentation1);
-      const result2 = await verifySDJWT(presentation2);
-
-      expect(result1.verified).toBe(true);
-      expect(result2.verified).toBe(true);
 
       // Check different attributes are disclosed
       const decoded1 = await decodeSDJWT(presentation1);

@@ -1,6 +1,79 @@
 import {SDJwtVcInstance} from '@sd-jwt/sd-jwt-vc';
 import {digest, generateSalt} from '@sd-jwt/crypto-nodejs';
 import base64url from 'base64url';
+// @ts-ignore - @docknetwork/credential-sdk subpath ships no type declarations
+import * as vcCrypto from '@docknetwork/credential-sdk/vc/crypto';
+const {
+  Ed25519VerificationKey2018,
+  Ed25519VerificationKey2020,
+  EcdsaSecp256k1VerificationKey2019,
+  EcdsaSecp256r1VerificationKey2019,
+} = vcCrypto as any;
+import {blockchainService} from '../blockchain/service';
+
+// Maps a resolved DID verification-method `type` to the credential-sdk key class
+// whose `.verifier().verify({data, signature})` checks the issuer signature.
+const VERIFICATION_KEY_CLASSES = {
+  Ed25519VerificationKey2018,
+  Ed25519VerificationKey2020,
+  EcdsaSecp256k1VerificationKey2019,
+  EcdsaSecp256r1VerificationKey2019,
+};
+
+/**
+ * Builds an SD-JWT `verifier(data, sig)` callback that checks the issuer
+ * signature against the issuer's public key. The key is taken from an embedded
+ * JWK (`cnf.jwk` / header `jwk`) when present, otherwise resolved from the DID
+ * in `iss` — which must be the full verification method (`did:...#key-1`).
+ */
+async function buildIssuerVerifier(decoded) {
+  const payload: any = decoded.jwt.payload;
+  const header: any = decoded.jwt.header;
+
+  const iss: string | undefined = payload.iss || payload.issuer;
+  const embeddedJwk = payload?.cnf?.jwk || header?.jwk;
+
+  const verificationMethod = embeddedJwk
+    ? {type: 'JsonWebKey2020', publicKeyJwk: embeddedJwk}
+    : await resolveIssuerVerificationMethod(iss);
+
+  const KeyClass = VERIFICATION_KEY_CLASSES[verificationMethod.type];
+  if (!KeyClass) {
+    throw new Error(
+      `Unsupported issuer key type for verification: ${verificationMethod.type}`,
+    );
+  }
+
+  const {verify} = KeyClass.from(verificationMethod).verifier();
+
+  // sd-jwt passes the signing input `data` and the base64url `sig`; the
+  // credential-sdk verifier wants the raw signature bytes.
+  return async (data, sig) =>
+    verify({data: Buffer.from(data), signature: base64url.toBuffer(sig)});
+}
+
+/**
+ * Resolves the issuer DID and returns the verification method whose `id`
+ * exactly matches `iss`.
+ */
+async function resolveIssuerVerificationMethod(iss?: string) {
+  if (!iss) {
+    throw new Error('Issuer (iss) not found in SD-JWT');
+  }
+
+  const didDocument: any = await blockchainService.resolveDID(iss);
+  const candidates = [
+    ...(didDocument?.verificationMethod || []),
+    ...(didDocument?.keyAgreement || []),
+    ...(didDocument?.publicKey || []),
+  ];
+
+  const match = candidates.find(key => key.id === iss);
+  if (!match) {
+    throw new Error(`Cannot find issuer key document with ID: ${iss}`);
+  }
+  return match;
+}
 
 /**
  * Checks if a value is a decoded SD-JWT payload object — i.e. an SD-JWT VC
@@ -93,37 +166,24 @@ export async function decodeSDJWT(sdJwtString) {
  */
 export async function verifySDJWT(jwt) {
   try {
-    // Decode the SD-JWT
+    // Resolve the issuer's public key (embedded JWK or DID) and build a
+    // signature verifier for it.
     const decoded = await decodeSDJWT(jwt);
+    const signAlg = (decoded.jwt.header?.alg as string) || 'EdDSA';
+    const verifier = await buildIssuerVerifier(decoded);
 
-    // Extract payload for validation
-    const payload: any = decoded.jwt.payload;
+    const sdjwt = new SDJwtVcInstance({
+      signAlg,
+      verifier,
+      hasher: digest,
+      hashAlg: 'sha-256',
+      saltGenerator: generateSalt,
+    });
 
-    // Check expiration date if present
-    if (payload.exp) {
-      const now = Math.floor(Date.now() / 1000);
-      const exp = Number(payload.exp);
-      if (now > exp) {
-        return {
-          verified: false,
-          error: 'SD-JWT credential has expired',
-        };
-      }
-    }
+    // verify() checks the issuer signature, the iat/nbf/exp dates, and that
+    // every disclosure digest matches the `_sd` array. Throws on any failure.
+    await sdjwt.verify(jwt);
 
-    // Check not-before date if present
-    if (payload.nbf) {
-      const now = Math.floor(Date.now() / 1000);
-      const nbf = Number(payload.nbf);
-      if (now < nbf) {
-        return {
-          verified: false,
-          error: 'SD-JWT credential is not yet valid',
-        };
-      }
-    }
-
-    // If we successfully decoded and passed date checks, consider it verified
     return {
       verified: true,
     };
