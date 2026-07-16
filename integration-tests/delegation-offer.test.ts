@@ -13,9 +13,10 @@ import {
   TRAVEL_AGENCY_CONTEXT,
   travelAgencyPolicy,
 } from './delegation/delegation-fixtures';
+import {getDelegationDetails} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-policy';
 
 async function issueRootCredential(walletClient) {
-  const roleId = 'e79c0d16-8739-4e54-94d7-53d9f1c97c71';
+  const delegationRoleId = 'e79c0d16-8739-4e54-94d7-53d9f1c97c71';
   const credentialData = {
     '@context': TRAVEL_AGENCY_CONTEXT,
     type: [
@@ -41,7 +42,7 @@ async function issueRootCredential(walletClient) {
     credentialData,
     issuerKey,
     travelAgencyPolicy,
-    roleId,
+    delegationRoleId,
   );
   await walletClient.wallet.addDocument(credential);
   return credential;
@@ -166,7 +167,6 @@ describe('Credential Distribution', () => {
     // Step 4: Holder receive the delegatable credential from the issuer
     const delegatableCredential = await holderWallet.messageProvider.waitForMessage();
 
-
     console.log('[holder] received message after credential request:', delegatableCredential);
 
     expect(delegatableCredential).toBeDefined();
@@ -179,7 +179,7 @@ describe('Credential Distribution', () => {
     const [issuedCredential] = delegatableCredential.body.credentials;
     expect(issuedCredential.type).toContain('DelegationCredential');
     expect(issuedCredential.rootCredentialId).toBe(rootCredential.id);
-    expect(issuedCredential.roleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
+    expect(issuedCredential.delegationRoleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
 
     const delegationChain = delegatableCredential.body.delegationChain;
     expect(Array.isArray(delegationChain)).toBe(true);
@@ -213,6 +213,41 @@ describe('Credential Distribution', () => {
     );
     expect(storedCredential).toBeDefined();
     expect(storedCredential.rootCredentialId).toBe(rootCredential.id);
+
+
+    // Resolve the full delegation details for the stored credential and verify
+    // it carries the capabilities the holder was delegated.
+    const delegationDetails = await getDelegationDetails(storedCredential, holderWallet.wallet);
+
+    // The holder was delegated the root role (Travel Agent 1).
+    expect(delegationDetails.delegationPolicy.id).toBe(travelAgencyPolicy.id);
+    expect(delegationDetails.role.roleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
+    expect(delegationDetails.role.label).toBe('Travel Agent 1');
+    expect(delegationDetails.role.level).toBe(1);
+
+    // remainingDelegationDepth = maxDelegationDepth (4) - role level (1)
+    expect(delegationDetails.remainingDelegationDepth).toBe(3);
+
+    // Tree root is the delegated role itself.
+    expect(delegationDetails.roleTree.roleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
+
+    // delegationOptions = every descendant role the holder may delegate to (all 7 non-root roles).
+    const optionRoleIds = delegationDetails.delegationOptions.map(r => r.roleId).sort();
+    expect(optionRoleIds).toEqual(
+      [
+        '8e5abc88-7006-42ae-ae48-9e34f8f66124',
+        '6375baa1-a52d-4838-9100-3facea02ba49',
+        '16f68474-bf3b-4494-9fe5-f141a7d74a33',
+        'c1bd8821-c645-4dd6-ab07-9bc087755db9',
+        '9726317c-cb60-4ae7-a828-e334b10f6f52',
+        '888aeee9-c3ed-469b-86bd-910490c9aa20',
+        'd39f29c4-fc3e-4b5d-9eae-9f576576e4fb',
+      ].sort(),
+    );
+
+    // Chain starts with the holder's own delegated credential.
+    expect(delegationDetails.delegationChain[0].id).toBe(storedCredential.id);
+    expect(delegationDetails.delegationChain[0].rootCredentialId).toBe(rootCredential.id);
 
     // Verify the holder's stored offer was advanced to 'accepted'.
     const holderStoredOffer = await holderWallet.wallet.getDocumentById(

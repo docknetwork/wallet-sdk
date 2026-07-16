@@ -12,14 +12,14 @@ import {getAllDIDs, getDIDKeyPair} from '../did-provider';
  * @param credentialData
  * @param issuerKey
  * @param delegationPolicy
- * @param roleId
+ * @param delegationRoleId
  * @param rootCredentialId
  */
 export async function issueCredential(
   credentialData,
   issuerKey,
   delegationPolicy: DelegationPolicy,
-  roleId,
+  delegationRoleId,
   rootCredentialId?,
 ) {
   assert(
@@ -28,17 +28,17 @@ export async function issueCredential(
   );
 
   const recipientRole = delegationPolicy.ruleset.roles.find(
-    role => role.roleId === roleId,
+    role => role.roleId === delegationRoleId,
   );
 
-  assert(recipientRole, `Role ${roleId} not found in ruleset`);
+  assert(recipientRole, `Role ${delegationRoleId} not found in ruleset`);
 
   const credentialId = credentialData.id || `urn:uuid:${uuidv4()}`;
   const credential = await delegationService.issueCredential(issuerKey, {
     ...credentialData,
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     id: credentialId,
-    roleId,
+    delegationRoleId,
     rootCredentialId: rootCredentialId || credentialId,
   });
 
@@ -49,13 +49,13 @@ export async function delegateCredential({
   credential,
   wallet,
   delegationPolicy,
-  roleId,
+  delegationRoleId,
   delegatorDID,
 }: {
   credential: any;
   wallet: any;
   delegationPolicy: DelegationPolicy;
-  roleId: string;
+  delegationRoleId: string;
   delegatorDID: string;
 }) {
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
@@ -71,7 +71,7 @@ export async function delegateCredential({
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     '@context': credential['@context'],
     id: `urn:uuid:${uuidv4()}`,
-    roleId: roleId,
+    delegationRoleId,
     rootCredentialId: credential.rootCredentialId || credential.id,
     type: credential.type,
     issuer: {
@@ -86,7 +86,7 @@ export async function delegateCredential({
     credentialData,
     keyPair,
     delegationPolicy,
-    roleId,
+    delegationRoleId,
     credential.rootCredentialId || credential.id,
   );
 }

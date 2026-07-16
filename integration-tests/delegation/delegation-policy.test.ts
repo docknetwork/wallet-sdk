@@ -11,7 +11,7 @@ describe('Delegatable policy', () => {
       type: 'ed25519',
     });
 
-    const roleId = 'e79c0d16-8739-4e54-94d7-53d9f1c97c71';
+    const delegationRoleId = 'e79c0d16-8739-4e54-94d7-53d9f1c97c71';
     const credentialData = {
       '@context': TRAVEL_AGENCY_CONTEXT,
       type: [
@@ -36,7 +36,7 @@ describe('Delegatable policy', () => {
       credentialData,
       issuerKey,
       travelAgencyPolicy,
-      roleId,
+      delegationRoleId,
     );
 
     expect(rootCredential.delegationPolicyId).toBeDefined();
