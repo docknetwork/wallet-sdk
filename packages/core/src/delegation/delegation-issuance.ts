@@ -19,7 +19,7 @@ export async function issueCredential(
   credentialData,
   issuerKey,
   delegationPolicy: DelegationPolicy,
-  roleId,
+  delegationRoleId,
   rootCredentialId?,
 ) {
   assert(
@@ -28,17 +28,17 @@ export async function issueCredential(
   );
 
   const recipientRole = delegationPolicy.ruleset.roles.find(
-    role => role.roleId === roleId,
+    role => role.roleId === delegationRoleId,
   );
 
-  assert(recipientRole, `Role ${roleId} not found in ruleset`);
+  assert(recipientRole, `Role ${delegationRoleId} not found in ruleset`);
 
   const credentialId = credentialData.id || `urn:uuid:${uuidv4()}`;
   const credential = await delegationService.issueCredential(issuerKey, {
     ...credentialData,
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     id: credentialId,
-    roleId,
+    delegationRoleId,
     rootCredentialId: rootCredentialId || credentialId,
   });
 
