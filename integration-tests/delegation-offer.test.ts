@@ -179,7 +179,7 @@ describe('Credential Distribution', () => {
     const [issuedCredential] = delegatableCredential.body.credentials;
     expect(issuedCredential.type).toContain('DelegationCredential');
     expect(issuedCredential.rootCredentialId).toBe(rootCredential.id);
-    expect(issuedCredential.roleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
+    expect(issuedCredential.delegationRoleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
 
     const delegationChain = delegatableCredential.body.delegationChain;
     expect(Array.isArray(delegationChain)).toBe(true);

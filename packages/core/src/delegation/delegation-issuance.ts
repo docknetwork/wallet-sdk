@@ -38,8 +38,6 @@ export async function issueCredential(
     ...credentialData,
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     id: credentialId,
-    // ponytail: keep legacy `roleId` in sync with `delegationRoleId` for backward compat
-    roleId: delegationRoleId,
     delegationRoleId,
     rootCredentialId: rootCredentialId || credentialId,
   });
@@ -51,13 +49,13 @@ export async function delegateCredential({
   credential,
   wallet,
   delegationPolicy,
-  roleId,
+  delegationRoleId,
   delegatorDID,
 }: {
   credential: any;
   wallet: any;
   delegationPolicy: DelegationPolicy;
-  roleId: string;
+  delegationRoleId: string;
   delegatorDID: string;
 }) {
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
@@ -73,7 +71,7 @@ export async function delegateCredential({
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     '@context': credential['@context'],
     id: `urn:uuid:${uuidv4()}`,
-    roleId: roleId,
+    delegationRoleId,
     rootCredentialId: credential.rootCredentialId || credential.id,
     type: credential.type,
     issuer: {
@@ -88,7 +86,7 @@ export async function delegateCredential({
     credentialData,
     keyPair,
     delegationPolicy,
-    roleId,
+    delegationRoleId,
     credential.rootCredentialId || credential.id,
   );
 }

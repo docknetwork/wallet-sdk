@@ -356,7 +356,7 @@ export const DELEGATION_REQUEST_HANDLER = {
       credential: parentCredential,
       wallet,
       delegationPolicy: delegationOffer.delegationPolicy,
-      roleId: delegationOffer.delegationRole,
+      delegationRoleId: delegationOffer.delegationRole,
       delegatorDID: delegationOffer.issuerDID || issuerDID,
     });
 
