@@ -12,7 +12,7 @@ import {getAllDIDs, getDIDKeyPair} from '../did-provider';
  * @param credentialData
  * @param issuerKey
  * @param delegationPolicy
- * @param roleId
+ * @param delegationRoleId
  * @param rootCredentialId
  */
 export async function issueCredential(
@@ -38,6 +38,8 @@ export async function issueCredential(
     ...credentialData,
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
     id: credentialId,
+    // ponytail: keep legacy `roleId` in sync with `delegationRoleId` for backward compat
+    roleId: delegationRoleId,
     delegationRoleId,
     rootCredentialId: rootCredentialId || credentialId,
   });

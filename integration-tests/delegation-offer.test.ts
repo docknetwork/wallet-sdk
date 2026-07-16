@@ -13,7 +13,7 @@ import {
   TRAVEL_AGENCY_CONTEXT,
   travelAgencyPolicy,
 } from './delegation/delegation-fixtures';
-import { getDelegationDetails } from '@docknetwork/wallet-sdk-core/src/delegation/delegation-policy';
+import {getDelegationDetails} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-policy';
 
 async function issueRootCredential(walletClient) {
   const delegationRoleId = 'e79c0d16-8739-4e54-94d7-53d9f1c97c71';
@@ -215,8 +215,8 @@ describe('Credential Distribution', () => {
     expect(storedCredential.rootCredentialId).toBe(rootCredential.id);
 
 
-    // we should check that the storedCredential have all the capabilities it should
-    // lets fetch the delegationPolicyId 
+    // Resolve the full delegation details for the stored credential and verify
+    // it carries the capabilities the holder was delegated.
     const delegationDetails = await getDelegationDetails(storedCredential, holderWallet.wallet);
 
     // The holder was delegated the root role (Travel Agent 1).
