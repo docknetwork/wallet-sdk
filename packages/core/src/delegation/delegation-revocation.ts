@@ -224,9 +224,18 @@ export async function setDelegatableCredentialRevocation(
   ctx: RevocationContext,
   action: 'revoke' | 'unrevoke',
 ): Promise<void> {
-  // parse credential.credentialStatus: registryId from status.id, statusListIndex (string -> NUMBER)
-  // sign JWT { action, registryId, credentialId, statusListIndex } via createSignedJWT
-  // POST /delegatable-revocations/{registryId} { action, credentialId, statusListIndex } with headers
+  const status = credential.credentialStatus;
+  const registryId = status.id
+    .slice(CREDENTIAL_STATUS_ID_PREFIX.length)
+    .split('#')[0];
+  assert(
+    /^[0-9a-f]{64}$/.test(registryId),
+    'invalid registryId in credentialStatus.id',
+  );
+  const statusListIndex = Number(status.statusListIndex);
+  const credentialId = credential.id;
+
+  await postRevocation(ctx, registryId, {action, credentialId, statusListIndex});
 }
 
 /**
