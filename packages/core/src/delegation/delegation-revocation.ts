@@ -1,4 +1,9 @@
 import {IWallet} from '../types';
+import assert from 'assert';
+import {didServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/dids/index';
+import {getAllDIDs, getDIDKeyPair} from '../did-provider';
+
+const CREDENTIAL_STATUS_ID_PREFIX = 'status-list2021:dock:0x';
 
 /**
  * Wallet document id under which the single per-wallet revocation registry is
@@ -55,9 +60,71 @@ export interface RevocationContext {
  * @returns the fresh registry id
  */
 export function generateRevocationRegistry(): string {
-  // generate 32 random bytes via CSPRNG, hex encode, strip any 0x prefix
-  // return registryId
-  return undefined as any;
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Resolve the issuer DID's private key doc and produce a DID-signed JWT whose
+ * payload mirrors `claims` plus the standard aud/iss/iat/exp fields.
+ */
+async function signRevocationJWT(
+  ctx: RevocationContext,
+  claims: Record<string, any>,
+): Promise<string> {
+  const dids = await getAllDIDs({wallet: ctx.wallet});
+  const didDoc = dids.find(d => d.didDocument.id === ctx.issuerDID);
+  assert(!!didDoc, 'issuer DID not found in wallet');
+  const privateKeyDoc = await getDIDKeyPair(ctx.wallet, didDoc);
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: ctx.apiUrl,
+    iss: ctx.issuerDID,
+    iat: now,
+    exp: now + 120,
+    ...claims,
+  };
+
+  return await didServiceRPC.createSignedJWT({
+    payload,
+    privateKeyDoc,
+    headerInput: {typ: 'JWT', alg: 'EdDSA'},
+  });
+}
+
+/**
+ * Sign a JWT mirroring `body`, then POST the revocation control action.
+ * Throws on any non-2xx response.
+ */
+async function postRevocation(
+  ctx: RevocationContext,
+  registryId: string,
+  body: Record<string, any>,
+): Promise<any> {
+  const jwt = await signRevocationJWT(ctx, {...body});
+
+  const response = await fetch(
+    `${ctx.apiUrl}/delegatable-revocations/${registryId}`,
+    {
+      method: 'POST',
+      headers: {
+        'X-MOBILE-SPONSOR-KEY': ctx.sponsorKey,
+        Authorization: `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Revocation request failed (${response.status}): ${text}`);
+  }
+
+  return response.json();
 }
 
 /**
@@ -72,10 +139,8 @@ export async function claimRevocationRegistry(
   ctx: RevocationContext,
   registryId: string,
 ): Promise<string> {
-  // sign JWT { action: 'create', registryId } via didServiceRPC.createSignedJWT
-  // POST /delegatable-revocations/{registryId} { action: 'create' } with sponsor + bearer headers
-  // return response.statusListCredential
-  return undefined as any;
+  const response = await postRevocation(ctx, registryId, {action: 'create'});
+  return response.statusListCredential;
 }
 
 /**
