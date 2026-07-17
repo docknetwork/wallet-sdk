@@ -153,10 +153,31 @@ export async function claimRevocationRegistry(
 export async function getRevocationRegistry(
   ctx: RevocationContext,
 ): Promise<RevocationRegistry> {
-  // read DELEGATION_REVOCATION_REGISTRY_ID from the wallet
-  // if missing (or nextIndex > STATUS_LIST_MAX_INDEX): generate + claim, persist { registryId, statusListCredentialUrl, nextIndex: 0 }
-  // return the registry document
-  return undefined as any;
+  const existing = await ctx.wallet.getDocumentById(
+    DELEGATION_REVOCATION_REGISTRY_ID,
+  );
+
+  if (existing && existing.nextIndex <= STATUS_LIST_MAX_INDEX) {
+    return existing as RevocationRegistry;
+  }
+
+  const registryId = generateRevocationRegistry();
+  const statusListCredentialUrl = await claimRevocationRegistry(ctx, registryId);
+  const doc = {
+    id: DELEGATION_REVOCATION_REGISTRY_ID,
+    type: 'DelegationRevocationRegistry',
+    registryId,
+    statusListCredentialUrl,
+    nextIndex: 0,
+  };
+
+  if (existing) {
+    await ctx.wallet.updateDocument(doc);
+  } else {
+    await ctx.wallet.addDocument(doc);
+  }
+
+  return doc;
 }
 
 /**
@@ -169,12 +190,22 @@ export async function getRevocationRegistry(
 export async function allocateStatusEntry(
   ctx: RevocationContext,
 ): Promise<{credentialStatus: StatusList2021Entry; registry: RevocationRegistry}> {
-  // registry = await getRevocationRegistry(ctx)
-  // index = registry.nextIndex; assert index <= STATUS_LIST_MAX_INDEX
-  // build StatusList2021Entry (statusListIndex as STRING) from registryId + index + url
-  // persist registry with nextIndex = index + 1
-  // return { credentialStatus, registry }
-  return undefined as any;
+  const registry = await getRevocationRegistry(ctx);
+  const index = registry.nextIndex;
+  assert(index <= STATUS_LIST_MAX_INDEX, 'revocation registry exhausted');
+
+  const credentialStatus: StatusList2021Entry = {
+    id: `${CREDENTIAL_STATUS_ID_PREFIX}${registry.registryId}#${index}`,
+    type: 'StatusList2021Entry',
+    statusPurpose: 'revocation',
+    statusListIndex: String(index),
+    statusListCredential: registry.statusListCredentialUrl,
+  };
+
+  const updatedRegistry = {...registry, nextIndex: index + 1};
+  await ctx.wallet.updateDocument(updatedRegistry);
+
+  return {credentialStatus, registry: updatedRegistry};
 }
 
 /**
