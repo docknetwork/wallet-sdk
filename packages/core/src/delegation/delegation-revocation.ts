@@ -93,6 +93,7 @@ async function postRevocation(
   registryId: string,
   body: Record<string, any>,
 ): Promise<any> {
+  assert(!!ctx.sponsorKey, 'sponsorKey is required');
   const jwt = await signRevocationJWT(ctx, {registryId, ...body});
 
   const response = await fetch(
