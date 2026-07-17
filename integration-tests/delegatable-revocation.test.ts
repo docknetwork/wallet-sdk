@@ -51,6 +51,12 @@ describe('Delegatable Revocation', () => {
   let ctx: RevocationContext;
 
   beforeAll(async () => {
+    if (!SPONSOR_KEY || !API_URL) {
+      throw new Error(
+        'Missing required environment variables: MOBILE_SDK_SPONSOR_KEY and DELEGATION_REVOCATION_API_URL',
+      );
+    }
+
     walletClient = await createFullWalletClient();
     ctx = {
       wallet: walletClient.wallet,

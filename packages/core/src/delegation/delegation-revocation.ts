@@ -198,6 +198,42 @@ export async function allocateStatusEntry(
 }
 
 /**
+ * Validate a credential's credentialStatus is a well-formed StatusList2021Entry
+ * and extract the registryId + integer index. Throws with a clear message on any
+ * malformed/missing field rather than letting a downstream TypeError or NaN leak.
+ */
+function parseStatusEntry(credential: any): {
+  registryId: string;
+  statusListIndex: number;
+} {
+  const status = credential?.credentialStatus;
+  assert(
+    !!status && status.type === 'StatusList2021Entry',
+    'credential has no StatusList2021Entry credentialStatus',
+  );
+  assert(
+    typeof status.id === 'string' &&
+      status.id.startsWith(CREDENTIAL_STATUS_ID_PREFIX),
+    'invalid credentialStatus.id',
+  );
+  const registryId = status.id
+    .slice(CREDENTIAL_STATUS_ID_PREFIX.length)
+    .split('#')[0];
+  assert(
+    /^[0-9a-f]{64}$/.test(registryId),
+    'invalid registryId in credentialStatus.id',
+  );
+  const statusListIndex = Number(status.statusListIndex);
+  assert(
+    Number.isInteger(statusListIndex) &&
+      statusListIndex >= 0 &&
+      statusListIndex <= STATUS_LIST_MAX_INDEX,
+    'invalid statusListIndex in credentialStatus',
+  );
+  return {registryId, statusListIndex};
+}
+
+/**
  * Revoke or unrevoke a delegatable credential.
  *
  * Extracts registryId and index from the credential's credentialStatus,
@@ -213,15 +249,7 @@ export async function setDelegatableCredentialRevocation(
   ctx: RevocationContext,
   action: 'revoke' | 'unrevoke',
 ): Promise<void> {
-  const status = credential.credentialStatus;
-  const registryId = status.id
-    .slice(CREDENTIAL_STATUS_ID_PREFIX.length)
-    .split('#')[0];
-  assert(
-    /^[0-9a-f]{64}$/.test(registryId),
-    'invalid registryId in credentialStatus.id',
-  );
-  const statusListIndex = Number(status.statusListIndex);
+  const {registryId, statusListIndex} = parseStatusEntry(credential);
   const credentialId = credential.id;
 
   await postRevocation(ctx, registryId, {action, credentialId, statusListIndex});
@@ -240,9 +268,8 @@ export async function setDelegatableCredentialRevocation(
 export async function isDelegatableCredentialRevoked(
   credential: any,
 ): Promise<boolean> {
-  const status = credential.credentialStatus;
-  const statusListIndex = Number(status.statusListIndex);
-  const response = await fetch(status.statusListCredential);
+  const {statusListIndex} = parseStatusEntry(credential);
+  const response = await fetch(credential.credentialStatus.statusListCredential);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch status list credential (${response.status})`,
