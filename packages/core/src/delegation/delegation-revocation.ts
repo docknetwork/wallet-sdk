@@ -52,7 +52,7 @@ export interface StatusList2021Entry {
 export interface RevocationContext {
   wallet: IWallet;
   issuerDID: string; // the did:key that owns the registry / signs the JWT
-  sponsorKey: string;
+  truveraApiSponsorKey: string;
   apiUrl: string;
 }
 
@@ -94,7 +94,7 @@ async function postRevocation(
   registryId: string,
   body: Record<string, any>,
 ): Promise<any> {
-  assert(!!ctx.sponsorKey, 'sponsorKey is required');
+  assert(!!ctx.truveraApiSponsorKey, 'truveraApiSponsorKey is required');
   const jwt = await signRevocationJWT(ctx, {registryId, ...body});
 
   try {
@@ -103,7 +103,7 @@ async function postRevocation(
       body,
       {
         headers: {
-          'X-MOBILE-SPONSOR-KEY': ctx.sponsorKey,
+          'X-MOBILE-SPONSOR-KEY': ctx.truveraApiSponsorKey,
           Authorization: `Bearer ${jwt}`,
           'Content-Type': 'application/json',
         },

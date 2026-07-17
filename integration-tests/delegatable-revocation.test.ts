@@ -61,7 +61,7 @@ describe('Delegatable Revocation', () => {
     ctx = {
       wallet: walletClient.wallet,
       issuerDID: walletClient.did,
-      sponsorKey: SPONSOR_KEY as string,
+      truveraApiSponsorKey: SPONSOR_KEY as string,
       apiUrl: API_URL as string,
     };
   });
