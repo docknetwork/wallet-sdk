@@ -14,7 +14,7 @@ import {
   travelAgencyPolicy,
 } from './delegation/delegation-fixtures';
 
-const SPONSOR_KEY = process.env.MOBILE_SDK_SPONSOR_KEY;
+const SPONSOR_KEY = process.env.TRUVERA_API_SPONSOR_KEY;
 const API_URL = process.env.DELEGATION_REVOCATION_API_URL;
 
 const ROLE_ID = 'e79c0d16-8739-4e54-94d7-53d9f1c97c71';
@@ -53,7 +53,7 @@ describe('Delegatable Revocation', () => {
   beforeAll(async () => {
     if (!SPONSOR_KEY || !API_URL) {
       throw new Error(
-        'Missing required environment variables: MOBILE_SDK_SPONSOR_KEY and DELEGATION_REVOCATION_API_URL',
+        'Missing required environment variables: TRUVERA_API_SPONSOR_KEY and DELEGATION_REVOCATION_API_URL',
       );
     }
 
