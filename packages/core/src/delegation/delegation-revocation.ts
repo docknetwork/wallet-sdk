@@ -105,7 +105,7 @@ async function postRevocation(
   registryId: string,
   body: Record<string, any>,
 ): Promise<any> {
-  const jwt = await signRevocationJWT(ctx, {...body});
+  const jwt = await signRevocationJWT(ctx, {registryId, ...body});
 
   const response = await fetch(
     `${ctx.apiUrl}/delegatable-revocations/${registryId}`,
