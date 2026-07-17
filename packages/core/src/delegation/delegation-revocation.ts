@@ -1,6 +1,7 @@
 import {IWallet} from '../types';
 import assert from 'assert';
 import {didServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/dids/index';
+import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
 import {getAllDIDs, getDIDKeyPair} from '../did-provider';
 
 const CREDENTIAL_STATUS_ID_PREFIX = 'status-list2021:dock:0x';
@@ -251,10 +252,19 @@ export async function setDelegatableCredentialRevocation(
 export async function isDelegatableCredentialRevoked(
   credential: any,
 ): Promise<boolean> {
-  // read credential.credentialStatus: statusListCredential URL + statusListIndex (string -> NUMBER)
-  // GET the StatusList2021Credential from the URL (no auth)
-  // decode the encodedList bitstring, return the bit at statusListIndex
-  return undefined as any;
+  const status = credential.credentialStatus;
+  const statusListIndex = Number(status.statusListIndex);
+  const response = await fetch(status.statusListCredential);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch status list credential (${response.status})`,
+    );
+  }
+  const statusListCredential = await response.json();
+  return credentialServiceRPC.isStatusList2021Revoked({
+    statusListCredential,
+    statusListIndex,
+  });
 }
 
 /** Convenience wrapper: revoke. */

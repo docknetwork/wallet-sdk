@@ -50,4 +50,7 @@ export class CredentialServiceRPC extends RpcService {
   async prefetchWitnessCache(params) {
     return this.call('prefetchWitnessCache', params);
   }
+  async isStatusList2021Revoked(params) {
+    return this.call('isStatusList2021Revoked', params);
+  }
 }
