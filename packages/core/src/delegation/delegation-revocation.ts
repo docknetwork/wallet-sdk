@@ -1,5 +1,6 @@
 import {IWallet} from '../types';
 import assert from 'assert';
+import axios from 'axios';
 import {didServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/dids/index';
 import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
 import {utilCryptoService} from '@docknetwork/wallet-sdk-wasm/src/services/util-crypto';
@@ -96,25 +97,27 @@ async function postRevocation(
   assert(!!ctx.sponsorKey, 'sponsorKey is required');
   const jwt = await signRevocationJWT(ctx, {registryId, ...body});
 
-  const response = await fetch(
-    `${ctx.apiUrl}/delegatable-revocations/${registryId}`,
-    {
-      method: 'POST',
-      headers: {
-        'X-MOBILE-SPONSOR-KEY': ctx.sponsorKey,
-        Authorization: `Bearer ${jwt}`,
-        'Content-Type': 'application/json',
+  try {
+    const response = await axios.post(
+      `${ctx.apiUrl}/delegatable-revocations/${registryId}`,
+      body,
+      {
+        headers: {
+          'X-MOBILE-SPONSOR-KEY': ctx.sponsorKey,
+          Authorization: `Bearer ${jwt}`,
+          'Content-Type': 'application/json',
+        },
       },
-      body: JSON.stringify(body),
-    },
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Revocation request failed (${response.status}): ${text}`);
+    );
+    return response.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response) {
+      throw new Error(
+        `Revocation request failed (${err.response.status}): ${JSON.stringify(err.response.data)}`,
+      );
+    }
+    throw err;
   }
-
-  return response.json();
 }
 
 /**
@@ -270,13 +273,9 @@ export async function isDelegatableCredentialRevoked(
   credential: any,
 ): Promise<boolean> {
   const {statusListIndex} = parseStatusEntry(credential);
-  const response = await fetch(credential.credentialStatus.statusListCredential);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch status list credential (${response.status})`,
-    );
-  }
-  const statusListCredential = await response.json();
+  const {data: statusListCredential} = await axios.get(
+    credential.credentialStatus.statusListCredential,
+  );
   return credentialServiceRPC.isStatusList2021Revoked({
     statusListCredential,
     statusListIndex,
