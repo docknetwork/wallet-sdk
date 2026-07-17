@@ -25,4 +25,8 @@ export class UtilCryptoServiceRpc extends RpcService {
   hexToString(hex: string): Promise<string> {
     return this.call('hexToString', hex);
   }
+
+  generateRegistryId(): Promise<string> {
+    return this.call('generateRegistryId');
+  }
 }

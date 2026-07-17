@@ -2,6 +2,7 @@ import {IWallet} from '../types';
 import assert from 'assert';
 import {didServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/dids/index';
 import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
+import {utilCryptoService} from '@docknetwork/wallet-sdk-wasm/src/services/util-crypto';
 import {getAllDIDs, getDIDKeyPair} from '../did-provider';
 
 const CREDENTIAL_STATUS_ID_PREFIX = 'status-list2021:dock:0x';
@@ -52,19 +53,6 @@ export interface RevocationContext {
   issuerDID: string; // the did:key that owns the registry / signs the JWT
   sponsorKey: string;
   apiUrl: string;
-}
-
-/**
- * Generate a new registry id: 32 CSPRNG bytes, hex-encoded WITHOUT 0x prefix
- * (64 hex chars). Its unguessability is what makes the claim race-free.
- *
- * @returns the fresh registry id
- */
-export function generateRevocationRegistry(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
 }
 
 /**
@@ -162,7 +150,7 @@ export async function getRevocationRegistry(
     return existing as RevocationRegistry;
   }
 
-  const registryId = generateRevocationRegistry();
+  const registryId = await utilCryptoService.generateRegistryId();
   const statusListCredentialUrl = await claimRevocationRegistry(ctx, registryId);
   const doc = {
     id: DELEGATION_REVOCATION_REGISTRY_ID,
