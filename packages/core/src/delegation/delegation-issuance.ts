@@ -5,6 +5,7 @@ import {buildDelegationPolicyAttributes} from './delegation-policy';
 import {delegationService} from '@docknetwork/wallet-sdk-wasm/src/services/delegation';
 import {v4 as uuidv4} from 'uuid';
 import {getAllDIDs, getDIDKeyPair} from '../did-provider';
+import {allocateStatusEntry, RevocationContext} from './delegation-revocation';
 
 /**
  * Issue a delegatable credential
@@ -14,6 +15,9 @@ import {getAllDIDs, getDIDKeyPair} from '../did-provider';
  * @param delegationPolicy
  * @param delegationRoleId
  * @param rootCredentialId
+ * @param revocationContext when provided, a StatusList2021Entry is allocated and
+ *   embedded automatically so the credential can be revoked later. The wallet's
+ *   revocation registry index counter is advanced and persisted as a side effect.
  */
 export async function issueCredential(
   credentialData,
@@ -21,6 +25,7 @@ export async function issueCredential(
   delegationPolicy: DelegationPolicy,
   delegationRoleId,
   rootCredentialId?,
+  revocationContext?: RevocationContext,
 ) {
   assert(
     isDelegatableCredential(credentialData),
@@ -33,10 +38,15 @@ export async function issueCredential(
 
   assert(recipientRole, `Role ${delegationRoleId} not found in ruleset`);
 
+  const credentialStatus = revocationContext
+    ? (await allocateStatusEntry(revocationContext)).credentialStatus
+    : credentialData.credentialStatus;
+
   const credentialId = credentialData.id || `urn:uuid:${uuidv4()}`;
   const credential = await delegationService.issueCredential(issuerKey, {
     ...credentialData,
     ...(await buildDelegationPolicyAttributes(delegationPolicy)),
+    ...(credentialStatus ? {credentialStatus} : {}),
     id: credentialId,
     delegationRoleId,
     rootCredentialId: rootCredentialId || credentialId,
