@@ -28,6 +28,10 @@ async function issueRootCredential(walletClient) {
       id: 'did:test:root-issuer',
       name: 'Travel Agency',
     },
+    credentialSchema: {
+      id: 'https://schema.truvera.io/travel-agency-credential.json',
+      type: 'JsonSchemaValidator2018',
+    },
     credentialSubject: {
       id: 'did:test:travel-agency',
       allowedRoutes: ['US-NYC-LAX', 'US-SFO-SEA', 'US-ORD-MIA'],
@@ -180,6 +184,9 @@ describe('Credential Distribution', () => {
     expect(issuedCredential.type).toContain('DelegationCredential');
     expect(issuedCredential.rootCredentialId).toBe(rootCredential.id);
     expect(issuedCredential.delegationRoleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
+
+    // Re-delegated credential must carry the same credentialSchema as the root credential.
+    expect(issuedCredential.credentialSchema).toEqual(rootCredential.credentialSchema);
 
     const delegationChain = delegatableCredential.body.delegationChain;
     expect(Array.isArray(delegationChain)).toBe(true);

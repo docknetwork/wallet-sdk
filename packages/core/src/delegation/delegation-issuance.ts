@@ -101,6 +101,9 @@ export async function delegateCredential({
     },
     issuanceDate: new Date().toISOString(),
     credentialSubject: credential.credentialSubject,
+    ...(credential.credentialSchema
+      ? {credentialSchema: credential.credentialSchema}
+      : {}),
   };
 
   return issueCredential(
