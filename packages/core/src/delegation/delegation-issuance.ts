@@ -21,7 +21,7 @@ import {
  * @param rootCredentialId
  * @param revocationContext when provided, a StatusList2021Entry is allocated and
  *   embedded automatically so the credential can be revoked later. The wallet's
- *   revocation registry index counter is advanced and persisted as a side effect.
+ *   revocation registry index counter is incremented and persisted as a side effect.
  */
 export async function issueCredential(
   credentialData,
