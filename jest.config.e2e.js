@@ -58,6 +58,8 @@ module.exports = {
       '@docknetwork/wallet-sdk-data-store/src/$1',
     '@docknetwork/wallet-sdk-data-store/lib':
       '@docknetwork/wallet-sdk-data-store/src',
+    '^@docknetwork/credential-sdk/vc/contexts$':
+      '<rootDir>/node_modules/@docknetwork/credential-sdk/dist/cjs/vc/contexts.cjs',
   },
   transformIgnorePatterns: [
     '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky|did-jwt-cjs|@scure/base)',

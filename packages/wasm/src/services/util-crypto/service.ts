@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {hexToU8a, u8aToString} from '@docknetwork/credential-sdk/utils';
+import {hexToU8a, randomAsHex, u8aToString} from '@docknetwork/credential-sdk/utils';
 import * as bip39 from '@scure/bip39';
 import {wordlist} from '@scure/bip39/wordlists/english';
 import assert from 'assert';
@@ -19,6 +19,7 @@ export class UtilCryptoService {
     UtilCryptoService.prototype.mnemonicToMiniSecret,
     UtilCryptoService.prototype.isBase64,
     UtilCryptoService.prototype.hexToString,
+    UtilCryptoService.prototype.generateRegistryId,
   ];
 
   constructor() {
@@ -88,6 +89,14 @@ export class UtilCryptoService {
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * Generate a revocation registry id: 32 CSPRNG bytes as 64 hex chars,
+   * WITHOUT the 0x prefix.
+   */
+  generateRegistryId(): string {
+    return randomAsHex(32).replace(/^0x/, '');
   }
 
   hexToString(hex: string): string {

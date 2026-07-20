@@ -87,6 +87,8 @@ jobs:
           TESTING_API_URL: ${{secrets.TESTING_API_URL}}
           EDV_URL: ${{secrets.EDV_URL}}
           EDV_AUTH_KEY: ${{secrets.EDV_AUTH_KEY}}
+          TRUVERA_API_SPONSOR_KEY: ${{secrets.TRUVERA_API_SPONSOR_KEY}}
+          DELEGATION_REVOCATION_API_URL: ${{secrets.DELEGATION_REVOCATION_API_URL}}
 
         run: |
           export NODE_OPTIONS="--max_old_space_size=12096"

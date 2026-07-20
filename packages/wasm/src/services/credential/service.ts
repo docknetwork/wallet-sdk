@@ -24,6 +24,7 @@ import {
   Presentation,
   verifyPresentation,
   VerifiableCredential,
+  StatusList2021Credential,
   getSuiteFromKeyDoc,
 } from '@docknetwork/credential-sdk/vc';
 import {PEX} from '@sphereon/pex';
@@ -204,11 +205,18 @@ class CredentialService {
     CredentialService.prototype.acquireOIDCredential,
     CredentialService.prototype.generatePresentationFromPex,
     CredentialService.prototype.prefetchWitnessCache,
+    CredentialService.prototype.isStatusList2021Revoked,
   ];
 
   async prefetchWitnessCache(params) {
     const {credential, membershipWitness} = params;
     return prefetchWitnessCache(credential, membershipWitness);
+  }
+
+  async isStatusList2021Revoked(params) {
+    const {statusListCredential, statusListIndex} = params;
+    const decoded = StatusList2021Credential.fromJSON(statusListCredential);
+    return decoded.revoked(statusListIndex);
   }
 
 
@@ -372,9 +380,13 @@ class CredentialService {
       return verifySDJWT(credential);
     }
 
+    const isStatusList2021 =
+      credential.credentialStatus?.type === 'StatusList2021Entry';
+
     const result = await credentialUtils.verifyCredential(credential, {
       resolver: blockchainService.resolver,
       revocationApi: {dock: blockchainService.dock},
+      verifyMatchingIssuersForRevocation: !isStatusList2021,
     });
 
     const {credentialStatus} = credential;
