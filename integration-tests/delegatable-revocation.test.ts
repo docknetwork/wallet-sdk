@@ -13,6 +13,7 @@ import {
   TRAVEL_AGENCY_CONTEXT,
   travelAgencyPolicy,
 } from './delegation/delegation-fixtures';
+// @ts-ignore - runtime resolved via jest moduleNameMapper to dist/cjs/vc/contexts.cjs; no shipped types
 import cachedUris from '@docknetwork/credential-sdk/vc/contexts';
 
 function evictStatusListCache(credential: any) {
