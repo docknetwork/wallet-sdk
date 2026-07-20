@@ -8,6 +8,9 @@ import {getAllDIDs, getDIDKeyPair} from '../did-provider';
 
 const CREDENTIAL_STATUS_ID_PREFIX = 'status-list2021:dock:0x';
 
+export const STATUS_LIST_2021_CONTEXT =
+  'https://w3id.org/vc/status-list/2021/v1';
+
 /**
  * Wallet document id under which the single per-wallet revocation registry is
  * persisted. Holds { registryId, statusListCredentialUrl, nextIndex }.

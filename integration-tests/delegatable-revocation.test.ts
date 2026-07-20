@@ -13,6 +13,12 @@ import {
   TRAVEL_AGENCY_CONTEXT,
   travelAgencyPolicy,
 } from './delegation/delegation-fixtures';
+import cachedUris from '@docknetwork/credential-sdk/vc/contexts';
+
+function evictStatusListCache(credential: any) {
+  const url = credential?.credentialStatus?.statusListCredential;
+  if (url) cachedUris.delete(url.endsWith('/') ? url.slice(0, -1) : url);
+}
 
 const SPONSOR_KEY = process.env.TRUVERA_API_SPONSOR_KEY;
 const API_URL = process.env.DELEGATION_REVOCATION_API_URL;
@@ -90,6 +96,26 @@ describe('Delegatable Revocation', () => {
     // unrevoke -> not revoked
     await unrevokeDelegatableCredential(credential, ctx);
     expect(await isDelegatableCredentialRevoked(credential)).toBe(false);
+  });
+
+  it('should resolve revocation via credentialProvider.isValid', async () => {
+    const credential = await issueRevocableRootCredential(walletClient, ctx);
+
+    expect((await walletClient.credentialProvider.isValid(credential)).status).toBe(
+      'verified',
+    );
+
+    await revokeDelegatableCredential(credential, ctx);
+    evictStatusListCache(credential);
+    expect((await walletClient.credentialProvider.isValid(credential)).status).toBe(
+      'revoked',
+    );
+
+    await unrevokeDelegatableCredential(credential, ctx);
+    evictStatusListCache(credential);
+    expect((await walletClient.credentialProvider.isValid(credential)).status).toBe(
+      'verified',
+    );
   });
 
   it('should assign sequential indices across issuances', async () => {

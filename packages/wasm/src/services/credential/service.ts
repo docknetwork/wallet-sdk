@@ -380,9 +380,13 @@ class CredentialService {
       return verifySDJWT(credential);
     }
 
+    const isStatusList2021 =
+      credential.credentialStatus?.type === 'StatusList2021Entry';
+
     const result = await credentialUtils.verifyCredential(credential, {
       resolver: blockchainService.resolver,
       revocationApi: {dock: blockchainService.dock},
+      verifyMatchingIssuersForRevocation: !isStatusList2021,
     });
 
     const {credentialStatus} = credential;

@@ -122,10 +122,8 @@ export async function isValid({
     }
 
     if (!verified) {
-      if (
-        typeof error === 'string' &&
-        error.toLowerCase().includes('revocation')
-      ) {
+      const errorMessage = (error?.message || error || '').toString().toLowerCase();
+      if (errorMessage.includes('revok')) {
         return {
           status: CredentialStatus.Revoked,
           error,
