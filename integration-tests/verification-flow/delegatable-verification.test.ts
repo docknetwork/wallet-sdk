@@ -30,7 +30,7 @@ describe('Delegatable credential verification', () => {
 
   afterAll(() => closeWallet());
 
-  it('should create a default presentation for university degree', async () => {
+  it('should create a default presentation for a delegated credential', async () => {
     const credentialProvider = getCredentialProvider();
     credentialProvider.getCredentialStatus = jest.fn().mockResolvedValue({
       status: CredentialStatus.Verified,
