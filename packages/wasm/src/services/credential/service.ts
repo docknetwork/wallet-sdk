@@ -140,12 +140,8 @@ function createProvingKeyLoader(boundCheckSnarkKey) {
  */
 export function isBBSPlusCredential(credential) {
   return (
-    (typeof credential?.proof?.type === 'string' &&
-      credential.proof.type.includes('BBS+SignatureDock')) ||
-    (Array.isArray(credential['@context']) &&
-      credential['@context'].find(
-        context => typeof context === 'string' && context.indexOf('bbs') > -1,
-      ))
+    typeof credential?.proof?.type === 'string' &&
+    credential.proof.type.toLowerCase().includes('bbs')
   );
 }
 
@@ -331,7 +327,13 @@ class CredentialService {
       return result;
     }
 
-    return vp.sign(suite, challenge, domain, blockchainService.resolver);
+    const signed = await vp.sign(
+      suite,
+      challenge,
+      domain,
+      blockchainService.resolver,
+    );
+    return signed.toJSON();
   }
 
   /**
