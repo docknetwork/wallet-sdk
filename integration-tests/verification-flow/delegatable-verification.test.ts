@@ -15,7 +15,7 @@ jest.retryTimes(0);
 let wallet: IWallet;
 let didProvider;
 
-describe('Default presentation', () => {
+describe('Delegatable credential verification', () => {
   beforeAll(async () => {
     setWitnessCacheTTL(0);
 
