@@ -4,7 +4,7 @@ import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {getAllDIDs, getDefaultDID} from '../did-provider';
 import {delegateCredential} from './delegation-issuance';
 import {getDelegationChain} from './delegation-chain';
-import {getDelegationDetails} from './delegation-policy';
+import {getDelegationDetails, getRole} from './delegation-policy';
 import {isDelegatableCredential} from './delegation-utils';
 import {
   assertPolicyConformsToParent,
@@ -52,6 +52,7 @@ export type DelegationOfferPreview = {
   issuerDID: string;
   issuerName?: string;
   role: string;
+  roleLabel?: string;
   createdAt: string;
   expiresAt?: string;
 };
@@ -148,6 +149,8 @@ export function createOOBInvitation(
     issuerDID: issuerDID,
     issuerName: finalIssuerName,
     role: delegationOffer.delegationRole,
+    roleLabel: getRole(delegationOffer.delegationRole, delegationOffer.delegationPolicy)
+      ?.label,
     createdAt: delegationOffer.sentAt,
     expiresAt: delegationOffer.expiresAt,
   };
