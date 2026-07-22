@@ -382,6 +382,34 @@ export interface IDIDProvider {
    * @returns {Promise<string|undefined>} The default DID identifier or undefined if no DIDs exist
    */
   getDefaultDID: () => Promise<string>;
+
+  /**
+   * Creates and stores a P-256 (secp256r1) signing key attached to an
+   * existing DID as its controller. Unlike `createDIDKey`, this does not
+   * mint a new did:key document — it's a bare keypair document for
+   * callers that need a raw ES256-capable signing key (e.g. AP2 mandate
+   * `cnf`/holder-binding keys) associated with a DID they already control.
+   * @param {Object} params - Creation parameters
+   * @param {string} params.controller - The DID this key document is attached to
+   * @param {string} [params.name] - Optional label for the stored document
+   * @param {string} [params.type] - Key type to generate (default 'secp256r1')
+   * @returns {Promise<any>} The stored key document (includes `id`, `publicKeyBase58`, etc.)
+   * @throws {Error} If controller is not a valid DID
+   */
+  createSigningKey: (params: {controller: string; name?: string; type?: string}) => Promise<any>;
+
+  /**
+   * Signs arbitrary bytes with a previously-stored signing key (e.g. one
+   * created via `createSigningKey`) and returns the raw signature bytes —
+   * no JWT/VC framing. Works with any stored key document, not just
+   * did:key-method DIDs.
+   * @param {Object} params - Signing parameters
+   * @param {string} params.keyId - The id of the stored key document to sign with
+   * @param {Uint8Array} params.data - The bytes to sign
+   * @returns {Promise<Uint8Array>} The raw signature bytes
+   * @throws {Error} If no stored document matches keyId
+   */
+  signWithKeyId: (params: {keyId: string; data: Uint8Array}) => Promise<Uint8Array>;
 }
 
 /**
