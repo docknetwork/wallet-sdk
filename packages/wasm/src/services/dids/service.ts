@@ -16,7 +16,7 @@ import {
   VerificationRelationship,
   DidMethodKey,
 } from '@docknetwork/credential-sdk/types';
-import {Ed25519Keypair} from '@docknetwork/credential-sdk/keypairs';
+import {Ed25519Keypair, Secp256r1Keypair} from '@docknetwork/credential-sdk/keypairs';
 
 import {Logger} from '../../core/logger';
 import base64url from 'base64url';
@@ -67,6 +67,7 @@ class DIDService {
     DIDService.prototype.generateKeyDoc,
     DIDService.prototype.deriveKeyDoc,
     DIDService.prototype.createSignedJWT,
+    DIDService.prototype.signWithKeyDoc,
   ];
   keypairToDIDKeyDocument(params: KeypairToDIDKeyDocumentParams) {
     validation.keypairToDIDKeyDocument(params);
@@ -83,7 +84,8 @@ class DIDService {
   async generateKeyDoc(params) {
     validation.generateKeyDoc(params);
     const {derivePath = '', type = 'ed25519'} = params;
-    const keyPair = Ed25519Keypair.random()
+    const keyPair =
+      type === 'secp256r1' ? Secp256r1Keypair.random() : Ed25519Keypair.random();
     return keypairToKeydoc(keyPair, params.controller);
   }
 
@@ -112,6 +114,20 @@ class DIDService {
 
     const signature = await sign({data: signPayload});
     return `${headerAndPayloadBase64URL}.${base64url.encode(signature)}`;
+  }
+
+  /**
+   * Signs arbitrary bytes with the keypair from a stored key document
+   * (any DID method — not specific to the did:key method) and returns the
+   * raw signature bytes, with no header/payload framing. Distinct from
+   * `createSignedJWT`, which builds a full compact JWT — this is for
+   * callers (e.g. AP2 mandate signing) that assemble their own signing
+   * input and just need a raw signature back.
+   */
+  async signWithKeyDoc({data, privateKeyDoc}) {
+    const keypair = privateKeyDoc.keypair || (await keyDocToKeypair(privateKeyDoc));
+    const message = data instanceof Uint8Array ? data : new Uint8Array(data);
+    return new Uint8Array(keypair.sign(message).bytes);
   }
 }
 

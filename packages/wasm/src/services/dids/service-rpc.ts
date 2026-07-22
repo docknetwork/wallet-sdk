@@ -24,4 +24,7 @@ export class DIDServiceRPC extends RpcService {
   createSignedJWT(params) {
     return this.call('createSignedJWT', params);
   }
+  signWithKeyDoc(params) {
+    return this.call('signWithKeyDoc', params);
+  }
 }

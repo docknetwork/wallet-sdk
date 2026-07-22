@@ -10,7 +10,8 @@ import {X25519KeyAgreementKey2019} from '@digitalbazaar/x25519-key-agreement-key
 import {Ed25519VerificationKey2018} from '@digitalbazaar/ed25519-verification-key-2018';
 import {Ed25519VerificationKey2020} from '@digitalbazaar/ed25519-verification-key-2020';
 
-import {Ed25519Keypair} from '@docknetwork/credential-sdk/keypairs';
+import {Ed25519Keypair, Secp256r1Keypair} from '@docknetwork/credential-sdk/keypairs';
+import {EcdsaSecp256r1VerKeyName} from '@docknetwork/credential-sdk/vc/crypto';
 
 export async function keyDocToKeypair(keyDoc) {
   if (keyDoc.keypair) {
@@ -53,6 +54,8 @@ export async function keyDocToKeypair(keyDoc) {
     key.keyPair.publicKey = publicKeyBytes;
     key.keyPair.secretKey = privateKeyBytes;
     return key;
+  } else if (type === EcdsaSecp256r1VerKeyName) {
+    return new Secp256r1Keypair(privateKeyBytes, 'private');
   } else {
     throw new Error(`Unsupported key type: ${type}`);
   }
