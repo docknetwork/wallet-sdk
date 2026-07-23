@@ -169,18 +169,19 @@ describe('Credential Distribution', () => {
     expect(updatedOffer.holderDID).toBe(holderWallet.did);
 
     // Step 4: Holder receive the delegatable credential from the issuer
-    const delegatableCredential = await holderWallet.messageProvider.waitForMessage();
+    const delegationIssuanceMessage =
+      await holderWallet.messageProvider.waitForMessage();
 
-    console.log('[holder] received message after credential request:', delegatableCredential);
+    console.log('[holder] received message after credential request:', delegationIssuanceMessage);
 
-    expect(delegatableCredential).toBeDefined();
-    expect(delegatableCredential.type).toBe('https://didcomm.org/issue-credential/3.0/issue-credential');
-    expect(delegatableCredential.from).toBe(issuerWallet.did);
-    expect(delegatableCredential.body.delegationOfferId).toBe(acceptedOffer.id);
-    expect(Array.isArray(delegatableCredential.body.credentials)).toBe(true);
-    expect(delegatableCredential.body.credentials.length).toBeGreaterThan(0);
+    expect(delegationIssuanceMessage).toBeDefined();
+    expect(delegationIssuanceMessage.type).toBe('https://didcomm.org/issue-credential/3.0/issue-credential');
+    expect(delegationIssuanceMessage.from).toBe(issuerWallet.did);
+    expect(delegationIssuanceMessage.body.delegationOfferId).toBe(acceptedOffer.id);
+    expect(Array.isArray(delegationIssuanceMessage.body.credentials)).toBe(true);
+    expect(delegationIssuanceMessage.body.credentials.length).toBeGreaterThan(0);
 
-    const [issuedCredential] = delegatableCredential.body.credentials;
+    const [issuedCredential] = delegationIssuanceMessage.body.credentials;
     expect(issuedCredential.type).toContain('DelegationCredential');
     expect(issuedCredential.rootCredentialId).toBe(rootCredential.id);
     expect(issuedCredential.delegationRoleId).toBe('e79c0d16-8739-4e54-94d7-53d9f1c97c71');
@@ -188,7 +189,7 @@ describe('Credential Distribution', () => {
     // Re-delegated credential must carry the same credentialSchema as the root credential.
     expect(issuedCredential.credentialSchema).toEqual(rootCredential.credentialSchema);
 
-    const delegationChain = delegatableCredential.body.delegationChain;
+    const delegationChain = delegationIssuanceMessage.body.delegationChain;
     expect(Array.isArray(delegationChain)).toBe(true);
     expect(delegationChain.length).toBeGreaterThan(0);
     expect(delegationChain[0].id).toBe(rootCredential.id);
@@ -205,7 +206,7 @@ describe('Credential Distribution', () => {
       );
     });
 
-    await handleMessage(delegatableCredential, {
+    await handleMessage(delegationIssuanceMessage, {
       wallet: holderWallet.wallet,
       messageProvider: holderWallet.messageProvider,
     });
@@ -214,13 +215,22 @@ describe('Credential Distribution', () => {
     expect(receivedPayload.delegationOfferId).toBe(acceptedOffer.id);
     expect(receivedPayload.credentials[0].id).toBe(issuedCredential.id);
 
+    const allCredentials =
+      await holderWallet.credentialProvider.getCredentials();
+
+    // Delegated credential should be added to the credential store
+    expect(allCredentials.some(c => c.id === issuedCredential.id)).toBe(true);
+    // Delegation chain credentials should NOT be added to the credential store
+    expect(allCredentials.some(c => c.id === rootCredential.id)).toBe(false);
+    // Delegation chain documents should be stored in the wallet as separate document
+    const delegationChainDoc = await holderWallet.wallet.getDocumentById(`delegation-chain-${issuedCredential.id}`);
+    expect(delegationChainDoc).toBeDefined();
+    expect(delegationChainDoc.credentials).toEqual(delegationChain);
+
     // Verify the delegated credential was persisted on the holder side.
     const storedCredential = await holderWallet.wallet.getDocumentById(
       issuedCredential.id,
     );
-    expect(storedCredential).toBeDefined();
-    expect(storedCredential.rootCredentialId).toBe(rootCredential.id);
-
 
     // Resolve the full delegation details for the stored credential and verify
     // it carries the capabilities the holder was delegated.

@@ -426,12 +426,11 @@ export const ISSUE_CREDENTIAL_HANDLER = {
       await wallet.addDocument(credential);
     }
 
-    for (const ancestor of delegationChain) {
-      const existing = await wallet.getDocumentById(ancestor.id);
-      if (!existing) {
-        await wallet.addDocument(ancestor);
-      }
-    }
+    await wallet.addDocument({
+      type: 'DelegationChain',
+      id: `delegation-chain-${credentials[0].id}`,
+      credentials: delegationChain,
+    });
 
     await wallet.updateDocument({
       ...storedOffer,
