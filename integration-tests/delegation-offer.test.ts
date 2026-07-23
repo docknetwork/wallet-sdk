@@ -223,9 +223,9 @@ describe('Credential Distribution', () => {
     // Delegation chain credentials should NOT be added to the credential store
     expect(allCredentials.some(c => c.id === rootCredential.id)).toBe(false);
     // Delegation chain documents should be stored in the wallet as separate document
-    const delegationChainDoc = await holderWallet.wallet.getDocumentById(`delegation-chain-${issuedCredential.id}`);
+    const delegationChainDoc = await holderWallet.wallet.getDocumentById(`${issuedCredential.id}#delegationChain`);
     expect(delegationChainDoc).toBeDefined();
-    expect(delegationChainDoc.credentials).toEqual(delegationChain);
+    expect(delegationChainDoc.delegationChain).toEqual(delegationChain);
 
     // Verify the delegated credential was persisted on the holder side.
     const storedCredential = await holderWallet.wallet.getDocumentById(

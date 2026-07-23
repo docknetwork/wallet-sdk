@@ -3,7 +3,7 @@ import {v4 as uuid} from 'uuid';
 import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {getAllDIDs, getDefaultDID} from '../did-provider';
 import {delegateCredential} from './delegation-issuance';
-import {getDelegationChain} from './delegation-chain';
+import {addDelegationChain, getDelegationChain} from './delegation-chain';
 import {getDelegationDetails, getRole} from './delegation-policy';
 import {isDelegatableCredential} from './delegation-utils';
 import {
@@ -382,8 +382,7 @@ export const DELEGATION_REQUEST_HANDLER = {
 export const ISSUE_CREDENTIAL_HANDLER = {
   check: function (message) {
     return (
-      message.type === ISSUE_CREDENTIAL &&
-      message.body?.goal_code === GOAL_CODE
+      message.type === ISSUE_CREDENTIAL && message.body?.goal_code === GOAL_CODE
     );
   },
   handle: async function (message, {wallet, messageProvider}) {
@@ -426,11 +425,13 @@ export const ISSUE_CREDENTIAL_HANDLER = {
       await wallet.addDocument(credential);
     }
 
-    await wallet.addDocument({
-      type: 'DelegationChain',
-      id: `delegation-chain-${credentials[0].id}`,
-      credentials: delegationChain,
-    });
+    const [delegatedCredential] = credentials;
+    const existingChain = await wallet.getDocumentById(
+      `${delegatedCredential.id}#delegationChain`,
+    );
+    if (!existingChain) {
+      await addDelegationChain(delegatedCredential, delegationChain, wallet);
+    }
 
     await wallet.updateDocument({
       ...storedOffer,
