@@ -3,7 +3,7 @@ import {v4 as uuid} from 'uuid';
 import {logger} from '@docknetwork/wallet-sdk-data-store/src/logger';
 import {getAllDIDs, getDefaultDID} from '../did-provider';
 import {delegateCredential} from './delegation-issuance';
-import {getDelegationChain} from './delegation-chain';
+import {addDelegationChain, getDelegationChain} from './delegation-chain';
 import {getDelegationDetails, getRole} from './delegation-policy';
 import {isDelegatableCredential} from './delegation-utils';
 import {
@@ -382,8 +382,7 @@ export const DELEGATION_REQUEST_HANDLER = {
 export const ISSUE_CREDENTIAL_HANDLER = {
   check: function (message) {
     return (
-      message.type === ISSUE_CREDENTIAL &&
-      message.body?.goal_code === GOAL_CODE
+      message.type === ISSUE_CREDENTIAL && message.body?.goal_code === GOAL_CODE
     );
   },
   handle: async function (message, {wallet, messageProvider}) {
@@ -426,11 +425,12 @@ export const ISSUE_CREDENTIAL_HANDLER = {
       await wallet.addDocument(credential);
     }
 
-    for (const ancestor of delegationChain) {
-      const existing = await wallet.getDocumentById(ancestor.id);
-      if (!existing) {
-        await wallet.addDocument(ancestor);
-      }
+    const [delegatedCredential] = credentials;
+    const existingChain = await wallet.getDocumentById(
+      `${delegatedCredential.id}#delegationChain`,
+    );
+    if (!existingChain) {
+      await addDelegationChain(delegatedCredential, delegationChain, wallet);
     }
 
     await wallet.updateDocument({
@@ -462,10 +462,37 @@ export const ISSUE_CREDENTIAL_HANDLER = {
   },
 };
 
+export const DELEGATION_ACK_HANDLER = {
+  check: function (message) {
+    return message.type === ACK && message.body?.goal_code === GOAL_CODE;
+  },
+  handle: async function (message, {wallet}) {
+    const offerId = message.body.delegationOfferId;
+
+    const storedOffer = await wallet.getDocumentById(offerId);
+    if (!storedOffer) {
+      logger.debug(
+        `DELEGATION_ACK_HANDLER: no stored offer found for ${offerId}`,
+      );
+      return;
+    }
+
+    storedOffer.status = 'accepted';
+    storedOffer.updatedAt = new Date().toISOString();
+
+    await wallet.updateDocument(storedOffer);
+
+    logger.debug(
+      `DELEGATION_ACK_HANDLER: delegation offer ${offerId} marked as accepted`,
+    );
+  },
+};
+
 export const messageHandlers = [
   INVITATION_HANDLER,
   DELEGATION_REQUEST_HANDLER,
   ISSUE_CREDENTIAL_HANDLER,
+  DELEGATION_ACK_HANDLER,
 ];
 
 export async function handleMessage(

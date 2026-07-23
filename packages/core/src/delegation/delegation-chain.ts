@@ -10,7 +10,7 @@ export async function getDelegationChain(credential, wallet) {
     ? document.delegationChain
     : [];
 
-  return [credential, ...delegationChain];
+  return [...delegationChain, credential];
 }
 
 export async function addDelegationChain(credential, delegationChain, wallet) {
