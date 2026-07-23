@@ -262,9 +262,8 @@ describe('Credential Distribution', () => {
       ].sort(),
     );
 
-    // Chain starts with the holder's own delegated credential.
-    expect(delegationDetails.delegationChain[0].id).toBe(storedCredential.id);
-    expect(delegationDetails.delegationChain[0].rootCredentialId).toBe(rootCredential.id);
+    expect(delegationDetails.delegationChain[1].id).toBe(storedCredential.id);
+    expect(delegationDetails.delegationChain[1].rootCredentialId).toBe(rootCredential.id);
 
     // Verify the holder's stored offer was advanced to 'accepted'.
     const holderStoredOffer = await holderWallet.wallet.getDocumentById(
@@ -279,5 +278,16 @@ describe('Credential Distribution', () => {
     expect(ackMessage.from).toBe(holderWallet.did);
     expect(ackMessage.body.delegationOfferId).toBe(acceptedOffer.id);
     expect(ackMessage.body.status).toBe('OK');
+
+    await handleMessage(ackMessage, {
+      wallet: issuerWallet.wallet,
+      messageProvider: issuerWallet.messageProvider,
+    });
+
+    const delegationOfferDoc = await issuerWallet.wallet.getDocumentById(
+      acceptedOffer.id,
+    );
+
+    expect(delegationOfferDoc.status).toBe('accepted');
   }, 60_000);
 });

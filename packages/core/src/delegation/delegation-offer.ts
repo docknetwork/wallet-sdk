@@ -462,10 +462,37 @@ export const ISSUE_CREDENTIAL_HANDLER = {
   },
 };
 
+export const DELEGATION_ACK_HANDLER = {
+  check: function (message) {
+    return message.type === ACK && message.body?.goal_code === GOAL_CODE;
+  },
+  handle: async function (message, {wallet}) {
+    const offerId = message.body.delegationOfferId;
+
+    const storedOffer = await wallet.getDocumentById(offerId);
+    if (!storedOffer) {
+      logger.debug(
+        `DELEGATION_ACK_HANDLER: no stored offer found for ${offerId}`,
+      );
+      return;
+    }
+
+    storedOffer.status = 'accepted';
+    storedOffer.updatedAt = new Date().toISOString();
+
+    await wallet.updateDocument(storedOffer);
+
+    logger.debug(
+      `DELEGATION_ACK_HANDLER: delegation offer ${offerId} marked as accepted`,
+    );
+  },
+};
+
 export const messageHandlers = [
   INVITATION_HANDLER,
   DELEGATION_REQUEST_HANDLER,
   ISSUE_CREDENTIAL_HANDLER,
+  DELEGATION_ACK_HANDLER,
 ];
 
 export async function handleMessage(
