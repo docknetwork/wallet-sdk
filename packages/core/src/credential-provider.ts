@@ -112,6 +112,11 @@ export async function isValid({
 
     const {verified, error} = verificationResult;
 
+    const errorMessage =
+      typeof error === 'string'
+        ? error
+        : error?.message || error?.errors?.[0]?.message || error;
+
     if (error) {
       const sdkNotInitialized = error?.errors?.find(err => err?.message === 'SDK is not initialized');
       if (sdkNotInitialized) {
@@ -122,17 +127,17 @@ export async function isValid({
     }
 
     if (!verified) {
-      const errorMessage = (error?.message || error || '').toString().toLowerCase();
-      if (errorMessage.includes('revok')) {
+      const normalizedError = (errorMessage || '').toString().toLowerCase();
+      if (normalizedError.includes('revok')) {
         return {
           status: CredentialStatus.Revoked,
-          error,
+          error: errorMessage,
         };
       }
 
       return {
         status: CredentialStatus.Invalid,
-        error: error,
+        error: errorMessage,
       };
     }
 
