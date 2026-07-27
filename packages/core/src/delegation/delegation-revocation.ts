@@ -78,7 +78,7 @@ async function signRevocationJWT(
 
   const now = Math.floor(Date.now() / 1000);
   const payload = {
-    aud: ctx.apiUrl,
+    aud: ctx.truveraApiConfigs.apiUrl,
     iss: ctx.issuerDID,
     iat: now,
     exp: now + 120,
@@ -101,7 +101,12 @@ async function postRevocation(
   registryId: string,
   body: Record<string, any>,
 ): Promise<any> {
-  assert(!!ctx.truveraApiConfigs, 'truveraApiSponsorKey is required');
+  assert(!!ctx.truveraApiConfigs, 'truveraApiConfigs is required');
+  assert(!!ctx.truveraApiConfigs.apiUrl, 'truveraApiConfigs.apiUrl is required');
+  assert(
+    !!ctx.truveraApiConfigs.authKey,
+    'truveraApiConfigs.authKey is required',
+  );
   const jwt = await signRevocationJWT(ctx, {registryId, ...body});
 
   try {
