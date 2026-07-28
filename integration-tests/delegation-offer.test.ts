@@ -167,6 +167,8 @@ describe('Credential Distribution', () => {
     expect(updatedOffer.type).toContain('DelegationOffer');
     expect(updatedOffer.status).toBe('accepted');
     expect(updatedOffer.holderDID).toBe(holderWallet.did);
+    expect(updatedOffer.revocationData.credentialId).toBeDefined();
+    expect(updatedOffer.revocationData.credentialStatus).toBeDefined();
 
     // Step 4: Holder receive the delegatable credential from the issuer
     const delegationIssuanceMessage =
