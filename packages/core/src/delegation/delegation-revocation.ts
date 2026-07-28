@@ -60,7 +60,7 @@ export interface TruveraApiConfigs {
 export interface RevocationContext {
   wallet: IWallet;
   issuerDID: string; // the did:key that owns the registry / signs the JWT
-  truveraApiConfigs: TruveraApiConfigs;
+  truveraApiConfigs?: TruveraApiConfigs;
 }
 
 /**

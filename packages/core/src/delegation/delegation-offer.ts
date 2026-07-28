@@ -375,7 +375,7 @@ export const DELEGATION_REQUEST_HANDLER = {
       delegatorDID: delegationOffer.issuerDID || issuerDID,
       revocationContext: {
         wallet,
-        truveraApiConfigs: wallet.dataStore.configs.truveraApi,
+        truveraApiConfigs: wallet.dataStore.configs?.truveraApi,
         issuerDID: delegationOffer.issuerDID || issuerDID,
       },
     });
