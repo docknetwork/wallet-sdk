@@ -378,7 +378,8 @@ export const DELEGATION_REQUEST_HANDLER = {
       },
     });
 
-    delegationOffer.credential = delegatedCredential;
+    delegationOffer.credentialStatus = delegatedCredential.credentialStatus;
+    delegationOffer.credentialId = delegatedCredential.id;
 
     await wallet.updateDocument(delegationOffer);
 
