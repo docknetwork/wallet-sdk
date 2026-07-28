@@ -85,7 +85,11 @@ export type DataStoreConfigs = {
   cloudWallet?: {
     edvUrl: string;
     authKey: string;
-  }
+  };
+  truveraApi?: {
+    apiUrl: string;
+    authKey: string;
+  };
 };
 
 export type AnyJSON = any;

@@ -46,6 +46,11 @@ export interface StatusList2021Entry {
   statusListCredential: string;
 }
 
+export interface TruveraApiConfigs {
+  authKey: string;
+  apiUrl: string;
+}
+
 /**
  * Common context for every signed revocation API call.
  *
@@ -55,8 +60,7 @@ export interface StatusList2021Entry {
 export interface RevocationContext {
   wallet: IWallet;
   issuerDID: string; // the did:key that owns the registry / signs the JWT
-  truveraApiSponsorKey: string;
-  apiUrl: string;
+  truveraApiConfigs?: TruveraApiConfigs;
 }
 
 /**
@@ -74,7 +78,7 @@ async function signRevocationJWT(
 
   const now = Math.floor(Date.now() / 1000);
   const payload = {
-    aud: ctx.apiUrl,
+    aud: ctx.truveraApiConfigs.apiUrl,
     iss: ctx.issuerDID,
     iat: now,
     exp: now + 120,
@@ -97,16 +101,21 @@ async function postRevocation(
   registryId: string,
   body: Record<string, any>,
 ): Promise<any> {
-  assert(!!ctx.truveraApiSponsorKey, 'truveraApiSponsorKey is required');
+  assert(!!ctx.truveraApiConfigs, 'truveraApiConfigs is required');
+  assert(!!ctx.truveraApiConfigs.apiUrl, 'truveraApiConfigs.apiUrl is required');
+  assert(
+    !!ctx.truveraApiConfigs.authKey,
+    'truveraApiConfigs.authKey is required',
+  );
   const jwt = await signRevocationJWT(ctx, {registryId, ...body});
 
   try {
     const response = await axios.post(
-      `${ctx.apiUrl}/delegatable-revocations/${registryId}`,
+      `${ctx.truveraApiConfigs.apiUrl}/delegatable-revocations/${registryId}`,
       body,
       {
         headers: {
-          'X-MOBILE-SPONSOR-KEY': ctx.truveraApiSponsorKey,
+          'X-MOBILE-SPONSOR-KEY': ctx.truveraApiConfigs.authKey,
           Authorization: `Bearer ${jwt}`,
           'Content-Type': 'application/json',
         },
