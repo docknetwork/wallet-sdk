@@ -63,6 +63,7 @@ export async function createDataStore({
   const dataStore: DataStore = {
     events: new EventEmitter(),
     db: dataSource,
+    configs: configs,
     networkId: options.defaultNetwork,
     network: options.networks.find(item => item.id === options.defaultNetwork),
     testNetworkId: options.testNetworkId,

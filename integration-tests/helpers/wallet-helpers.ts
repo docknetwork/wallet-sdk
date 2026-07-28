@@ -43,11 +43,18 @@ type FullWalletClient = {
   messageProvider: IMessageProvider;
 }
 
+const SPONSOR_KEY = process.env.TRUVERA_API_SPONSOR_KEY;
+const API_URL = process.env.DELEGATION_REVOCATION_API_URL;
+
 export async function createFullWalletClient(): Promise<FullWalletClient> {
   const dataStore = await createDataStore({
     databasePath: ':memory:',
     dbType: 'sqlite',
     defaultNetwork: 'testnet',
+    truveraApi: {
+      authKey: SPONSOR_KEY,
+      apiUrl: API_URL,
+    }
   });
   const wallet = await createWallet({
     dataStore,
