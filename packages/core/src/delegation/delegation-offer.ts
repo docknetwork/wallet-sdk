@@ -363,6 +363,8 @@ export const DELEGATION_REQUEST_HANDLER = {
     delegationOffer.holderDID = holderDID;
     delegationOffer.updatedAt = new Date().toISOString();
 
+    await wallet.updateDocument(delegationOffer);
+
     const issuerDID = pickDID(message.to);
 
     const delegatedCredential = await delegateCredential({
@@ -378,6 +380,7 @@ export const DELEGATION_REQUEST_HANDLER = {
       },
     });
 
+    // Persist revocation data on the delegation offer so the issuer can update it when revoking.
     delegationOffer.credentialStatus = delegatedCredential.credentialStatus;
     delegationOffer.credentialId = delegatedCredential.id;
 
