@@ -2,7 +2,7 @@
  * This code is based on the implementation from truvera api
  * https://github.com/docknetwork/web/blob/3c706c5dc5de4ae63f548c76ec6edeb17533a0c9/apps/api/src/utils/key-manager.js
  */
-import {Ed25519Keypair, Secp256r1Keypair} from '@docknetwork/credential-sdk/keypairs';
+import {Ed25519Keypair} from '@docknetwork/credential-sdk/keypairs';
 import {hexToU8a, u8aToHex, u8aToU8a} from '@docknetwork/credential-sdk/utils';
 import {EcdsaSecp256r1VerKeyName} from '@docknetwork/credential-sdk/vc/crypto';
 // import {encodeBase58} from './dock-shared';

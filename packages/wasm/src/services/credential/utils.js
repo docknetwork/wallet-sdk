@@ -10,7 +10,10 @@ import {X25519KeyAgreementKey2019} from '@digitalbazaar/x25519-key-agreement-key
 import {Ed25519VerificationKey2018} from '@digitalbazaar/ed25519-verification-key-2018';
 import {Ed25519VerificationKey2020} from '@digitalbazaar/ed25519-verification-key-2020';
 
-import {Ed25519Keypair, Secp256r1Keypair} from '@docknetwork/credential-sdk/keypairs';
+import {
+  Ed25519Keypair,
+  Secp256r1Keypair,
+} from '@docknetwork/credential-sdk/keypairs';
 import {EcdsaSecp256r1VerKeyName} from '@docknetwork/credential-sdk/vc/crypto';
 
 export async function keyDocToKeypair(keyDoc) {

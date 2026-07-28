@@ -2,7 +2,9 @@ const bs58 = require('base58-universal');
 const {Secp256r1Keypair} = require('@docknetwork/credential-sdk/keypairs');
 const {createWallet} = require('./wallet');
 const {createDIDProvider} = require('./did-provider');
-const {createDataStore} = require('@docknetwork/wallet-sdk-data-store-typeorm/src');
+const {
+  createDataStore,
+} = require('@docknetwork/wallet-sdk-data-store-typeorm/src');
 
 describe('DID Provider - createSigningKey / signWithKeyId', () => {
   let wallet;
@@ -39,7 +41,11 @@ describe('DID Provider - createSigningKey / signWithKeyId', () => {
 
     // A signature over different data must not verify.
     expect(
-      Secp256r1Keypair.verify(new Uint8Array([9, 9, 9]), signature, publicKeyBytes),
+      Secp256r1Keypair.verify(
+        new Uint8Array([9, 9, 9]),
+        signature,
+        publicKeyBytes,
+      ),
     ).toBe(false);
   });
 
