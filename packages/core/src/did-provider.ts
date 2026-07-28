@@ -210,6 +210,57 @@ export async function getDIDKeyPairs({wallet}) {
 }
 
 
+// Minimal DID Core syntax check (did:<method-name>:<method-specific-id>).
+// Not a full resolver-level validation, just enough to reject obviously
+// malformed input before it's stored as a key document's controller.
+const DID_SYNTAX = /^did:[a-z0-9]+:.+$/;
+
+/**
+ * Internal function to create and store a bare signing key document
+ * attached to an existing DID, without minting a new did:key document.
+ * Defaults to secp256r1 (P-256/ES256) since that's the first consumer
+ * (AP2 mandate `cnf`/holder-binding keys), but mirrors `createDIDKey`'s
+ * `type` param so other key types `generateKeyDoc` supports can reuse it.
+ * @private
+ */
+export async function createSigningKey({wallet, controller, name, type = 'secp256r1'}) {
+  assert(!!wallet, 'wallet is required');
+  assert(
+    typeof controller === 'string' && DID_SYNTAX.test(controller),
+    `controller must be a valid DID (did:<method>:<id>), got: ${controller}`,
+  );
+
+  const generatedKeyDoc = await didServiceRPC.generateKeyDoc({type, controller});
+  const keyDoc = name ? {...generatedKeyDoc, name} : generatedKeyDoc;
+
+  await wallet.addDocument(keyDoc);
+  return keyDoc;
+}
+
+/**
+ * Internal function to sign arbitrary bytes with a previously-stored
+ * signing key document.
+ * @private
+ */
+export async function signWithKeyId({wallet, keyId, data}) {
+  assert(!!wallet, 'wallet is required');
+  assert(!!keyId, 'keyId is required');
+
+  const keyDoc = await wallet.getDocumentById(keyId);
+  if (!keyDoc) {
+    throw new Error(`No stored key document found for keyId: ${keyId}`);
+  }
+
+  // Cross the wasm JSON-RPC boundary (e.g. the RN WebView bridge) as a
+  // plain array in both directions: JSON-stringifying a Uint8Array turns
+  // it into an indexed object, not an array, and it loses its `.length`.
+  const signature = await didServiceRPC.signWithKeyDoc({
+    privateKeyDoc: keyDoc,
+    data: Array.from(data),
+  });
+  return Uint8Array.from(signature);
+}
+
 export async function ensureDID({wallet}) {
   assert(!!wallet, 'wallet is required');
   const dids = await getAllDIDs({wallet});
@@ -375,6 +426,40 @@ export function createDIDProvider({wallet}): IDIDProvider {
      */
     async getDefaultDID() {
       return getDefaultDID({wallet});
+    },
+    /**
+     * Creates and stores a bare signing key document attached to an
+     * existing DID, without minting a new did:key document.
+     * @memberof IDIDProvider
+     * @param {Object} params - Creation parameters
+     * @param {string} params.controller - The DID this key is attached to
+     * @param {string} [params.name] - Optional label for the stored document
+     * @param {string} [params.type] - Key type to generate (default 'secp256r1')
+     * @returns {Promise<any>} The stored key document
+     * @example
+     * const keyDoc = await didProvider.createSigningKey({
+     *   controller: 'did:key:z6Mk...',
+     * });
+     */
+    async createSigningKey(params) {
+      return createSigningKey({wallet, ...params});
+    },
+    /**
+     * Signs arbitrary bytes with a previously-stored signing key document
+     * and returns the raw signature bytes.
+     * @memberof IDIDProvider
+     * @param {Object} params - Signing parameters
+     * @param {string} params.keyId - The id of the stored key document
+     * @param {Uint8Array} params.data - The bytes to sign
+     * @returns {Promise<Uint8Array>} The raw signature bytes
+     * @example
+     * const signature = await didProvider.signWithKeyId({
+     *   keyId: keyDoc.id,
+     *   data: signingInputBytes,
+     * });
+     */
+    async signWithKeyId(params) {
+      return signWithKeyId({wallet, ...params});
     }
   };
 
