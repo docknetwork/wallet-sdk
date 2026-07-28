@@ -251,7 +251,14 @@ export async function signWithKeyId({wallet, keyId, data}) {
     throw new Error(`No stored key document found for keyId: ${keyId}`);
   }
 
-  return didServiceRPC.signWithKeyDoc({privateKeyDoc: keyDoc, data});
+  // Cross the wasm JSON-RPC boundary (e.g. the RN WebView bridge) as a
+  // plain array in both directions: JSON-stringifying a Uint8Array turns
+  // it into an indexed object, not an array, and it loses its `.length`.
+  const signature = await didServiceRPC.signWithKeyDoc({
+    privateKeyDoc: keyDoc,
+    data: Array.from(data),
+  });
+  return Uint8Array.from(signature);
 }
 
 export async function ensureDID({wallet}) {

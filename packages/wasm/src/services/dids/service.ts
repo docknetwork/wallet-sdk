@@ -126,8 +126,12 @@ class DIDService {
    */
   async signWithKeyDoc({data, privateKeyDoc}) {
     const keypair = privateKeyDoc.keypair || (await keyDocToKeypair(privateKeyDoc));
-    const message = data instanceof Uint8Array ? data : new Uint8Array(data);
-    return new Uint8Array(keypair.sign(message).bytes);
+    const message = data instanceof Uint8Array ? data : Uint8Array.from(data);
+    const signature = keypair.sign(message);
+    // Return a plain array: this crosses a JSON-RPC boundary (e.g. the RN
+    // WebView bridge), which JSON-stringifies params/results and would
+    // otherwise turn a Uint8Array into an indexed object, losing its shape.
+    return Array.from(signature.bytes ?? signature);
   }
 }
 

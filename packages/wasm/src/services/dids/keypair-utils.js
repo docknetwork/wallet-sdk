@@ -39,6 +39,8 @@ export function encodeMbKey(header, key) {
 function getKeyFingerprint(keyType, publicKey) {
   if (keyType.startsWith('Ed25519')) {
     return encodeMbKey(MULTICODEC_ED25519_PUB_HEADER, publicKey);
+  } else if (keyType === EcdsaSecp256r1VerKeyName) {
+    return encodeMbKey(MULTICODEC_P256_PUB_HEADER, publicKey);
   } else {
     throw new Error(`Cannot detect key type for fingerprint: ${keyType}`);
   }
@@ -122,7 +124,8 @@ export function keypairToKeydoc(key, controller, id = undefined) {
     const publicKeyBase58 = bs58.encode(publicKey);
     const privateKeyBase58 = bs58.encode(pk);
 
-    const keyId = id || key.id || `${controller}#secp256r1-1`;
+    const fingerprint = getKeyFingerprint(keyType, publicKey);
+    const keyId = id || key.id || `${controller}#${fingerprint}`;
     keyDoc = {
       controller,
       type: keyType,
