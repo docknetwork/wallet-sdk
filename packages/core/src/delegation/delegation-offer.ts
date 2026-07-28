@@ -363,8 +363,6 @@ export const DELEGATION_REQUEST_HANDLER = {
     delegationOffer.holderDID = holderDID;
     delegationOffer.updatedAt = new Date().toISOString();
 
-    await wallet.updateDocument(delegationOffer);
-
     const issuerDID = pickDID(message.to);
 
     const delegatedCredential = await delegateCredential({
@@ -379,6 +377,10 @@ export const DELEGATION_REQUEST_HANDLER = {
         issuerDID: delegationOffer.issuerDID || issuerDID,
       },
     });
+
+    delegationOffer.credential = delegatedCredential;
+
+    await wallet.updateDocument(delegationOffer);
 
     const delegationChain = await getDelegationChain(parentCredential, wallet);
 
