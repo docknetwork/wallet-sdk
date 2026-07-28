@@ -87,13 +87,20 @@ export async function createDelegationOffer({
         isDelegatableCredential(parentCredential),
         `Credential ${credentialId} is not delegatable`,
       );
-      const parentDetails = await getDelegationDetails(parentCredential, wallet);
+      const parentDetails = await getDelegationDetails(
+        parentCredential,
+        wallet,
+      );
       if (parentDetails.delegationPolicy) {
-        assertPolicyConformsToParent(delegationPolicy, parentDetails.delegationPolicy, {
-          delegationRole,
-          remainingDepth: parentDetails.remainingDelegationDepth,
-          parentRoleId: parentDetails.role?.roleId,
-        });
+        assertPolicyConformsToParent(
+          delegationPolicy,
+          parentDetails.delegationPolicy,
+          {
+            delegationRole,
+            remainingDepth: parentDetails.remainingDelegationDepth,
+            parentRoleId: parentDetails.role?.roleId,
+          },
+        );
       }
     }
   }
@@ -149,8 +156,10 @@ export function createOOBInvitation(
     issuerDID: issuerDID,
     issuerName: finalIssuerName,
     role: delegationOffer.delegationRole,
-    roleLabel: getRole(delegationOffer.delegationRole, delegationOffer.delegationPolicy)
-      ?.label,
+    roleLabel: getRole(
+      delegationOffer.delegationRole,
+      delegationOffer.delegationPolicy,
+    )?.label,
     createdAt: delegationOffer.sentAt,
     expiresAt: delegationOffer.expiresAt,
   };
@@ -325,7 +334,10 @@ export const DELEGATION_REQUEST_HANDLER = {
     try {
       validateDelegationPolicy(delegationOffer.delegationPolicy);
       if (parentCredential && isDelegatableCredential(parentCredential)) {
-        const parentDetails = await getDelegationDetails(parentCredential, wallet);
+        const parentDetails = await getDelegationDetails(
+          parentCredential,
+          wallet,
+        );
         if (parentDetails.delegationPolicy) {
           assertPolicyConformsToParent(
             delegationOffer.delegationPolicy,
@@ -361,6 +373,11 @@ export const DELEGATION_REQUEST_HANDLER = {
       delegationPolicy: delegationOffer.delegationPolicy,
       delegationRoleId: delegationOffer.delegationRole,
       delegatorDID: delegationOffer.issuerDID || issuerDID,
+      revocationContext: {
+        wallet,
+        truveraApiConfigs: wallet.dataStore.configs?.truveraApi,
+        issuerDID: delegationOffer.issuerDID || issuerDID,
+      },
     });
 
     const delegationChain = await getDelegationChain(parentCredential, wallet);
@@ -498,8 +515,8 @@ export const messageHandlers = [
 export async function handleMessage(
   message,
   context: {
-    wallet;
-    messageProvider;
+    wallet: any;
+    messageProvider: any;
   },
 ) {
   const decoded = decodeMessage(message);
