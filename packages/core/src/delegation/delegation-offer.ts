@@ -380,6 +380,14 @@ export const DELEGATION_REQUEST_HANDLER = {
       },
     });
 
+    // Persist revocation data on the delegation offer so the issuer can update it when revoking.
+    delegationOffer.revocationData = {
+      credentialStatus: delegatedCredential.credentialStatus,
+      credentialId: delegatedCredential.id,
+    };
+
+    await wallet.updateDocument(delegationOffer);
+
     const delegationChain = await getDelegationChain(parentCredential, wallet);
 
     await messageProvider.sendMessage({
