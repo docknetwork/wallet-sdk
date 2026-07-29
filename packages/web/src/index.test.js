@@ -75,7 +75,10 @@ jest.mock('@docknetwork/wallet-sdk-core/src/did-provider', () => ({
 jest.mock('@docknetwork/wallet-sdk-core/src/message-provider', () => ({
   createMessageProvider: jest.fn().mockImplementation(() => {
     mockCallOrder.push('createMessageProvider');
-    return {mockMessageProvider: true};
+    return {
+      mockMessageProvider: true,
+      addMessageListener: jest.fn().mockReturnValue(() => {}),
+    };
   }),
 }));
 
@@ -86,6 +89,36 @@ jest.mock('@docknetwork/wallet-sdk-core/src/verification-controller', () => ({
 jest.mock('@docknetwork/wallet-sdk-wasm/src/services/blockchain', () => ({
   blockchainService: {ensureBlockchainReady: jest.fn()},
 }));
+
+jest.mock(
+  '@docknetwork/wallet-sdk-core/src/delegation/delegation-offer',
+  () => ({
+    createDelegationOffer: jest.fn().mockResolvedValue({id: 'offer-1'}),
+    createOOBInvitation: jest.fn(),
+    acceptDelegationOffer: jest.fn().mockResolvedValue(undefined),
+    handleMessage: jest.fn().mockResolvedValue(undefined),
+    decodeMessage: jest.fn(),
+  }),
+);
+jest.mock(
+  '@docknetwork/wallet-sdk-core/src/delegation/delegation-issuance',
+  () => ({issueCredential: jest.fn(), delegateCredential: jest.fn()}),
+);
+jest.mock(
+  '@docknetwork/wallet-sdk-core/src/delegation/delegation-policy',
+  () => ({getDelegationDetails: jest.fn().mockResolvedValue({role: {}})}),
+);
+jest.mock('@docknetwork/wallet-sdk-core/src/delegation/delegation-chain', () => ({
+  getDelegationChain: jest.fn(),
+}));
+jest.mock(
+  '@docknetwork/wallet-sdk-core/src/delegation/delegation-revocation',
+  () => ({
+    revokeDelegatableCredential: jest.fn(),
+    unrevokeDelegatableCredential: jest.fn(),
+    isDelegatableCredentialRevoked: jest.fn(),
+  }),
+);
 
 const {
   initializeCloudWallet,
@@ -387,6 +420,78 @@ describe('WalletSDK initialize', () => {
         expect.any(String),
         'My App',
         'example.com',
+      );
+    });
+  });
+
+  describe('delegation', () => {
+    const {
+      createDelegationOffer,
+      acceptDelegationOffer,
+      handleMessage,
+    } = require('@docknetwork/wallet-sdk-core/src/delegation/delegation-offer');
+    const {
+      getDelegationDetails,
+    } = require('@docknetwork/wallet-sdk-core/src/delegation/delegation-policy');
+    const config = {
+      edvUrl: 'https://edv.example.com',
+      edvAuthKey: 'auth-key',
+      masterKey: new Uint8Array([1, 2, 3]),
+      networkId: 'testnet',
+    };
+
+    it('re-exports delegation functions', () => {
+      [
+        'createDelegationOffer',
+        'createOOBInvitation',
+        'acceptDelegationOffer',
+        'handleMessage',
+        'decodeMessage',
+        'issueCredential',
+        'delegateCredential',
+        'getDelegationDetails',
+        'getDelegationChain',
+        'revokeDelegatableCredential',
+        'unrevokeDelegatableCredential',
+        'isDelegatableCredentialRevoked',
+      ].forEach(name => expect(typeof WalletSDK[name]).toBe('function'));
+    });
+
+    it('enableDelegation registers a message listener that routes to handleMessage', async () => {
+      const wallet = await WalletSDK.initialize(config);
+      const stop = wallet.enableDelegation();
+
+      expect(wallet.messageProvider.addMessageListener).toHaveBeenCalledTimes(1);
+      // Invoke the registered listener and confirm it delegates to handleMessage.
+      const listener =
+        wallet.messageProvider.addMessageListener.mock.calls[0][0];
+      await listener('some-oob-url');
+      expect(handleMessage).toHaveBeenCalledWith('some-oob-url', {
+        wallet: wallet.wallet,
+        messageProvider: wallet.messageProvider,
+      });
+      expect(typeof stop).toBe('function');
+    });
+
+    it('binds wallet/messageProvider to the delegation methods', async () => {
+      const wallet = await WalletSDK.initialize(config);
+
+      await wallet.createDelegationOffer({issuerDID: 'did:x', delegationRole: 'r'});
+      expect(createDelegationOffer).toHaveBeenCalledWith(
+        expect.objectContaining({wallet: wallet.wallet, issuerDID: 'did:x'}),
+      );
+
+      await wallet.acceptDelegationOffer({id: 'offer-1'});
+      expect(acceptDelegationOffer).toHaveBeenCalledWith({
+        delegationOffer: {id: 'offer-1'},
+        wallet: wallet.wallet,
+        messageProvider: wallet.messageProvider,
+      });
+
+      await wallet.getDelegationDetails({id: 'cred-1'});
+      expect(getDelegationDetails).toHaveBeenCalledWith(
+        {id: 'cred-1'},
+        wallet.wallet,
       );
     });
   });
