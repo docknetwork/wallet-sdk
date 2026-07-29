@@ -28,6 +28,24 @@ import {createCredentialProvider} from '@docknetwork/wallet-sdk-core/src/credent
 import {createDIDProvider} from '@docknetwork/wallet-sdk-core/src/did-provider';
 import {createMessageProvider} from '@docknetwork/wallet-sdk-core/src/message-provider';
 import {createVerificationController} from '@docknetwork/wallet-sdk-core/src/verification-controller';
+import {
+  createDelegationOffer,
+  createOOBInvitation,
+  acceptDelegationOffer,
+  handleMessage,
+  decodeMessage,
+} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-offer';
+import {
+  issueCredential,
+  delegateCredential,
+} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-issuance';
+import {getDelegationDetails} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-policy';
+import {getDelegationChain} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-chain';
+import {
+  revokeDelegatableCredential,
+  unrevokeDelegatableCredential,
+  isDelegatableCredentialRevoked,
+} from '@docknetwork/wallet-sdk-core/src/delegation/delegation-revocation';
 import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
 import {
   checkPasskeySupport,
@@ -637,6 +655,112 @@ async function initialize({
         },
       };
     },
+
+    /**
+     * Routes incoming DIDComm delegation messages (offers, credential
+     * requests, issuance, acks) to the delegation handlers automatically.
+     *
+     * Without this, delegation messages must be dispatched manually via
+     * `handleMessage`. Call once after initialization to participate in
+     * delegation flows as issuer and/or holder.
+     *
+     * Pass optional callbacks to react in the UI without reaching into the
+     * core wallet's event manager:
+     * - `onOfferReceived(offer)` — a delegation offer arrived (accept it with
+     *   `acceptDelegationOffer(offer)`)
+     * - `onCredentialReceived(payload)` — a delegated credential was issued
+     *   and stored
+     *
+     * @param {Object} [handlers]
+     * @param {Function} [handlers.onOfferReceived]
+     * @param {Function} [handlers.onCredentialReceived]
+     * @returns {Function} Unsubscribe function that stops routing and removes
+     *   the event listeners.
+     *
+     * @example
+     * const stop = wallet.enableDelegation({
+     *   onOfferReceived: offer => wallet.acceptDelegationOffer(offer),
+     *   onCredentialReceived: ({credentials}) => refreshUI(credentials),
+     * });
+     */
+    enableDelegation: ({onOfferReceived, onCredentialReceived} = {}) => {
+      const removeMessageListener = messageProvider.addMessageListener(
+        message => handleMessage(message, {wallet, messageProvider}),
+      );
+
+      const subscriptions = [];
+      if (onOfferReceived) {
+        wallet.eventManager.addListener(
+          'delegationOfferReceived',
+          onOfferReceived,
+        );
+        subscriptions.push(['delegationOfferReceived', onOfferReceived]);
+      }
+      if (onCredentialReceived) {
+        wallet.eventManager.addListener(
+          'delegatedCredentialReceived',
+          onCredentialReceived,
+        );
+        subscriptions.push([
+          'delegatedCredentialReceived',
+          onCredentialReceived,
+        ]);
+      }
+
+      return () => {
+        removeMessageListener();
+        subscriptions.forEach(([event, handler]) =>
+          wallet.eventManager.removeListener(event, handler),
+        );
+      };
+    },
+
+    /**
+     * Creates a delegation offer for a role and persists it on the wallet.
+     * Pass the returned offer to `createOOBInvitation` to produce a shareable
+     * URL. Works for both root issuance (no `credentialId`) and re-delegation
+     * (pass the delegatable credential's `credentialId`).
+     *
+     * @async
+     * @param {Object} params - see core createDelegationOffer; `wallet` is bound automatically
+     * @returns {Promise<Object>} The delegation offer
+     */
+    createDelegationOffer: (params = {}) =>
+      createDelegationOffer({wallet, ...params}),
+
+    /**
+     * Accepts a received delegation offer, sending a credential request back
+     * to the issuer.
+     *
+     * @async
+     * @param {Object} delegationOffer - The offer from a `delegationOfferReceived` event
+     * @returns {Promise<void>}
+     */
+    acceptDelegationOffer: delegationOffer =>
+      acceptDelegationOffer({delegationOffer, wallet, messageProvider}),
+
+    /**
+     * Resolves the full delegation details for a stored delegatable credential:
+     * policy, role, remaining delegation depth, chain, and the roles the holder
+     * may re-delegate to.
+     *
+     * @async
+     * @param {Object} credential - A stored delegatable credential
+     * @returns {Promise<Object>} Delegation details
+     */
+    getDelegationDetails: credential =>
+      getDelegationDetails(credential, wallet),
+
+    /**
+     * Manually dispatch a DIDComm delegation message (e.g. an OOB invitation
+     * URL scanned from a QR code) to the delegation handlers. Prefer
+     * `enableDelegation()` for automatic routing of relayed messages.
+     *
+     * @async
+     * @param {string|Object} message - OOB URL string or DIDComm message object
+     * @returns {Promise<void>}
+     */
+    handleMessage: message => handleMessage(message, {wallet, messageProvider}),
   };
 
   if (passkeyMnemonic) {
@@ -735,6 +859,18 @@ export {
   enrollUserWithPasskey,
   authenticateWithPasskey,
   initializeCloudWalletWithPasskey,
+  createDelegationOffer,
+  createOOBInvitation,
+  acceptDelegationOffer,
+  handleMessage,
+  decodeMessage,
+  issueCredential,
+  delegateCredential,
+  getDelegationDetails,
+  getDelegationChain,
+  revokeDelegatableCredential,
+  unrevokeDelegatableCredential,
+  isDelegatableCredentialRevoked,
 };
 
 export default {
@@ -759,4 +895,16 @@ export default {
   enrollUserWithPasskey,
   authenticateWithPasskey,
   initializeCloudWalletWithPasskey,
+  createDelegationOffer,
+  createOOBInvitation,
+  acceptDelegationOffer,
+  handleMessage,
+  decodeMessage,
+  issueCredential,
+  delegateCredential,
+  getDelegationDetails,
+  getDelegationChain,
+  revokeDelegatableCredential,
+  unrevokeDelegatableCredential,
+  isDelegatableCredentialRevoked,
 };
