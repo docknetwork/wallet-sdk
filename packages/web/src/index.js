@@ -662,23 +662,58 @@ async function initialize({
      *
      * Without this, delegation messages must be dispatched manually via
      * `handleMessage`. Call once after initialization to participate in
-     * delegation flows as issuer and/or holder. Listen for the
-     * `delegationOfferReceived` and `delegatedCredentialReceived` events on
-     * `wallet.wallet.eventManager` to react in the UI.
+     * delegation flows as issuer and/or holder.
      *
-     * @returns {Function} Unsubscribe function that stops routing.
+     * Pass optional callbacks to react in the UI without reaching into the
+     * core wallet's event manager:
+     * - `onOfferReceived(offer)` — a delegation offer arrived (accept it with
+     *   `acceptDelegationOffer(offer)`)
+     * - `onCredentialReceived(payload)` — a delegated credential was issued
+     *   and stored
+     *
+     * @param {Object} [handlers]
+     * @param {Function} [handlers.onOfferReceived]
+     * @param {Function} [handlers.onCredentialReceived]
+     * @returns {Function} Unsubscribe function that stops routing and removes
+     *   the event listeners.
      *
      * @example
-     * const stop = wallet.enableDelegation();
-     * wallet.wallet.eventManager.addListener('delegationOfferReceived', offer => {
-     *   // prompt the user, then accept
-     *   wallet.acceptDelegationOffer(offer);
+     * const stop = wallet.enableDelegation({
+     *   onOfferReceived: offer => wallet.acceptDelegationOffer(offer),
+     *   onCredentialReceived: ({credentials}) => refreshUI(credentials),
      * });
      */
-    enableDelegation: () =>
-      messageProvider.addMessageListener(message =>
-        handleMessage(message, {wallet, messageProvider}),
-      ),
+    enableDelegation: ({onOfferReceived, onCredentialReceived} = {}) => {
+      const removeMessageListener = messageProvider.addMessageListener(
+        message => handleMessage(message, {wallet, messageProvider}),
+      );
+
+      const subscriptions = [];
+      if (onOfferReceived) {
+        wallet.eventManager.addListener(
+          'delegationOfferReceived',
+          onOfferReceived,
+        );
+        subscriptions.push(['delegationOfferReceived', onOfferReceived]);
+      }
+      if (onCredentialReceived) {
+        wallet.eventManager.addListener(
+          'delegatedCredentialReceived',
+          onCredentialReceived,
+        );
+        subscriptions.push([
+          'delegatedCredentialReceived',
+          onCredentialReceived,
+        ]);
+      }
+
+      return () => {
+        removeMessageListener();
+        subscriptions.forEach(([event, handler]) =>
+          wallet.eventManager.removeListener(event, handler),
+        );
+      };
+    },
 
     /**
      * Creates a delegation offer for a role and persists it on the wallet.
@@ -725,8 +760,7 @@ async function initialize({
      * @param {string|Object} message - OOB URL string or DIDComm message object
      * @returns {Promise<void>}
      */
-    handleMessage: message =>
-      handleMessage(message, {wallet, messageProvider}),
+    handleMessage: message => handleMessage(message, {wallet, messageProvider}),
   };
 
   if (passkeyMnemonic) {

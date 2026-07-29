@@ -54,7 +54,10 @@ jest.mock('./passkey', () => ({
 jest.mock('@docknetwork/wallet-sdk-core/src/wallet', () => ({
   createWallet: jest.fn().mockImplementation(async () => {
     mockCallOrder.push('createWallet');
-    return {mockWallet: true};
+    return {
+      mockWallet: true,
+      eventManager: {addListener: jest.fn(), removeListener: jest.fn()},
+    };
   }),
 }));
 
@@ -108,9 +111,12 @@ jest.mock(
   '@docknetwork/wallet-sdk-core/src/delegation/delegation-policy',
   () => ({getDelegationDetails: jest.fn().mockResolvedValue({role: {}})}),
 );
-jest.mock('@docknetwork/wallet-sdk-core/src/delegation/delegation-chain', () => ({
-  getDelegationChain: jest.fn(),
-}));
+jest.mock(
+  '@docknetwork/wallet-sdk-core/src/delegation/delegation-chain',
+  () => ({
+    getDelegationChain: jest.fn(),
+  }),
+);
 jest.mock(
   '@docknetwork/wallet-sdk-core/src/delegation/delegation-revocation',
   () => ({
@@ -461,7 +467,9 @@ describe('WalletSDK initialize', () => {
       const wallet = await WalletSDK.initialize(config);
       const stop = wallet.enableDelegation();
 
-      expect(wallet.messageProvider.addMessageListener).toHaveBeenCalledTimes(1);
+      expect(wallet.messageProvider.addMessageListener).toHaveBeenCalledTimes(
+        1,
+      );
       // Invoke the registered listener and confirm it delegates to handleMessage.
       const listener =
         wallet.messageProvider.addMessageListener.mock.calls[0][0];
@@ -473,10 +481,50 @@ describe('WalletSDK initialize', () => {
       expect(typeof stop).toBe('function');
     });
 
+    it('enableDelegation subscribes callbacks to wallet events and unsubscribes on stop', async () => {
+      const wallet = await WalletSDK.initialize(config);
+      const onOfferReceived = jest.fn();
+      const onCredentialReceived = jest.fn();
+
+      const removeMessageListener = jest.fn();
+      wallet.messageProvider.addMessageListener.mockReturnValueOnce(
+        removeMessageListener,
+      );
+
+      const stop = wallet.enableDelegation({
+        onOfferReceived,
+        onCredentialReceived,
+      });
+
+      expect(wallet.wallet.eventManager.addListener).toHaveBeenCalledWith(
+        'delegationOfferReceived',
+        onOfferReceived,
+      );
+      expect(wallet.wallet.eventManager.addListener).toHaveBeenCalledWith(
+        'delegatedCredentialReceived',
+        onCredentialReceived,
+      );
+
+      stop();
+
+      expect(removeMessageListener).toHaveBeenCalledTimes(1);
+      expect(wallet.wallet.eventManager.removeListener).toHaveBeenCalledWith(
+        'delegationOfferReceived',
+        onOfferReceived,
+      );
+      expect(wallet.wallet.eventManager.removeListener).toHaveBeenCalledWith(
+        'delegatedCredentialReceived',
+        onCredentialReceived,
+      );
+    });
+
     it('binds wallet/messageProvider to the delegation methods', async () => {
       const wallet = await WalletSDK.initialize(config);
 
-      await wallet.createDelegationOffer({issuerDID: 'did:x', delegationRole: 'r'});
+      await wallet.createDelegationOffer({
+        issuerDID: 'did:x',
+        delegationRole: 'r',
+      });
       expect(createDelegationOffer).toHaveBeenCalledWith(
         expect.objectContaining({wallet: wallet.wallet, issuerDID: 'did:x'}),
       );
