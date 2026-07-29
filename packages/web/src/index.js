@@ -664,7 +664,7 @@ async function initialize({
      * `handleMessage`. Call once after initialization to participate in
      * delegation flows as issuer and/or holder. Listen for the
      * `delegationOfferReceived` and `delegatedCredentialReceived` events on
-     * `wallet.eventManager` to react in the UI.
+     * `wallet.wallet.eventManager` to react in the UI.
      *
      * @returns {Function} Unsubscribe function that stops routing.
      *
@@ -690,7 +690,7 @@ async function initialize({
      * @param {Object} params - see core createDelegationOffer; `wallet` is bound automatically
      * @returns {Promise<Object>} The delegation offer
      */
-    createDelegationOffer: params =>
+    createDelegationOffer: (params = {}) =>
       createDelegationOffer({wallet, ...params}),
 
     /**
