@@ -1,6 +1,6 @@
 {
   "name": "@docknetwork/wallet-sdk-data-store-typeorm",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -17,7 +17,7 @@
     "typeorm": "^0.3.15"
   },
   "dependencies": {
-    "@docknetwork/wallet-sdk-wasm": "1.9.1",
+    "@docknetwork/wallet-sdk-wasm": "^1.9.2",
     "async-mutex": "^0.5.0",
     "uuid": "^8.3.2"
   },
