@@ -49,7 +49,12 @@ import {getIsRevoked, getWitnessDetails, prefetchWitnessCache} from './bbs-revoc
 import {getPexRequiredAttributes, shouldSkipAttribute, findMatchingDescriptor} from './pex-helpers';
 import {didService} from '../dids/service';
 import {isSDJWTCredential as checkIsSDJWT, credentialToW3C as convertCredentialToW3C, verifySDJWT, createSDJWTPresentation} from './sd-jwt';
-import {resolveOfferedCredentialConfig, resolveFormatAndType} from './oid4vci';
+import {
+  resolveOfferedCredentialConfig,
+  resolveFormatAndType,
+  enforceOfferUriHttps,
+  enforceIssuerHttps,
+} from './oid4vci';
 
 
 export const credentialUtils = {...credentialSdkVc};
@@ -536,11 +541,15 @@ class CredentialService {
     uri,
     authorizationCode,
     holderKeyDocument,
+    allowInsecureHttpRequests,
   }: {
     uri: string;
     authorizationCode?: string;
     holderKeyDocument: any;
+    allowInsecureHttpRequests?: boolean;
   }): Promise<any> {
+    enforceOfferUriHttps(uri, allowInsecureHttpRequests);
+
     const searchParams = new URL(uri).searchParams;
     const params = new URLSearchParams(searchParams);
 
@@ -554,6 +563,8 @@ class CredentialService {
         scope: []
       },
     });
+
+    enforceIssuerHttps(client, allowInsecureHttpRequests);
 
     const config = resolveOfferedCredentialConfig(client);
     const {format, credentialTypes} = resolveFormatAndType(config);

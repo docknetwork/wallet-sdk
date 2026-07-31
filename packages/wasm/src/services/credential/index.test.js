@@ -491,6 +491,11 @@ describe('Credential Service', () => {
         getCredentialsSupported: jest
           .fn()
           .mockReturnValue([{scope: 'ldp_vc:MyCredential'}]),
+        getIssuer: jest
+          .fn()
+          .mockReturnValue(
+            'https://api-testnet.truvera.io/openid/issuers/7eff516f-69fb-4b9d-94dc-e88308ec0c4c',
+          ),
       };
 
       jest
@@ -526,6 +531,11 @@ describe('Credential Service', () => {
         getCredentialsSupported: jest
           .fn()
           .mockReturnValue([{scope: 'ldp_vc:MyCredential'}]),
+        getIssuer: jest
+          .fn()
+          .mockReturnValue(
+            'https://api.truvera.io/openid/issuers/6783b6ff-b84d-4e6a-850d-f3828e2c1526',
+          ),
       };
 
       jest
@@ -555,6 +565,11 @@ describe('Credential Service', () => {
         getCredentialsSupported: jest
           .fn()
           .mockReturnValue([{scope: 'ldp_vc:MyCredential'}]),
+        getIssuer: jest
+          .fn()
+          .mockReturnValue(
+            'https://api-testnet.truvera.io/openid/issuers/7eff516f-69fb-4b9d-94dc-e88308ec0c4c',
+          ),
       };
 
       jest
@@ -568,6 +583,87 @@ describe('Credential Service', () => {
 
       expect(result).toEqual({
         authorizationURL: mockClient.authorizationURL,
+      });
+    });
+
+    describe('HTTPS enforcement', () => {
+      it('should reject an insecure credential_offer_uri before any network call', async () => {
+        const uri =
+          'openid-credential-offer://?credential_offer_uri=http://api.truvera.io/openid/credential-offers/123';
+
+        const fromURI = jest.spyOn(OpenID4VCIClientV1_0_13, 'fromURI');
+
+        await expect(
+          service.acquireOIDCredential({
+            uri,
+            holderKeyDocument: mockHolderKeyDocument,
+          }),
+        ).rejects.toThrow('Only HTTPS is allowed for OID4VCI credential_offer_uri');
+
+        expect(fromURI).not.toHaveBeenCalled();
+      });
+
+      it('should reject an insecure credential_issuer', async () => {
+        const uri =
+          'openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22http%3A%2F%2Fapi.truvera.io%2Fopenid%2Fissuers%2F123%22%7D';
+
+        const mockClient = {
+          credentialOffer: {preAuthorizedCode: 'code'},
+          acquireAccessToken: jest.fn(),
+          acquireCredentials: jest.fn(),
+          getCredentialsSupported: jest
+            .fn()
+            .mockReturnValue([{scope: 'ldp_vc:MyCredential'}]),
+          getIssuer: jest
+            .fn()
+            .mockReturnValue('http://api.truvera.io/openid/issuers/123'),
+        };
+
+        jest
+          .spyOn(OpenID4VCIClientV1_0_13, 'fromURI')
+          .mockResolvedValue(mockClient);
+
+        await expect(
+          service.acquireOIDCredential({
+            uri,
+            holderKeyDocument: mockHolderKeyDocument,
+          }),
+        ).rejects.toThrow('Only HTTPS is allowed for OID4VCI credential_issuer');
+
+        expect(mockClient.acquireAccessToken).not.toHaveBeenCalled();
+        expect(mockClient.acquireCredentials).not.toHaveBeenCalled();
+      });
+
+      it('should allow insecure endpoints when allowInsecureHttpRequests is set', async () => {
+        const uri =
+          'openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22http%3A%2F%2Flocalhost%3A8080%2Fissuer%22%7D';
+
+        const mockClient = {
+          credentialOffer: {preAuthorizedCode: 'code'},
+          acquireAccessToken: jest.fn(),
+          acquireCredentials: jest
+            .fn()
+            .mockResolvedValue({credential: mockCredential}),
+          getCredentialsSupported: jest
+            .fn()
+            .mockReturnValue([{scope: 'ldp_vc:MyCredential'}]),
+          getIssuer: jest.fn().mockReturnValue('http://localhost:8080/issuer'),
+        };
+
+        jest
+          .spyOn(OpenID4VCIClientV1_0_13, 'fromURI')
+          .mockResolvedValue(mockClient);
+        jest
+          .spyOn(didService, 'createSignedJWT')
+          .mockResolvedValue('mock.jwt.token');
+
+        const result = await service.acquireOIDCredential({
+          uri,
+          holderKeyDocument: mockHolderKeyDocument,
+          allowInsecureHttpRequests: true,
+        });
+
+        expect(result).toEqual({credential: mockCredential});
       });
     });
   });

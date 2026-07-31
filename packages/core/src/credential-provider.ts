@@ -33,6 +33,7 @@ type importCredentialFromUriParams = {
   uri: string;
   didProvider: IDIDProvider;
   getAuthCode?: (authorizationURL: string) => Promise<string>;
+  allowInsecureHttpRequests?: boolean;
 };
 
 /**
@@ -44,6 +45,7 @@ export async function importCredentialFromURI({
   wallet,
   didProvider,
   getAuthCode,
+  allowInsecureHttpRequests,
 }: importCredentialFromUriParams & {
   wallet: IWallet;
 }) {
@@ -55,6 +57,7 @@ export async function importCredentialFromURI({
     didProvider,
     uri,
     getAuthCode,
+    allowInsecureHttpRequests,
   });
 
   await addCredential({wallet, credential});

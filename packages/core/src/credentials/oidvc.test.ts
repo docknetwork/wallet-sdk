@@ -34,6 +34,7 @@ describe('acquireOpenIDCredentialFromURI', () => {
     expect(credentialServiceRPC.acquireOIDCredential).toHaveBeenCalledWith({
       uri,
       holderKeyDocument: {id: 'did:example:123'},
+      allowInsecureHttpRequests: undefined,
     });
     expect(response).toBe('credential');
   });
@@ -54,8 +55,22 @@ describe('acquireOpenIDCredentialFromURI', () => {
       uri,
       holderKeyDocument: {id: 'did:example:123'},
       authorizationCode: 'auth-code',
+      allowInsecureHttpRequests: undefined,
     });
     expect(response).toBe('credential');
+  });
+
+  it('should pass allowInsecureHttpRequests through to the wasm service', async () => {
+    await acquireOpenIDCredentialFromURI({
+      didProvider,
+      uri: 'openid-credential-offer://?credential_offer_uri=http://localhost/offer',
+      allowInsecureHttpRequests: true,
+    });
+    expect(credentialServiceRPC.acquireOIDCredential).toHaveBeenCalledWith({
+      uri: 'openid-credential-offer://?credential_offer_uri=http://localhost/offer',
+      holderKeyDocument: {id: 'did:example:123'},
+      allowInsecureHttpRequests: true,
+    });
   });
 });
 
