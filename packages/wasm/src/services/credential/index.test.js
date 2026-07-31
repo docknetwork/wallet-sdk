@@ -598,7 +598,9 @@ describe('Credential Service', () => {
             uri,
             holderKeyDocument: mockHolderKeyDocument,
           }),
-        ).rejects.toThrow('Only HTTPS is allowed for OID4VCI credential_offer_uri');
+        ).rejects.toThrow(
+          'Only HTTPS is allowed for OID4VCI credential_offer_uri',
+        );
 
         expect(fromURI).not.toHaveBeenCalled();
       });
@@ -628,7 +630,9 @@ describe('Credential Service', () => {
             uri,
             holderKeyDocument: mockHolderKeyDocument,
           }),
-        ).rejects.toThrow('Only HTTPS is allowed for OID4VCI credential_issuer');
+        ).rejects.toThrow(
+          'Only HTTPS is allowed for OID4VCI credential_issuer',
+        );
 
         expect(mockClient.acquireAccessToken).not.toHaveBeenCalled();
         expect(mockClient.acquireCredentials).not.toHaveBeenCalled();
