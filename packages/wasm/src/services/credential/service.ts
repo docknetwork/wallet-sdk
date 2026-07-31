@@ -528,6 +528,7 @@ class CredentialService {
    * @param {string} params.uri - The credential offer URI
    * @param {string} [params.authorizationCode] - Authorization code if required
    * @param {Object} params.holderKeyDocument - Key document for the credential holder
+   * @param {boolean} [params.allowInsecureHttpRequests] - Allow HTTP (non-HTTPS) offer/issuer endpoints. For local development only; bypasses HTTPS enforcement.
    * @returns {Promise<Object>} Result containing the credential or authorization URL
    * @returns {Object} [returns.credential] - The acquired credential
    * @returns {string} [returns.authorizationURL] - Authorization URL if auth is required
