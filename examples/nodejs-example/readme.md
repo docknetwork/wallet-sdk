@@ -59,6 +59,16 @@ npm run oid4vc-example <OID4VC_URL>
 
 The example above creates an instance of the Wallet SDK, imports the credential into the wallet, and then logs the list of credentials available in the user database. Note that the imported credential is stored locally on the device, and in this Node.js example, it uses SQLite for storage.
 
+## Storage location in Node.js
+
+Wallet documents are stored via the data store (SQLite in this example). Separately, the WASM package keeps some data in `localStorage` (e.g. the DID resolution cache). In Node.js there is no native `localStorage`, so the SDK falls back to [`node-localstorage`](https://www.npmjs.com/package/node-localstorage), which persists to a `./local-storage` directory relative to the current working directory.
+
+To store it elsewhere, set the `LOCAL_STORAGE_PATH` environment variable:
+
+```bash
+export LOCAL_STORAGE_PATH=/path/to/local-storage
+```
+
 ## Verification example
 
 We provide two examples for credential verification using the SDK.
