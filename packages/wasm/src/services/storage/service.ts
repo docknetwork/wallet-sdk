@@ -11,7 +11,7 @@ function getStore() {
   }
 
   const {LocalStorage} = require('node-localstorage');
-  _store = new LocalStorage('./local-storage');
+  _store = new LocalStorage(process.env.LOCAL_STORAGE_PATH || './local-storage');
   return _store;
 }
 
