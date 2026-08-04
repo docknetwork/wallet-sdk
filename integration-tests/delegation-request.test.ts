@@ -106,7 +106,6 @@ describe('Delegation Request', () => {
     // Step 2: Delegatee sends the request to the delegator over DIDComm.
     await sendDelegationRequest({
       delegationRequest,
-      wallet: delegateeWallet.wallet,
       messageProvider: delegateeWallet.messageProvider,
     });
 

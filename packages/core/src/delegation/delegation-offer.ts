@@ -11,14 +11,13 @@ import {
   validateDelegationPolicy,
 } from './delegation-policy-validation';
 import {DELEGATION_PROPOSAL_HANDLER} from './delegation-request';
-
-const GOAL_CODE = 'dock.offer-delegation';
-const OOB_INVITATION = 'https://didcomm.org/out-of-band/2.0/invitation';
-const REQUEST_CREDENTIAL =
-  'https://didcomm.org/issue-credential/3.0/request-credential';
-const ISSUE_CREDENTIAL =
-  'https://didcomm.org/issue-credential/3.0/issue-credential';
-const ACK = 'https://didcomm.org/issue-credential/3.0/ack';
+import {
+  ACK,
+  ISSUE_CREDENTIAL,
+  OFFER_GOAL_CODE as GOAL_CODE,
+  OOB_INVITATION,
+  REQUEST_CREDENTIAL,
+} from './delegation-constants';
 
 function base64urlEncode(input: string): string {
   return Buffer.from(input, 'utf8')

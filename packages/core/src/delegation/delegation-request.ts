@@ -11,16 +11,12 @@ import {
   validateDelegationPolicy,
 } from './delegation-policy-validation';
 import {DelegationPolicy} from './delegation-types';
-
-export const REQUEST_GOAL_CODE = 'dock.request-delegation';
-export const PROPOSE_CREDENTIAL =
-  'https://didcomm.org/issue-credential/3.0/propose-credential';
-// The issuance leg reuses the offer flow's goal code so the existing
-// delegatee-side handlers (ISSUE_CREDENTIAL_HANDLER / DELEGATION_ACK_HANDLER)
-// pick it up. Defined locally to avoid a circular import with delegation-offer.
-const OFFER_GOAL_CODE = 'dock.offer-delegation';
-const ISSUE_CREDENTIAL =
-  'https://didcomm.org/issue-credential/3.0/issue-credential';
+import {
+  ISSUE_CREDENTIAL,
+  OFFER_GOAL_CODE,
+  PROPOSE_CREDENTIAL,
+  REQUEST_GOAL_CODE,
+} from './delegation-constants';
 
 const DEFAULT_REQUEST_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 
@@ -46,10 +42,7 @@ export type DelegationRequest = {
 };
 
 /**
- * Delegatee side: validate the requested policy/role and persist a
- * DelegationRequest document. Stored with issuerDID = delegatorDID so the
- * existing ISSUE_CREDENTIAL_HANDLER sender check applies when the delegated
- * credential arrives.
+ * Delegatee side: validate and persist a DelegationRequest document.
  */
 export async function createDelegationRequest({
   wallet,
@@ -92,9 +85,7 @@ export async function createDelegationRequest({
     status: 'pending',
   };
 
-  // issuerDID = delegatorDID so the existing ISSUE_CREDENTIAL_HANDLER sender
-  // check (message.from === storedDoc.issuerDID) passes when the delegated
-  // credential arrives.
+  // issuerDID = delegatorDID so the ISSUE_CREDENTIAL_HANDLER sender check passes
   await wallet.addDocument({
     type: 'DelegationRequest',
     issuerDID: delegatorDID,
@@ -112,7 +103,6 @@ export async function sendDelegationRequest({
   messageProvider,
 }: {
   delegationRequest: DelegationRequest;
-  wallet: any;
   messageProvider: any;
 }): Promise<void> {
   await messageProvider.sendMessage({
@@ -128,7 +118,10 @@ export async function sendDelegationRequest({
 
 function sortKeysDeep(value: any): any {
   if (Array.isArray(value)) {
-    return value.map(sortKeysDeep);
+    // Ruleset arrays are sets — sort so order doesn't affect comparison
+    return value
+      .map(sortKeysDeep)
+      .sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1));
   }
   if (value && typeof value === 'object') {
     return Object.keys(value)
@@ -142,21 +135,16 @@ function sortKeysDeep(value: any): any {
 }
 
 /**
- * Canonical deep-equality of two ruleset objects: JSON.stringify with
- * recursively sorted object keys. Envelope fields (id, createdAt, name) are
- * ignored by construction — they are not part of the ruleset.
- * Exported for unit tests.
+ * Canonical deep-equality of two rulesets — key and array ordering don't
+ * affect the match.
  */
 export function rulesetMatches(a: any, b: any): boolean {
   return JSON.stringify(sortKeysDeep(a)) === JSON.stringify(sortKeysDeep(b));
 }
 
 /**
- * Run the matcher checks for a single credential against a request. Returns
- * the resolved delegation details when the credential can fulfill the
- * request; throws with the reason otherwise. Shared by
- * findCredentialsForDelegationRequest (skip on throw) and
- * approveDelegationRequest (fail on throw).
+ * Matcher checks for one credential against a request. Returns delegation
+ * details on match, throws with the reason otherwise.
  */
 async function resolveMatchingDelegationDetails(
   credential: any,
@@ -204,9 +192,6 @@ async function resolveMatchingDelegationDetails(
 
 /**
  * Delegator side: return wallet credentials that can fulfill the request.
- * Content-based match: ruleset deep-equality (policy ids never match across
- * wallets — they are data: URIs embedding the whole policy), requested role
- * reachable from the credential's role, and policy conformance checks.
  */
 export async function findCredentialsForDelegationRequest(
   delegationRequest: DelegationRequest,
@@ -238,9 +223,8 @@ export async function findCredentialsForDelegationRequest(
 }
 
 /**
- * Delegator side: re-validate, issue the delegated credential from
- * credentialId and send it to the requester. Converges with the offer flow's
- * issuance leg (delegationOfferId = request.id).
+ * Delegator side: re-validate, issue the delegated credential and send it to
+ * the requester.
  */
 export async function approveDelegationRequest({
   delegationRequest,
@@ -271,9 +255,7 @@ export async function approveDelegationRequest({
     const credential = await wallet.getDocumentById(credentialId);
     assert(!!credential, `Credential ${credentialId} not found`);
 
-    // Defense in depth: the UI may pass any credentialId — re-run the matcher
-    // checks against this specific credential. Uses the DELEGATOR's resolved
-    // policy from the credential, not the request's self-reported copy.
+    // The UI may pass any credentialId — re-run the matcher checks
     const details = await resolveMatchingDelegationDetails(
       credential,
       storedRequest,
@@ -295,21 +277,10 @@ export async function approveDelegationRequest({
       },
     });
 
-    await wallet.updateDocument({
-      ...storedRequest,
-      status: 'accepted',
-      holderDID: storedRequest.requesterDID,
-      revocationData: {
-        credentialStatus: delegatedCredential.credentialStatus,
-        credentialId: delegatedCredential.id,
-      },
-      updatedAt: new Date().toISOString(),
-    });
-
     const delegationChain = await getDelegationChain(credential, wallet);
 
-    // delegationOfferId = request.id routes the issuance into the existing
-    // delegatee-side offer handlers with zero new code.
+    // Send before committing 'accepted' so a delivery failure ends 'failed'.
+    // delegationOfferId = request.id routes into the existing offer handlers.
     await messageProvider.sendMessage({
       type: ISSUE_CREDENTIAL,
       from: delegatorDID,
@@ -320,6 +291,17 @@ export async function approveDelegationRequest({
         credentials: [delegatedCredential],
         delegationChain,
       },
+    });
+
+    await wallet.updateDocument({
+      ...storedRequest,
+      status: 'accepted',
+      holderDID: storedRequest.requesterDID,
+      revocationData: {
+        credentialStatus: delegatedCredential.credentialStatus,
+        credentialId: delegatedCredential.id,
+      },
+      updatedAt: new Date().toISOString(),
     });
   } catch (error: any) {
     logger.warn(
@@ -339,7 +321,7 @@ export async function approveDelegationRequest({
 }
 
 /**
- * Delegator side: silent rejection — local status update only, no message.
+ * Delegator side: silent rejection — no message sent.
  */
 export async function rejectDelegationRequest({
   delegationRequest,
@@ -361,10 +343,8 @@ export async function rejectDelegationRequest({
 }
 
 /**
- * Delegator side: handles incoming delegation request messages. Stores the
- * DelegationRequest document, finds matching credentials and emits
- * 'delegationRequestReceived' with {delegationRequest, matchingCredentials}.
- * Emits 'delegationRequestFailed' with {delegationRequestId, error} on errors.
+ * Delegator side: handles incoming delegation request messages and emits
+ * 'delegationRequestReceived' with matching credentials.
  */
 export const DELEGATION_PROPOSAL_HANDLER = {
   check: function (message) {
@@ -393,15 +373,34 @@ export const DELEGATION_PROPOSAL_HANDLER = {
       return;
     }
 
-    if (request.expiresAt && new Date(request.expiresAt) < new Date()) {
+    // expiresAt is requester-controlled — clamp it on the delegator side
+    const maxExpiresAt = new Date(Date.now() + DEFAULT_REQUEST_EXPIRATION_MS);
+    const requestedExpiresAt = new Date(request.expiresAt);
+    if (
+      isNaN(requestedExpiresAt.getTime()) ||
+      requestedExpiresAt > maxExpiresAt
+    ) {
+      request.expiresAt = maxExpiresAt.toISOString();
+    }
+
+    if (new Date(request.expiresAt) < new Date()) {
       logger.debug(
         `DELEGATION_PROPOSAL_HANDLER: ignoring expired request ${request.id}`,
       );
       return;
     }
 
-    // SECURITY: trust the transport sender over the self-reported requesterDID.
+    // Trust the transport sender over the self-reported requesterDID
     request.requesterDID = message.from;
+
+    // Only accept requests addressed to a DID this wallet owns
+    const dids = await getAllDIDs({wallet});
+    if (!dids.some(d => d.didDocument.id === request.delegatorDID)) {
+      logger.debug(
+        `DELEGATION_PROPOSAL_HANDLER: ignoring request ${request.id} — delegatorDID ${request.delegatorDID} is not owned by this wallet`,
+      );
+      return;
+    }
 
     const delegationRequest: DelegationRequest = {
       ...request,
@@ -412,6 +411,13 @@ export const DELEGATION_PROPOSAL_HANDLER = {
       await wallet.addDocument({
         type: 'DelegationRequest',
         ...delegationRequest,
+      });
+    } else {
+      // Re-sent pending proposal: persist refreshed fields (current sender)
+      await wallet.updateDocument({
+        ...existing,
+        ...delegationRequest,
+        updatedAt: new Date().toISOString(),
       });
     }
 
