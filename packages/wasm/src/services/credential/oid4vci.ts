@@ -1,3 +1,30 @@
+function assertHttps(url, label) {
+  if (!url) {
+    return;
+  }
+  const {protocol, origin} = new URL(url);
+  if (protocol !== 'https:') {
+    throw new Error(
+      `Only HTTPS is allowed for OID4VCI ${label}, got: ${origin}`,
+    );
+  }
+}
+
+export function enforceOfferUriHttps(uri, allowInsecureHttpRequests) {
+  if (allowInsecureHttpRequests) {
+    return;
+  }
+  const offerUri = new URL(uri).searchParams.get('credential_offer_uri');
+  assertHttps(offerUri, 'credential_offer_uri');
+}
+
+export function enforceIssuerHttps(client, allowInsecureHttpRequests) {
+  if (allowInsecureHttpRequests) {
+    return;
+  }
+  assertHttps(client.getIssuer(), 'credential_issuer');
+}
+
 export function resolveOfferedCredentialConfig(client) {
   const supported = client.getCredentialsSupported();
   const offerIds =
