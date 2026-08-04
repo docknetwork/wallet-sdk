@@ -1,13 +1,35 @@
 import {delegationPolicyTravelAgent} from './delegation-fixtures';
 import {
+  approveDelegationRequest,
   DELEGATION_PROPOSAL_HANDLER,
   rejectDelegationRequest,
   rulesetMatches,
 } from './delegation-request';
 import {getAllDIDs} from '../did-provider';
+import {delegateCredential} from './delegation-issuance';
+import {getDelegationChain} from './delegation-chain';
+import {getDelegationDetails} from './delegation-policy';
+import {isDelegatableCredential} from './delegation-utils';
+import {assertPolicyConformsToParent} from './delegation-policy-validation';
 
 jest.mock('../did-provider', () => ({
   getAllDIDs: jest.fn(),
+}));
+jest.mock('./delegation-issuance', () => ({
+  delegateCredential: jest.fn(),
+}));
+jest.mock('./delegation-chain', () => ({
+  getDelegationChain: jest.fn(),
+}));
+jest.mock('./delegation-policy', () => ({
+  getDelegationDetails: jest.fn(),
+}));
+jest.mock('./delegation-utils', () => ({
+  isDelegatableCredential: jest.fn(),
+}));
+jest.mock('./delegation-policy-validation', () => ({
+  assertPolicyConformsToParent: jest.fn(),
+  validateDelegationPolicy: jest.fn(),
 }));
 
 function clone(value: any): any {
@@ -229,6 +251,66 @@ describe('DELEGATION_PROPOSAL_HANDLER', () => {
     expect(wallet.getDocumentById).not.toHaveBeenCalled();
     expect(wallet.addDocument).not.toHaveBeenCalled();
     expect(wallet.eventManager.emit).not.toHaveBeenCalled();
+  });
+});
+
+describe('approveDelegationRequest', () => {
+  const requestPolicy = clone(delegationPolicyTravelAgent);
+  const parentPolicy = clone(delegationPolicyTravelAgent);
+  parentPolicy.id = 'urn:uuid:parent-policy';
+
+  function makeWallet() {
+    const storedRequest = {
+      id: 'req-1',
+      status: 'pending',
+      delegatorDID: 'did:test:delegator',
+      requesterDID: 'did:test:requester',
+      delegationRole: 'some-role',
+      delegationPolicy: requestPolicy,
+    };
+    return {
+      getDocumentById: jest
+        .fn()
+        .mockImplementation(id =>
+          Promise.resolve(id === 'req-1' ? storedRequest : {id: 'cred-1'}),
+        ),
+      updateDocument: jest.fn().mockResolvedValue(undefined),
+      dataStore: {configs: {}},
+      eventManager: {emit: jest.fn()},
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (isDelegatableCredential as jest.Mock).mockReturnValue(true);
+    (getDelegationDetails as jest.Mock).mockResolvedValue({
+      delegationPolicy: parentPolicy,
+      role: {roleId: 'some-role'},
+      delegationOptions: [],
+      remainingDelegationDepth: 5,
+    });
+    (assertPolicyConformsToParent as jest.Mock).mockReturnValue(undefined);
+    (getDelegationChain as jest.Mock).mockResolvedValue([]);
+    (delegateCredential as jest.Mock).mockResolvedValue({id: 'delegated-1'});
+  });
+
+  it('issues with the requester policy, not the parent policy', async () => {
+    const wallet = makeWallet();
+    const storedRequest = await wallet.getDocumentById('req-1');
+
+    await approveDelegationRequest({
+      delegationRequest: storedRequest as any,
+      credentialId: 'cred-1',
+      wallet,
+      messageProvider: {sendMessage: jest.fn().mockResolvedValue(undefined)},
+    });
+
+    expect(delegateCredential).toHaveBeenCalledWith(
+      expect.objectContaining({delegationPolicy: requestPolicy}),
+    );
+    expect(delegateCredential).not.toHaveBeenCalledWith(
+      expect.objectContaining({delegationPolicy: parentPolicy}),
+    );
   });
 });
 

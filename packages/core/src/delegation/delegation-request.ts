@@ -269,7 +269,7 @@ export async function approveDelegationRequest({
     const delegatedCredential = await delegateCredential({
       credential,
       wallet,
-      delegationPolicy: details.delegationPolicy,
+      delegationPolicy: storedRequest.delegationPolicy,
       delegationRoleId: storedRequest.delegationRole,
       delegatorDID,
       revocationContext: {
