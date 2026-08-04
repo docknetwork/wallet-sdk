@@ -119,9 +119,11 @@ export async function sendDelegationRequest({
 function sortKeysDeep(value: any): any {
   if (Array.isArray(value)) {
     // Ruleset arrays are sets — sort so order doesn't affect comparison
-    return value
-      .map(sortKeysDeep)
-      .sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1));
+    return value.map(sortKeysDeep).sort((a, b) => {
+      const sa = JSON.stringify(a);
+      const sb = JSON.stringify(b);
+      return sa < sb ? -1 : sa > sb ? 1 : 0;
+    });
   }
   if (value && typeof value === 'object') {
     return Object.keys(value)
@@ -358,9 +360,9 @@ export const DELEGATION_PROPOSAL_HANDLER = {
     {wallet}: {wallet: any; messageProvider: any},
   ) {
     const request = message.body?.delegation_request;
-    if (!request) {
+    if (!request || typeof request.id !== 'string') {
       logger.debug(
-        'DELEGATION_PROPOSAL_HANDLER: missing delegation_request in message body',
+        'DELEGATION_PROPOSAL_HANDLER: missing or invalid delegation_request in message body',
       );
       return;
     }
@@ -369,6 +371,14 @@ export const DELEGATION_PROPOSAL_HANDLER = {
     if (existing && existing.status !== 'pending') {
       logger.warn(
         `DELEGATION_PROPOSAL_HANDLER: ignoring request ${request.id} — already ${existing.status}`,
+      );
+      return;
+    }
+    // request.id is requester-controlled — never let another sender overwrite
+    // an existing request
+    if (existing && existing.requesterDID !== message.from) {
+      logger.warn(
+        `DELEGATION_PROPOSAL_HANDLER: ignoring request ${request.id} — sender does not match stored requesterDID`,
       );
       return;
     }
@@ -413,7 +423,7 @@ export const DELEGATION_PROPOSAL_HANDLER = {
         ...delegationRequest,
       });
     } else {
-      // Re-sent pending proposal: persist refreshed fields (current sender)
+      // Same-sender re-send: refresh the stored fields
       await wallet.updateDocument({
         ...existing,
         ...delegationRequest,

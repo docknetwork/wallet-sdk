@@ -172,11 +172,31 @@ describe('DELEGATION_PROPOSAL_HANDLER', () => {
     );
   });
 
-  it('persists the current sender on a re-sent pending proposal', async () => {
+  it('ignores a re-sent pending proposal from a different sender', async () => {
     const existing = {
       id: 'req-1',
       type: 'DelegationRequest',
       requesterDID: 'did:test:original-sender',
+      delegatorDID: DELEGATOR_DID,
+      status: 'pending',
+    };
+    const wallet = makeWallet(existing);
+
+    await DELEGATION_PROPOSAL_HANDLER.handle(makeMessage(), {
+      wallet,
+      messageProvider: {},
+    });
+
+    expect(wallet.addDocument).not.toHaveBeenCalled();
+    expect(wallet.updateDocument).not.toHaveBeenCalled();
+    expect(wallet.eventManager.emit).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the stored request on a same-sender re-send', async () => {
+    const existing = {
+      id: 'req-1',
+      type: 'DelegationRequest',
+      requesterDID: REQUESTER_DID,
       delegatorDID: DELEGATOR_DID,
       status: 'pending',
     };
@@ -196,6 +216,19 @@ describe('DELEGATION_PROPOSAL_HANDLER', () => {
         updatedAt: expect.any(String),
       }),
     );
+  });
+
+  it('ignores a request with a non-string id', async () => {
+    const wallet = makeWallet();
+
+    await DELEGATION_PROPOSAL_HANDLER.handle(makeMessage({id: 123}), {
+      wallet,
+      messageProvider: {},
+    });
+
+    expect(wallet.getDocumentById).not.toHaveBeenCalled();
+    expect(wallet.addDocument).not.toHaveBeenCalled();
+    expect(wallet.eventManager.emit).not.toHaveBeenCalled();
   });
 });
 
