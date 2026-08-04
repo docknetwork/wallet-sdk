@@ -10,6 +10,7 @@ import {
   assertPolicyConformsToParent,
   validateDelegationPolicy,
 } from './delegation-policy-validation';
+import {DELEGATION_PROPOSAL_HANDLER} from './delegation-request';
 
 const GOAL_CODE = 'dock.offer-delegation';
 const OOB_INVITATION = 'https://didcomm.org/out-of-band/2.0/invitation';
@@ -516,6 +517,7 @@ export const DELEGATION_ACK_HANDLER = {
 export const messageHandlers = [
   INVITATION_HANDLER,
   DELEGATION_REQUEST_HANDLER,
+  DELEGATION_PROPOSAL_HANDLER,
   ISSUE_CREDENTIAL_HANDLER,
   DELEGATION_ACK_HANDLER,
 ];
