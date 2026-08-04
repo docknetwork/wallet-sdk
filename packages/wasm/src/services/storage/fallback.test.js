@@ -25,24 +25,26 @@ async function withFreshService(mockStore, fn) {
 }
 
 describe('StorageService node fallback', () => {
-  const nativeLocalStorage = globalThis.localStorage;
+  const nativeLocalStorage = global.localStorage;
 
   afterEach(() => {
     delete process.env.LOCAL_STORAGE_PATH;
-    globalThis.localStorage = nativeLocalStorage;
+    global.localStorage = nativeLocalStorage;
     jest.resetModules();
   });
 
-  it('falls back to node-localstorage when no globalThis.localStorage', async () => {
-    delete globalThis.localStorage;
+  it('falls back to node-localstorage when no global.localStorage', async () => {
+    delete global.localStorage;
     const setItem = jest.fn();
-    const {created} = await withFreshService({setItem}, s => s.setItem('k', 'v'));
+    const {created} = await withFreshService({setItem}, s =>
+      s.setItem('k', 'v'),
+    );
     expect(setItem).toBeCalledWith('k', 'v');
     expect(created.path).toBe('./local-storage');
   });
 
   it('honors LOCAL_STORAGE_PATH override', async () => {
-    delete globalThis.localStorage;
+    delete global.localStorage;
     process.env.LOCAL_STORAGE_PATH = '/tmp/custom-store';
     const {created} = await withFreshService({setItem: jest.fn()}, s =>
       s.setItem('k', 'v'),
@@ -51,7 +53,7 @@ describe('StorageService node fallback', () => {
   });
 
   it('getAllKeys filters non-string keys', async () => {
-    globalThis.localStorage = {
+    global.localStorage = {
       length: 4,
       key: i => [null, 'a', undefined, 'b'][i],
     };
