@@ -61,13 +61,7 @@ The example above creates an instance of the Wallet SDK, imports the credential 
 
 ## Storage location in Node.js
 
-Wallet documents are stored via the data store (SQLite in this example). Separately, the WASM package keeps some data in `localStorage` (e.g. the DID resolution cache). In Node.js there is no native `localStorage`, so the SDK falls back to [`node-localstorage`](https://www.npmjs.com/package/node-localstorage), which persists to a `./local-storage` directory relative to the current working directory.
-
-To store it elsewhere, set the `LOCAL_STORAGE_PATH` environment variable:
-
-```bash
-export LOCAL_STORAGE_PATH=/path/to/local-storage
-```
+Wallet documents are stored via the data store (SQLite in this example). Separately, the WASM package persists some data (e.g. the DID resolution cache) to a `./local-storage` directory, configurable via the `LOCAL_STORAGE_PATH` environment variable — see the [wasm package readme](../../packages/wasm/readme.md).
 
 ## Verification example
 
