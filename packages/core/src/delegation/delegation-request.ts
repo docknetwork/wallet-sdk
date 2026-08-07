@@ -39,6 +39,7 @@ export type DelegationRequest = {
   expiresAt?: string;
   updatedAt?: string | null;
   status: DelegationRequestStatus;
+  rejectionReason?: string;
 };
 
 /**
@@ -328,9 +329,11 @@ export async function approveDelegationRequest({
 export async function rejectDelegationRequest({
   delegationRequest,
   wallet,
+  reason,
 }: {
   delegationRequest: DelegationRequest;
   wallet: any;
+  reason?: string;
 }): Promise<void> {
   const storedRequest = await wallet.getDocumentById(delegationRequest.id);
   assert(
@@ -340,6 +343,7 @@ export async function rejectDelegationRequest({
   await wallet.updateDocument({
     ...storedRequest,
     status: 'rejected',
+    rejectionReason: reason,
     updatedAt: new Date().toISOString(),
   });
 }

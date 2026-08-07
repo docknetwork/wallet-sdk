@@ -336,6 +336,28 @@ describe('rejectDelegationRequest', () => {
     );
   });
 
+  it('stores the rejection reason when provided', async () => {
+    const storedRequest = {id: 'request-1', status: 'pending'};
+    const wallet = {
+      getDocumentById: jest.fn().mockResolvedValue(storedRequest),
+      updateDocument: jest.fn().mockResolvedValue(undefined),
+    };
+
+    await rejectDelegationRequest({
+      delegationRequest: storedRequest as any,
+      wallet,
+      reason: 'policy too broad',
+    });
+
+    expect(wallet.updateDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'request-1',
+        status: 'rejected',
+        rejectionReason: 'policy too broad',
+      }),
+    );
+  });
+
   it('throws when the stored request does not exist', async () => {
     const wallet = {
       getDocumentById: jest.fn().mockResolvedValue(null),
