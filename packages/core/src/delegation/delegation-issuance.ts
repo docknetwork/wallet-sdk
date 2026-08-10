@@ -30,7 +30,9 @@ export async function issueCredential(
   delegationRoleId,
   rootCredentialId?,
   revocationContext?: RevocationContext,
-) {
+  // Return `any`: the wasm service's Credential type does not model
+  // credentialStatus and other issued-credential fields.
+): Promise<any> {
   assert(
     isDelegatableCredential(credentialData),
     'Credential is not delegatable',
