@@ -57,6 +57,7 @@ export type DataStore = {
   setNetwork: (networkId: string) => Promise<void>;
   documents: DocumentStore;
   wallet: WalletStore;
+  configs: DataStoreConfigs;
 };
 
 export type ContextProps = {
