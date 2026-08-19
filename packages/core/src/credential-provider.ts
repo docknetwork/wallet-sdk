@@ -115,8 +115,9 @@ export async function isValid({
     const errorMessage =
       typeof error === 'string'
         ? error
-        : error?.message || error?.errors?.[0]?.message || error;
-
+        : error?.message ||
+          error?.errors?.[0]?.message ||
+          String(error ?? '');
     if (error) {
       const sdkNotInitialized = error?.errors?.find(err => err?.message === 'SDK is not initialized');
       if (sdkNotInitialized) {
