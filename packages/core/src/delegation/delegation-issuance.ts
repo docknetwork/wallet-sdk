@@ -42,7 +42,7 @@ export async function issueCredential(
 
   assert(recipientRole, `Role ${delegationRoleId} not found in ruleset`);
 
-  const credentialStatus = revocationContext
+  const credentialStatus = revocationContext?.truveraApiConfigs
     ? (await allocateStatusEntry(revocationContext)).credentialStatus
     : credentialData.credentialStatus;
 
@@ -72,12 +72,14 @@ export async function delegateCredential({
   delegationPolicy,
   delegationRoleId,
   delegatorDID,
+  revocationContext,
 }: {
   credential: any;
   wallet: any;
   delegationPolicy: DelegationPolicy;
   delegationRoleId: string;
   delegatorDID: string;
+  revocationContext?: RevocationContext;
 }) {
   assert(isDelegatableCredential(credential), 'Credential is not delegatable');
   assert(!!delegatorDID, 'delegatorDID is required');
@@ -112,5 +114,6 @@ export async function delegateCredential({
     delegationPolicy,
     delegationRoleId,
     credential.rootCredentialId || credential.id,
+    revocationContext,
   );
 }
