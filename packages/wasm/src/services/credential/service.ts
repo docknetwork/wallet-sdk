@@ -373,7 +373,7 @@ class CredentialService {
    */
   async verifyCredential(params) {
     validation.verifyCredential(params);
-    let {credential, membershipWitness} = params;
+    const {credential, membershipWitness} = params;
 
     if (credential?._sd_jwt) {
       const encoded = credential._sd_jwt.encoded;
@@ -384,7 +384,15 @@ class CredentialService {
             'SD-JWT credential is missing compact serialization required for verification',
         };
       }
-      credential = encoded;
+      if (!checkIsSDJWT(encoded)) {
+        return {
+          verified: false,
+          error: 'SD-JWT compact serialization is invalid',
+        };
+      }
+      return verifySDJWT(encoded, undefined, {
+        documentLoader: documentLoader(blockchainService.resolver),
+      });
     }
 
     if (typeof credential === 'string' && checkIsSDJWT(credential)) {
