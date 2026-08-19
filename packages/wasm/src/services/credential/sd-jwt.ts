@@ -9,6 +9,19 @@ import {digest, generateSalt} from '@sd-jwt/crypto-nodejs';
 
 export {verifySDJWTCredential};
 
+export interface DecodedSDJWT {
+  jwt: {
+    header: Record<string, unknown>;
+    payload: Record<string, unknown>;
+  };
+  disclosures: Array<{
+    key?: string;
+    value?: unknown;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+
 /**
  * Checks if a value is a decoded SD-JWT payload object — i.e. an SD-JWT VC
  * payload returned as JSON rather than the compact `header.payload.sig~...` form.
@@ -68,8 +81,8 @@ export async function createSDJWTPresentation({
  * @param {string} sdJwtString - The SD-JWT string to decode
  * @returns {Promise<Object>} Decoded SD-JWT structure with jwt and disclosures
  */
-export async function decodeSDJWT(sdJwtString) {
-  return decodeSdJwt(sdJwtString);
+export async function decodeSDJWT(sdJwtString): Promise<DecodedSDJWT> {
+  return decodeSdJwt(sdJwtString) as Promise<DecodedSDJWT>;
 }
 
 /**
@@ -93,7 +106,7 @@ export async function verifySDJWT(jwt, requiredAttribs?, options = {}) {
     };
   }
 }
-
+fix
 /**
  * Converts a decoded SD-JWT into W3C Verifiable Credential format
  * @param {Object} decodedSDJWT - The decoded SD-JWT object from SDJwtVcInstance.decode()
