@@ -106,7 +106,7 @@ export async function verifySDJWT(jwt, requiredAttribs?, options = {}) {
     };
   }
 }
-fix
+
 /**
  * Converts a decoded SD-JWT into W3C Verifiable Credential format
  * @param {Object} decodedSDJWT - The decoded SD-JWT object from SDJwtVcInstance.decode()
