@@ -9,14 +9,14 @@ module.exports = {
     "/.rollup.cache/",
     "/bundler/"
   ],
-  coverageThreshold: {
-    global: {
-      branches: 10,
-      functions: 10,
-      lines: 10,
-      statements: 10,
-    },
-  },
+  // Coverage floors are enforced by Codecov on PRs (see codecov.yml).
+  collectCoverageFrom: [
+    'packages/*/src/**/*.{js,ts}',
+    '!packages/*/src/**/*.test.{js,ts}',
+    '!packages/*/src/**/*-example.ts',
+    '!packages/cli/**',
+  ],
+  coverageReporters: ['text-summary', 'lcov'],
   transform: {
     '^.+\\.(ts|tsx)?$': 'ts-jest',
     '^.+\\.(js|jsx|cjs)$': [

@@ -64,7 +64,7 @@
     "build-and-copy": "node  ./packages/react-native/bundler/build-and-copy.js",
     "build-packages": "npm run build -w @docknetwork/wallet-sdk-dids",
     "test": "export NODE_OPTIONS=\"--max_old_space_size=4096\";node ./node_modules/jest/bin/jest.js --forceExit",
-    "test:ci": "npm test",
+    "test:ci": "npm test -- --coverage",
     "test:integration": "export API_MOCK_DISABLED=true; jest --config jest.config.e2e.js --ci --forceExit --runInBand",
     "lint": "eslint './packages/**/*.js' --max-warnings=0 --ignore-path=.prettierignore",
     "lint:fix": "eslint './src/**/*.js' --fix --ignore-path=.prettierignore",

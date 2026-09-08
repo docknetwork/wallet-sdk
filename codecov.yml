@@ -1,0 +1,13 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto        # compare against the PR's merge base
+        threshold: 0.5%     # tolerance for noise (e.g. deleting covered dead code)
+        informational: false
+    patch:
+      default:
+        informational: false
+
+comment:
+  layout: "condensed_header, diff"
