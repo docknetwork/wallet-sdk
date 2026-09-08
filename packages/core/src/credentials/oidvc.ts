@@ -11,16 +11,19 @@ export async function acquireOpenIDCredentialFromURI({
   didProvider,
   uri,
   getAuthCode,
+  allowInsecureHttpRequests,
 }: {
   didProvider: IDIDProvider;
   uri: string;
   getAuthCode?: (authorizationURL: string) => Promise<string>;
+  allowInsecureHttpRequests?: boolean;
 }): Promise<any> {
   const [holderKeyDocument] = await didProvider.getDIDKeyPairs();
 
   let response = await credentialServiceRPC.acquireOIDCredential({
     uri,
     holderKeyDocument,
+    allowInsecureHttpRequests,
   });
 
   if (!response) {
@@ -33,6 +36,7 @@ export async function acquireOpenIDCredentialFromURI({
       uri,
       holderKeyDocument,
       authorizationCode,
+      allowInsecureHttpRequests,
     });
   }
 
