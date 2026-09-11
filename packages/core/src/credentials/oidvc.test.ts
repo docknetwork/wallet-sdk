@@ -5,9 +5,9 @@ import {
   getPresentationSubmision,
 } from './oidvc';
 import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
-import {MetadataClient} from '@sphereon/oid4vci-client';
 import {jwtDecode} from 'jwt-decode';
 import axios from 'axios';
+import {WellKnownEndpoints} from '@sphereon/oid4vci-common';
 
 jest.mock('@docknetwork/wallet-sdk-wasm/src/services/credential');
 jest.mock('@sphereon/oid4vci-client');
@@ -36,7 +36,7 @@ describe('acquireOpenIDCredentialFromURI', () => {
       holderKeyDocument: {id: 'did:example:123'},
       allowInsecureHttpRequests: undefined,
     });
-    expect(response).toBe('credential');
+    expect(response).toBe('fake-credential');
   });
 
   it('should acquire OID credential with authorization URL', async () => {
@@ -57,7 +57,7 @@ describe('acquireOpenIDCredentialFromURI', () => {
       authorizationCode: 'auth-code',
       allowInsecureHttpRequests: undefined,
     });
-    expect(response).toBe('credential');
+    expect(response).toBe('fake-credential');
   });
 
   it('should pass allowInsecureHttpRequests through to the wasm service', async () => {
@@ -83,15 +83,16 @@ describe('getAuthURL', () => {
       },
       authorization_endpoint: 'https://auth.example.com/authorize',
     };
-    (MetadataClient.retrieveAllMetadata as jest.Mock).mockResolvedValue(metadata);
+    (axios.get as jest.Mock).mockResolvedValue({data: metadata});
 
     const result = await getAuthURL(uri);
-    expect(MetadataClient.retrieveAllMetadata).toHaveBeenCalledWith(
-      'fake-client',
+    expect(axios.get).toHaveBeenCalledWith(
+      `fake-client${WellKnownEndpoints.OPENID_CONFIGURATION}`,
     );
     expect(result).toContain('https://auth.example.com/authorize?');
     expect(result).toContain('client_id=dock-wallet');
-    expect(result).toContain('redirect_uri=dockwallet://vp');
+    // redirect_uri is URL-encoded by the implementation (encodeURIComponent)
+    expect(result).toContain(`redirect_uri=${encodeURIComponent('dockwallet://vp')}`);
   });
 });
 

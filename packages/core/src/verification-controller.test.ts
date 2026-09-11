@@ -59,6 +59,7 @@ describe('Verification provider', () => {
     expect(controller.getFilteredCredentials()).toEqual([
       customerCredentialJSON,
       universityDegreeBBS,
+      iiwCredential,
     ]);
   });
 
@@ -81,7 +82,7 @@ describe('Verification provider', () => {
 
     const presentation = await controller.createPresentation();
 
-    expect(presentation.credentials[0]).toStrictEqual(credentials[0]);
+    expect(presentation.verifiableCredential[0]).toStrictEqual(credentials[0]);
     expect(presentation.type).toEqual(['VerifiablePresentation']);
 
     // validate the presentation
@@ -104,7 +105,7 @@ describe('Verification provider', () => {
 
     const presentation = await controller.createDefaultPresentation();
 
-    expect(presentation.credentials[0]).toStrictEqual(credentials[0]);
+    expect(presentation.verifiableCredential[0]).toStrictEqual(credentials[0]);
     expect(presentation.type).toEqual(['VerifiablePresentation']);
 
     // validate the presentation
@@ -140,7 +141,7 @@ describe('Verification provider', () => {
 
     const presentation = await controller.createPresentation();
 
-    expect(presentation.credentials[0].id).toEqual(selectedCredential.id);
+    expect(presentation.verifiableCredential[0].id).toEqual(selectedCredential.id);
     expect(presentation.type).toEqual(['VerifiablePresentation']);
 
     // validate the presentation

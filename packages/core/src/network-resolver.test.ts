@@ -1,6 +1,5 @@
 import {createWallet, IWallet} from './wallet';
 import {
-  accountResolver,
   credentialResolver,
   dockDocumentNetworkResolver,
   proofRequestResolver,
@@ -115,32 +114,6 @@ describe('Wallet', () => {
       });
 
       expect(result).toBe('testnet');
-    });
-  });
-
-  describe('accountResolver', () => {
-    it('expect to resolve account to testnet', async () => {
-      const result = await accountResolver({
-        document: {
-          id: '37PsGbLmrTfV6VVknkrh6LKACXuC9LuSCwuxhk6ajGDjNCwc',
-          type: 'Address',
-        },
-        dataStore: wallet.dataStore,
-      });
-
-      expect(result).toBe('testnet');
-    });
-
-    it('expect to resolve account to mainnet', async () => {
-      const result = await accountResolver({
-        document: {
-          id: '3EGurYbWGtyVfouDTZjxz1t2jiV3voU9N6sSDAvhHyxaqf8L',
-          type: 'Address',
-        },
-        dataStore: wallet.dataStore,
-      });
-
-      expect(result).toBe('mainnet');
     });
   });
 

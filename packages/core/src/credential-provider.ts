@@ -132,7 +132,8 @@ export async function isValid({
 
     if (!verified) {
       const normalizedError = (errorMessage || '').toString().toLowerCase();
-      if (normalizedError.includes('revok')) {
+      // Matches both "revoked" and "revocation" (e.g. "Revocation check failed").
+      if (normalizedError.includes('revo')) {
         return {
           status: CredentialStatus.Revoked,
           error: errorMessage,

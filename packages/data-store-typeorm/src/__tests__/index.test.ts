@@ -5,9 +5,9 @@ import {
 } from '../../test/test-utils';
 import {getV1LocalStorage} from '../migration/migration1/v1-data-store';
 import {CURRENT_DATA_STORE_VERSION} from '../migration';
-import {DataStore} from '../types';
+import {DataStore} from '@docknetwork/wallet-sdk-data-store/src/types';
 import {WalletEntity, getWallet} from '../entities/wallet.entity';
-import {closeDataStore} from '../index';
+import {closeDataStore} from '@docknetwork/wallet-sdk-data-store/src/index';
 
 describe('Data store', () => {
   describe('v2-data-store migration', () => {
