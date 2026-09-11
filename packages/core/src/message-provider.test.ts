@@ -26,7 +26,7 @@ describe('MessageProvider', () => {
   beforeEach(async () => {
     relayService = {
       sendMessage: jest.fn(),
-      ackMessages: jest.fn(),
+      ackMessages: jest.fn().mockResolvedValue(undefined),
       getMessages: jest.fn().mockResolvedValue(didCommMessages),
       resolveDidcommMessage: jest.fn().mockImplementation(({ message }) => message),
     };
@@ -115,7 +115,19 @@ describe('MessageProvider', () => {
   it('should handle errors when marking messages as read', async () => {
     await messageProvider.fetchMessages();
     wallet.removeDocument = jest.fn().mockRejectedValue(new Error('Removal failed'));
-    
-    await expect(messageProvider.markMessageAsRead('651e965410fc3fcfffdd17f1')).rejects.toThrow('Failed to mark message as read: Removal failed');
+
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    // markMessageAsRead swallows errors (it's a best-effort cleanup step) instead of
+    // throwing, logging them via captureException/console.error instead.
+    await expect(
+      messageProvider.markMessageAsRead('651e965410fc3fcfffdd17f1'),
+    ).resolves.toBeUndefined();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to mark message as read: Removal failed',
+    );
+
+    consoleSpy.mockRestore();
   });
 });

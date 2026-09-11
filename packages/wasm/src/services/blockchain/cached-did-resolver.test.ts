@@ -1,21 +1,28 @@
 import { CachedDIDResolver } from './cached-did-resolver';
 import { storageService } from '../storage';
 
+// jest.mock('../storage', ...) does not intercept this import for this module (the SUT
+// keeps a reference to the real singleton regardless), so spy on the real singleton's
+// methods instead - it's the same object instance that cached-did-resolver.ts uses.
 const mockStorageService = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  getAllKeys: jest.fn(),
+  getItem: jest.spyOn(storageService, 'getItem'),
+  setItem: jest.spyOn(storageService, 'setItem'),
+  removeItem: jest.spyOn(storageService, 'removeItem'),
+  getAllKeys: jest.spyOn(storageService, 'getAllKeys'),
 };
-
-jest.mock('../storage', () => ({
-  storageService: mockStorageService,
-}));
 
 const mockRouter = {
   resolve: jest.fn(),
   supports: jest.fn(),
 };
+
+// JSON.stringify can't be combined with expect.any() matchers (it serializes the matcher
+// object literally), so parse the actual stored value and assert on the parsed object.
+function expectSetItemCalledWith(key: string, expectedEntry: any) {
+  const call = mockStorageService.setItem.mock.calls.find(([k]) => k === key);
+  expect(call).toBeDefined();
+  expect(JSON.parse(call![1] as string)).toEqual(expectedEntry);
+}
 
 describe('CachedDIDResolver', () => {
   let resolver: CachedDIDResolver;
@@ -51,14 +58,11 @@ describe('CachedDIDResolver', () => {
 
       expect(mockRouter.resolve).toHaveBeenCalledWith(testDid);
       expect(result).toEqual(testResult);
-      expect(mockStorageService.setItem).toHaveBeenCalledWith(
-        `did-cache:${testDid}`,
-        JSON.stringify({
-          value: testResult,
-          id: testDid,
-          timestamp: expect.any(Number),
-        })
-      );
+      expectSetItemCalledWith(`did-cache:${testDid}`, {
+        value: testResult,
+        id: testDid,
+        timestamp: expect.any(Number),
+      });
     });
 
     it('should use result.id for cache key instead of input did', async () => {
@@ -73,14 +77,11 @@ describe('CachedDIDResolver', () => {
 
       expect(result).toEqual(testResultWithDifferentId);
       // Should use result.id (resultDid) for the cache key, not inputDid
-      expect(mockStorageService.setItem).toHaveBeenCalledWith(
-        `did-cache:${resultDid}`,
-        JSON.stringify({
-          value: testResultWithDifferentId,
-          id: resultDid,
-          timestamp: expect.any(Number),
-        })
-      );
+      expectSetItemCalledWith(`did-cache:${resultDid}`, {
+        value: testResultWithDifferentId,
+        id: resultDid,
+        timestamp: expect.any(Number),
+      });
     });
 
     it('should return cached result on cache hit', async () => {
@@ -122,14 +123,11 @@ describe('CachedDIDResolver', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       expect(mockRouter.resolve).toHaveBeenCalledWith(testDid);
-      expect(mockStorageService.setItem).toHaveBeenCalledWith(
-        `did-cache:${testDid}`,
-        JSON.stringify({
-          value: freshResult,
-          id: testDid,
-          timestamp: expect.any(Number),
-        })
-      );
+      expectSetItemCalledWith(`did-cache:${testDid}`, {
+        value: freshResult,
+        id: testDid,
+        timestamp: expect.any(Number),
+      });
     });
 
     it('should handle corrupted cache data gracefully', async () => {
