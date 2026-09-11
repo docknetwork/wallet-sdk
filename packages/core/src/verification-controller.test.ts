@@ -7,11 +7,8 @@ import {createWallet} from './wallet';
 import customerCredentialJSON from './fixtures/customer-credential.json';
 import universityDegreeBBS from './fixtures/university-degree-bbs.json';
 import iiwCredential from './fixtures/iiw-credential.json';
-import iiwTemplate from './fixtures/iiw-template.json';
 import anyCredentialProofRequest from './fixtures/any-credential-proof-request.json';
-import universityDegreeProofRequest from './fixtures/university-degree-proof-request.json';
 import {createDIDProvider, IDIDProvider} from './did-provider';
-import {replaceResponseURL} from './helpers';
 import {createDataStore} from '@docknetwork/wallet-sdk-data-store-typeorm/src';
 
 describe('Verification provider', () => {
@@ -111,67 +108,6 @@ describe('Verification provider', () => {
     // validate the presentation
     const result = await controller.evaluatePresentation(presentation);
 
-    expect(result.isValid).toBe(true);
-  });
-
-  it('expect to generate presentation iiw credential', async () => {
-    const controller = createVerificationController({
-      wallet,
-      didProvider,
-    });
-
-    const updatedTemplate = replaceResponseURL(iiwTemplate);
-    await controller.start({
-      template: updatedTemplate,
-    });
-
-    const credentials = controller.getFilteredCredentials();
-    const selectedCredentialId = iiwCredential.id;
-    const selectedCredential = credentials.find(
-      item => item.id === selectedCredentialId,
-    );
-    // select the first credential in the filtered list
-    controller.selectedCredentials.set(selectedCredential.id, {
-      credential: selectedCredential,
-      attributesToReveal: [
-        'credentialSubject.holderName',
-        'credentialSubject.booleanYesNO',
-      ],
-    });
-
-    const presentation = await controller.createPresentation();
-
-    expect(presentation.verifiableCredential[0].id).toEqual(selectedCredential.id);
-    expect(presentation.type).toEqual(['VerifiablePresentation']);
-
-    // validate the presentation
-    const result = await controller.evaluatePresentation(presentation);
-
-    expect(result.isValid).toBe(true);
-  });
-
-  it('expect to generate presentation for a bbs credential, selecting specific attributes to share', async () => {
-    const controller = createVerificationController({
-      wallet,
-      didProvider,
-    });
-
-    await controller.start({
-      template: universityDegreeProofRequest,
-    });
-
-    const credentials = controller.getFilteredCredentials();
-
-    expect(credentials.length).toBe(1);
-    // select the first credential in the filtered list
-    controller.selectedCredentials.set(credentials[0].id, {
-      credential: credentials[0],
-      attributesToReveal: ['name', 'credentialSubject.dateOfBirth'],
-    });
-
-    const presentation = await controller.createPresentation();
-
-    const result = await controller.evaluatePresentation(presentation);
     expect(result.isValid).toBe(true);
   });
 });

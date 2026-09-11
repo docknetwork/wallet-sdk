@@ -132,8 +132,9 @@ export async function isValid({
 
     if (!verified) {
       const normalizedError = (errorMessage || '').toString().toLowerCase();
-      // Matches both "revoked" and "revocation" (e.g. "Revocation check failed").
-      if (normalizedError.includes('revo')) {
+      // Matches "revoke(d/s)", "revoking" and "revocation(s)" as whole words, without
+      // matching unrelated words that merely contain "revo" (e.g. "revolutionary").
+      if (/\brevo(?:ke[sd]?|king|cations?)\b/.test(normalizedError)) {
         return {
           status: CredentialStatus.Revoked,
           error: errorMessage,

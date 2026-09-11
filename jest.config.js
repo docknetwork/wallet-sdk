@@ -1,19 +1,19 @@
 module.exports = {
-  preset: "ts-jest",
+  preset: 'ts-jest',
   testEnvironment: 'node',
   testTimeout: 30000,
   maxConcurrency: 2,
   testMatch: [
-    "<rootDir>/packages/**/!(*.e2e).test.js",
-    "<rootDir>/packages/**/!(*.e2e).test.ts",
+    '<rootDir>/packages/**/!(*.e2e).test.js',
+    '<rootDir>/packages/**/!(*.e2e).test.ts',
   ],
   testPathIgnorePatterns: [
-    "/node_modules/",
-    "/.rollup.cache/",
-    "/bundler/",
+    '/node_modules/',
+    '/.rollup.cache/',
+    '/bundler/',
     // packages/react-native has its own jest.config.js/environment and intentionally
     // only runs .test.js there; its .test.ts files aren't ready for that package's own suite either.
-    "packages/react-native/.*\\.test\\.ts$",
+    'packages/react-native/.*\\.test\\.ts$',
   ],
   // Coverage floors are enforced by Codecov on PRs (see codecov.yml), and as a local circuit
   // breaker below via coverageThreshold (see coverage-thresholds.json). Raise the numbers there
