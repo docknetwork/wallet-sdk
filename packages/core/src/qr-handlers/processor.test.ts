@@ -204,7 +204,9 @@ describe('DefaultQRCodeProcessor', () => {
       processor.registerHandler(handler1);
       processor.registerHandler(handler2);
 
-      await processor.process('test://data');
+      // handler2 (priority 10) succeeds and would stop execution by default,
+      // so disable stopOnFirstSuccess to observe the full priority order.
+      await processor.process('test://data', {stopOnFirstSuccess: false});
 
       expect(executionOrder).toEqual(['handler-2', 'handler-1']);
     });
