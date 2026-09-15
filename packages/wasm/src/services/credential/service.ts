@@ -26,6 +26,7 @@ import {
   VerifiableCredential,
   StatusList2021Credential,
   getSuiteFromKeyDoc,
+  documentLoader,
 } from '@docknetwork/credential-sdk/vc';
 import {PEX} from '@sphereon/pex';
 import {keyDocToKeypair} from './utils';
@@ -377,14 +378,32 @@ class CredentialService {
    */
   async verifyCredential(params) {
     validation.verifyCredential(params);
-    let {credential, membershipWitness} = params;
+    const {credential, membershipWitness} = params;
 
-    if (credential._sd_jwt)  {
-      credential = credential?._sd_jwt?.encoded;
+    if (credential?._sd_jwt) {
+      const encoded = credential._sd_jwt.encoded;
+      if (typeof encoded !== 'string' || !encoded) {
+        return {
+          verified: false,
+          error:
+            'SD-JWT credential is missing compact serialization required for verification',
+        };
+      }
+      if (!checkIsSDJWT(encoded)) {
+        return {
+          verified: false,
+          error: 'SD-JWT compact serialization is invalid',
+        };
+      }
+      return verifySDJWT(encoded, undefined, {
+        documentLoader: documentLoader(blockchainService.resolver),
+      });
     }
 
     if (typeof credential === 'string' && checkIsSDJWT(credential)) {
-      return verifySDJWT(credential);
+      return verifySDJWT(credential, undefined, {
+        documentLoader: documentLoader(blockchainService.resolver),
+      });
     }
 
     const isStatusList2021 =

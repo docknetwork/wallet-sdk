@@ -1,6 +1,26 @@
+// @ts-nocheck
+import {
+  decodeSdJwt,
+  isSDJWTCredential as isCompactSDJWTCredential,
+  verifySDJWTCredential,
+} from '@docknetwork/crypto-utils';
 import {SDJwtVcInstance} from '@sd-jwt/sd-jwt-vc';
 import {digest, generateSalt} from '@sd-jwt/crypto-nodejs';
-import base64url from 'base64url';
+
+export {verifySDJWTCredential};
+
+export interface DecodedSDJWT {
+  jwt: {
+    header: Record<string, unknown>;
+    payload: Record<string, unknown>;
+  };
+  disclosures: Array<{
+    key?: string;
+    value?: unknown;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
 
 /**
  * Checks if a value is a decoded SD-JWT payload object — i.e. an SD-JWT VC
@@ -25,18 +45,7 @@ export function isSDJWTCredential(credential) {
     return true;
   }
 
-  if (typeof credential !== 'string' || !credential.includes('.')) {
-    return false;
-  }
-
-  try {
-    const decodedHeader = JSON.parse(base64url.decode(credential.split('.')[0]));
-    return (
-      decodedHeader?.typ === 'dc+sd-jwt' || decodedHeader?.typ === 'vc+sd-jwt'
-    );
-  } catch {
-    return false;
-  }
+  return isCompactSDJWTCredential(credential);
 }
 
 export async function createSDJWTPresentation({
@@ -66,71 +75,34 @@ export async function createSDJWTPresentation({
 
   return presentation;
 }
+
 /**
  * Decodes an SD-JWT string into its structured format
  * @param {string} sdJwtString - The SD-JWT string to decode
  * @returns {Promise<Object>} Decoded SD-JWT structure with jwt and disclosures
  */
-export async function decodeSDJWT(sdJwtString) {
-  // Create SD-JWT instance with minimal configuration (no verification needed for decoding)
-  const sdjwt = new SDJwtVcInstance({
-    signAlg: 'EdDSA',
-    hasher: digest,
-    hashAlg: 'sha-256',
-    saltGenerator: generateSalt,
-  });
-
-  // Decode the SD-JWT
-  return await sdjwt.decode(sdJwtString);
+export async function decodeSDJWT(sdJwtString): Promise<DecodedSDJWT> {
+  return decodeSdJwt(sdJwtString) as Promise<DecodedSDJWT>;
 }
 
 /**
  * Verifies an SD-JWT credential
- * @param {string} jwt - The SD-JWT string to verify
- * @returns {Promise<Object>} Verification result with verified status and optional error
- * @returns {boolean} returns.verified - Whether the credential is valid
- * @returns {string} [returns.error] - Error message if verification failed
+ * @param {string|{jwt: string}} jwt - The SD-JWT string (or `{jwt}`) to verify
+ * @param {string[]} [requiredAttribs] - Required disclosed claim keys
+ * @param {object} [options]
+ * @param {function} [options.keyResolver] async (issOrKid) => verification key
+ * @param {function} [options.documentLoader] (uri) => Promise<{document}>
+ * @param {{supports: function, resolve: function}} [options.resolver]
+ * @param {string[]} [options.algorithms]
+ * @returns {Promise<Object>} Verification result
  */
-export async function verifySDJWT(jwt) {
+export async function verifySDJWT(jwt, requiredAttribs?, options = {}) {
   try {
-    // Decode the SD-JWT
-    const decoded = await decodeSDJWT(jwt);
-
-    // Extract payload for validation
-    const payload: any = decoded.jwt.payload;
-
-    // Check expiration date if present
-    if (payload.exp) {
-      const now = Math.floor(Date.now() / 1000);
-      const exp = Number(payload.exp);
-      if (now > exp) {
-        return {
-          verified: false,
-          error: 'SD-JWT credential has expired',
-        };
-      }
-    }
-
-    // Check not-before date if present
-    if (payload.nbf) {
-      const now = Math.floor(Date.now() / 1000);
-      const nbf = Number(payload.nbf);
-      if (now < nbf) {
-        return {
-          verified: false,
-          error: 'SD-JWT credential is not yet valid',
-        };
-      }
-    }
-
-    // If we successfully decoded and passed date checks, consider it verified
-    return {
-      verified: true,
-    };
+    return await verifySDJWTCredential(jwt, requiredAttribs, options);
   } catch (error) {
     return {
       verified: false,
-      error: error.message || 'Failed to verify SD-JWT credential',
+      error: error?.message || 'Failed to verify SD-JWT credential',
     };
   }
 }
@@ -145,7 +117,6 @@ export function sdJwtToW3C(decodedSDJWT, encodedSDJWT?) {
   const {jwt, disclosures} = decodedSDJWT;
 
   // The jwt object already has header and payload parsed
-  const header = jwt.header;
   const payload = jwt.payload;
 
   // Build credential subject from disclosed claims

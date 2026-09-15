@@ -5,14 +5,12 @@ import {
   createDIDProvider,
   IDIDProvider,
 } from './did-provider';
-import {createAccountProvider} from './account-provider';
 import {didServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/dids';
 import {createDataStore} from '@docknetwork/wallet-sdk-data-store-typeorm/src';
 
 describe('DID Provider', () => {
   let wallet: IWallet;
   let didProvider: IDIDProvider;
-  let accountProvider;
   const didBackupFile = {
     '@context': [
       'https://www.w3.org/2018/credentials/v1',
@@ -58,7 +56,6 @@ describe('DID Provider', () => {
         databasePath: ':memory:',
       }),
     });
-    accountProvider = createAccountProvider({wallet});
     didProvider = createDIDProvider({wallet});
   });
 
@@ -76,7 +73,9 @@ describe('DID Provider', () => {
       const didResolution = documents.find(
         item => item.type === 'DIDResolutionResponse',
       );
-      expect(documents.length).toBe(4);
+      // 4 documents from the DID import + 1 cheqd-mnemonic document the wallet now
+      // creates automatically on initialization.
+      expect(documents.length).toBe(5);
       expect(didResolution).toBeDefined();
       expect(keyDocument).toBeDefined();
     });
@@ -100,7 +99,7 @@ describe('DID Provider', () => {
       jest.spyOn(didServiceRPC, 'generateKeyDoc').mockResolvedValueOnce({
         id: 'did:key:abcde#key-1',
         type: 'KeyDocument',
-      });
+      } as any);
 
       jest
         .spyOn(didServiceRPC, 'keypairToDIDKeyDocument')
@@ -109,9 +108,9 @@ describe('DID Provider', () => {
             id: 'did:key:abcde#key-2',
             type: 'DidDocument',
           },
-        });
+        } as any);
 
-      jest.spyOn(didServiceRPC, 'getDIDResolution').mockResolvedValueOnce({
+      (jest.spyOn(didServiceRPC, 'getDIDResolution') as any).mockResolvedValueOnce({
         id: new Date().getTime().toString(),
         type: 'DIDResolutionResponse',
         didDocument: {

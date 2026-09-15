@@ -115,6 +115,12 @@ export async function isValid({
 
     const {verified, error} = verificationResult;
 
+    const errorMessage =
+      typeof error === 'string'
+        ? error
+        : error?.message ||
+          error?.errors?.[0]?.message ||
+          String(error ?? '');
     if (error) {
       const sdkNotInitialized = error?.errors?.find(err => err?.message === 'SDK is not initialized');
       if (sdkNotInitialized) {
@@ -125,17 +131,19 @@ export async function isValid({
     }
 
     if (!verified) {
-      const errorMessage = (error?.message || error || '').toString().toLowerCase();
-      if (errorMessage.includes('revok')) {
+      const normalizedError = (errorMessage || '').toString().toLowerCase();
+      // Matches "revoke(d/s)", "revoking" and "revocation(s)" as whole words, without
+      // matching unrelated words that merely contain "revo" (e.g. "revolutionary").
+      if (/\brevo(?:ke[sd]?|king|cations?)\b/.test(normalizedError)) {
         return {
           status: CredentialStatus.Revoked,
-          error,
+          error: errorMessage,
         };
       }
 
       return {
         status: CredentialStatus.Invalid,
-        error: error,
+        error: errorMessage,
       };
     }
 

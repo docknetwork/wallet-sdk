@@ -37,6 +37,48 @@ describe('Credential Service', () => {
     const error0 = await getPromiseError(() => service.verifyCredential({}));
     expect(error0.message).toBe('invalid credential');
   });
+  it('expect to reject SD-JWT credentials missing compact serialization', async () => {
+    const result = await service.verifyCredential({
+      credential: {
+        '@context': ['https://www.w3.org/2018/credentials/v1'],
+        type: ['VerifiableCredential', 'BasicCredential'],
+        issuer: 'did:example:issuer',
+        credentialSubject: {},
+        _sd_jwt: {
+          // decoded-payload imports store metadata without an encoded JWT
+        },
+      },
+    });
+
+    expect(result.verified).toBe(false);
+    expect(result.error).toContain('compact serialization');
+  });
+  it('expect to reject SD-JWT credentials with invalid compact serialization', async () => {
+    jest
+      .spyOn(serviceCredentialUtils, 'verifyCredential')
+      .mockImplementationOnce(async () => ({verified: true}));
+
+    const result = await service.verifyCredential({
+      credential: {
+        '@context': ['https://www.w3.org/2018/credentials/v1'],
+        type: ['VerifiableCredential', 'BasicCredential'],
+        issuer: 'did:example:issuer',
+        credentialSubject: {},
+        credentialStatus: {
+          id: 'rev-reg:dock:0x1',
+          type: 'CredentialStatusList2017',
+        },
+        _sd_jwt: {
+          encoded: 'not-a-valid-sd-jwt',
+        },
+      },
+    });
+
+    expect(result.verified).toBe(false);
+    expect(result.error).toContain('invalid');
+    expect(serviceCredentialUtils.verifyCredential).not.toHaveBeenCalled();
+    serviceCredentialUtils.verifyCredential.mockRestore();
+  });
   it('expect to verify credential', async () => {
     jest
       .spyOn(serviceCredentialUtils, 'verifyCredential')

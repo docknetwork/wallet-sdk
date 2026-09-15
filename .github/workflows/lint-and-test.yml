@@ -41,3 +41,10 @@ jobs:
           export NODE_OPTIONS="--max_old_space_size=12096"
           export CI=true
           npm run test:ci
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: true
