@@ -135,25 +135,6 @@ function createConfig(input, outputFile) {
 
           return null;
         },
-        // Fix CJS modules where commonjs plugin can't detect named exports.
-        load(id) {
-          if (id.includes('@digitalbazaar/http-signature-header/lib/index.js')) {
-            let code = fs.readFileSync(id, 'utf8');
-            code = code.replace(/'use strict';?\n?/, '');
-            code = code.replace("const {assert} = require('./util.js');", "import _util from './util.js';\nconst {assert} = _util;");
-            code = code.replace("const HttpSignatureError = require('./HttpSignatureError');", "import HttpSignatureError from './HttpSignatureError';");
-            code = code.replace(/module\.exports\s*=\s*api;?/, '');
-            code += `
-export const createAuthzHeader = api.createAuthzHeader;
-export const createSignatureString = api.createSignatureString;
-export const parseRequest = api.parseRequest;
-export { parseSignatureHeader, extractPseudoHeaders, HttpSignatureError };
-export default api;
-`;
-            return code;
-          }
-          return null;
-        },
       },
 
       nodePolyfills({
