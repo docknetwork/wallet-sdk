@@ -19,7 +19,7 @@ The `@docknetwork/wallet-sdk-core` provides the core wallet functionality, while
 Before creating a wallet, you need to set up a data store to manage the persistence of wallet data such as DIDs and credentials. Here’s how to create a local data store:
 
 ```ts
-import {createDataStore} from '@docknetwork/wallet-sdk-data-store-typeorm/lib';
+import {createDataStore} from '@docknetwork/wallet-sdk-data-store-typeorm/lib/index.js';
 
 const dataStore = await createDataStore({
   databasePath: 'dock-wallet',
@@ -37,7 +37,7 @@ If you want to store data in the Truvera Cloud Wallet, please refer to the [Clou
 Once the data store is set up, you can create a wallet. The wallet will act as a container for managing your documents, DIDs, and credentials. 
 
 ```ts
-import {createWallet} from '@docknetwork/wallet-sdk-core/lib/wallet';
+import {createWallet} from '@docknetwork/wallet-sdk-core/lib/wallet.js';
 
 const wallet = await createWallet({
   dataStore,
