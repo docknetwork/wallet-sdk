@@ -24,7 +24,7 @@ First, you need to create local data storage to connect to the credential wallet
 #### For mobile and Node.js
 
 ```ts
-import {createDataStore} from '@docknetwork/wallet-sdk-data-store-typeorm/lib/index.js';
+import {createDataStore} from '@docknetwork/wallet-sdk-data-store-typeorm/lib';
 
 const dataStore = await createDataStore({
   databasePath: 'dock-wallet',
@@ -36,7 +36,7 @@ const dataStore = await createDataStore({
 #### For browser
 
 ```ts
-import {createDataStore} from '@docknetwork/wallet-sdk-data-store-web/lib/index.js';
+import {createDataStore} from '@docknetwork/wallet-sdk-data-store-web/lib';
 
 const dataStore = await createDataStore({
   databasePath: 'dock-wallet',
@@ -49,7 +49,7 @@ const dataStore = await createDataStore({
 Next, we generate a key and mnemonic for interacting with a cloud wallet. Use the same cloud wallet key across multiple devices to access the same documents. These keys are used to encrypt, decrypt, and locate documents in the EDV.
 
 ```ts
-import {generateCloudWalletMasterKey} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+import {generateCloudWalletMasterKey} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 
 const {masterKey, mnemonic} = await generateCloudWalletMasterKey();
 ```
@@ -60,7 +60,7 @@ The `masterKey` is used to derive encryption keys for the EDV, while the `mnemon
 
 If the master key is lost, the mnemonic can be used to recover it. Store the mnemonic securely and do not share it with anyone.
 ```ts
-import {recoverCloudWalletMasterKey} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+import {recoverCloudWalletMasterKey} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 
 const masterKey = await recoverCloudWalletMasterKey(mnemonic);
 ```
@@ -70,7 +70,7 @@ const masterKey = await recoverCloudWalletMasterKey(mnemonic);
 After setting up the data store and generating keys, initialize the cloud storage and connect it to the local data storage. This ensures continuous synchronization between the EDV and the wallet.
 
 ```ts
-import {initializeCloudWallet} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+import {initializeCloudWallet} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 
 const {pullDocuments} = await initializeCloudWallet({
   dataStore,
@@ -91,7 +91,7 @@ The `pullDocuments` function synchronizes the EDV and the wallet by comparing do
 Now, create a credential wallet inside of the data storage. This will allow you to add, update, and remove documents.
 
 ```ts
-import {createWallet} from '@docknetwork/wallet-sdk-core/lib/wallet.js';
+import {createWallet} from '@docknetwork/wallet-sdk-core/lib/wallet';
 
 const wallet = await createWallet({
   dataStore,
@@ -125,8 +125,8 @@ For the DIDComm automatic distribution to work properly, the **subject ID of the
 After a credential has been issued to a holder's DID, the cloud wallet only needs to fetch and process DIDComm messages to receive it:
 
 ```ts
-import {createDIDProvider} from '@docknetwork/wallet-sdk-core/lib/did-provider.js';
-import {createMessageProvider} from '@docknetwork/wallet-sdk-core/lib/message-provider.js';
+import {createDIDProvider} from '@docknetwork/wallet-sdk-core/lib/did-provider';
+import {createMessageProvider} from '@docknetwork/wallet-sdk-core/lib/message-provider';
 
 const didProvider = createDIDProvider({ wallet });
 
@@ -143,9 +143,9 @@ await messageProvider.processDIDCommMessages();
 ### Full example
 
 ```ts
-import {createDataStore} from '@docknetwork/wallet-sdk-data-store-web/lib/index.js';
-import {initializeCloudWallet} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
-import {createWallet} from '@docknetwork/wallet-sdk-core/lib/wallet.js';
+import {createDataStore} from '@docknetwork/wallet-sdk-data-store-web/lib';
+import {initializeCloudWallet} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
+import {createWallet} from '@docknetwork/wallet-sdk-core/lib/wallet';
 
 
 async function example() {
@@ -210,7 +210,7 @@ Note that the biometric sample used to authenticate to a cloud wallet could also
 To set up biometric authentication, enroll the user with their biometric data and identifier:
 
 ```ts
-import { enrollUserWithBiometrics } from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+import { enrollUserWithBiometrics } from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 
 // Biometric data would come from platform-specific biometric APIs
 const biometricData = await getPlatformBiometricData();
@@ -242,7 +242,7 @@ Next, when the user wants to access their wallet, they can authenticate with the
 import {
   authenticateWithBiometrics,
   initializeCloudWalletWithBiometrics
-} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+} from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 
 // Get current biometric data from platform APIs
 const biometricData = await getPlatformBiometricData();
@@ -342,7 +342,7 @@ const support = await checkPasskeySupport();
 const { credentialId, prfSupported } = await registerPasskey('user@example.com');
 const { prfOutput } = await getPasskeyPRFKey('user@example.com', { credentialId });
 
-import { enrollUserWithPasskey } from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+import { enrollUserWithPasskey } from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 const { masterKey, mnemonic } = await enrollUserWithPasskey(
   EDV_URL, EDV_AUTH_KEY, prfOutput, 'user@example.com'
 );
@@ -351,7 +351,7 @@ const { masterKey, mnemonic } = await enrollUserWithPasskey(
 **Step 2: Authenticate with passkey**
 
 ```js
-import { authenticateWithPasskey } from '@docknetwork/wallet-sdk-core/lib/cloud-wallet.js';
+import { authenticateWithPasskey } from '@docknetwork/wallet-sdk-core/lib/cloud-wallet';
 import { getPasskeyPRFKey } from '@docknetwork/wallet-sdk-web';
 
 const { prfOutput } = await getPasskeyPRFKey('user@example.com', { credentialId });
