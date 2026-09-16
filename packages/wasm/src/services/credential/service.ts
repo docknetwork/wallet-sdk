@@ -453,7 +453,7 @@ class CredentialService {
     const result = pex.selectFrom(
       presentationDefinition,
       credentials,
-      holderDid,
+      {holderDIDs: holderDid ? [holderDid] : undefined},
     );
 
     return result;
