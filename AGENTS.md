@@ -4,7 +4,8 @@
 deployed service) that lets a host app receive, store, and manage verifiable credentials. It is
 an npm-workspaces monorepo (`packages/*`) versioned with Lerna, built on TypeScript/JavaScript
 with Babel and Rollup, tested with Jest and Playwright. Each `packages/*` workspace publishes
-independently to npm as its own `@docknetwork/wallet-sdk-*` package; there is no single bundled
+independently to npm, most as their own `@docknetwork/wallet-sdk-*` package (the exception is
+`wallet-edv-storage`, published as `@docknetwork/wallet-edv-storage`); there is no single bundled
 artifact. See the [README](README.md) for the supported platforms and a usage example.
 
 ## Repository Structure
@@ -26,7 +27,7 @@ artifact. See the [README](README.md) for the supported platforms and a usage ex
 | Name | Purpose |
 |---|---|
 | `packages/core` | Wallet orchestration — wallet lifecycle, credential/DID/message providers, verification controller. |
-| `packages/wasm` | Crypto and blockchain integration layer (Cheqd, credential-sdk, OID4VCI, SD-JWT, delegation engine). Everything else in `packages/` sits on top of it. |
+| `packages/wasm` | Crypto and blockchain integration layer (Cheqd, credential-sdk, OID4VCI, SD-JWT, delegation engine). Most other packages sit on top of it, directly or transitively — `dids`, `request-logger`, and `wallet-edv-storage` are the exceptions (no wasm dependency). |
 | `packages/data-store` | Storage interface/types and a reference `DataStore` implementation. |
 | `packages/data-store-typeorm` | TypeORM-backed persistent storage backend (used by `react-native`, `cli`). |
 | `packages/data-store-web` | Browser storage backend (used by `web`). |
@@ -102,7 +103,8 @@ minimum. Check the specific workflow file rather than assuming one version.
 ## Naming Conventions
 
 - **Packages:** `@docknetwork/wallet-sdk-<name>` under `packages/<name>` (e.g.
-  `packages/data-store-typeorm` → `@docknetwork/wallet-sdk-data-store-typeorm`).
+  `packages/data-store-typeorm` → `@docknetwork/wallet-sdk-data-store-typeorm`); the one exception
+  is `packages/wallet-edv-storage`, published as `@docknetwork/wallet-edv-storage`.
 - **Providers/controllers (core):** `<domain>-provider.ts` / `<domain>-controller.ts` exporting a
   factory or class for that domain, e.g. `packages/core/src/credential-provider.ts`,
   `packages/core/src/verification-controller.ts`.
@@ -135,7 +137,9 @@ flowchart TD
 ```
 
 **Data flow.** `wasm` wraps the Cheqd blockchain SDK, credential-sdk, and OID4VCI/SD-JWT
-libraries and is the dependency every other package sits on. `core` builds the wallet API
+libraries and is the dependency most other packages sit on, directly or transitively — `dids`,
+`request-logger`, and `wallet-edv-storage` are standalone leaf utilities with no wasm dependency.
+`core` builds the wallet API
 (documents, DIDs, messages, verification) on top of `wasm` and a storage backend. Storage is
 pluggable: `data-store` defines the interface, `data-store-typeorm` and `data-store-web` are
 concrete backends. `react-native` and `web` are platform bindings that assemble `core` plus a
@@ -208,8 +212,9 @@ The agent must **never** modify without explicit direction:
 
 ## Extensibility Hooks
 
-- **New package:** add a directory under `packages/<name>` with its own `package.json` named
-  `@docknetwork/wallet-sdk-<name>`; the root `workspaces: ["packages/*"]` glob picks it up
+- **New package:** add a directory under `packages/<name>` with its own `package.json`, normally
+  named `@docknetwork/wallet-sdk-<name>` (see the Naming Conventions exception above); the root
+  `workspaces: ["packages/*"]` glob picks it up
   automatically. Add it to `scripts/build.sh` if it needs to build before packages that depend on
   it, and to `.github/workflows/npm-publish.yml`'s publish loop if it should be published.
 

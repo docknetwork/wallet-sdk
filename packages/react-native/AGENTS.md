@@ -14,12 +14,13 @@ version — it depends on `core`, `data-store-typeorm`, `dids`, and `wasm`.
 
 ## Non-obvious mechanism: two separate "build" steps
 
-- **`lib/` is hand-written source, not build output.** Unlike every other package in this repo,
-  `lib/` here is checked-in React hooks/components (`lib/wallet.ts`, `lib/index.tsx`,
-  `lib/didHooks.js`, `lib/credentials/CredentialContext.tsx`, …) consumed as-is by the host app's
-  Metro bundler. This is why `package.json`'s `"build"` script is a no-op
-  (`echo 'add build script when required'`) — there is nothing to compile for this half of the
-  package.
+- **`lib/` is hand-written source, not build output.** `lib/` here is checked-in React
+  hooks/components (`lib/wallet.ts`, `lib/index.tsx`, `lib/didHooks.js`,
+  `lib/credentials/CredentialContext.tsx`, …) consumed as-is by the host app's Metro bundler. This
+  is why `package.json`'s `"build"` script is a no-op (`echo 'add build script when required'`) —
+  there is nothing to compile for this half of the package (`request-logger` has the same no-op
+  `build` script and checked-in `lib/`, for the same reason — it's not unique to this package,
+  just unusual for a *bundled* platform binding).
 - **`bundler/` builds the WebView runtime.** `npm run build:all` (`bundler/build-and-copy.js`)
   runs Rollup (`bundler/rollup.config.mjs`) to produce `sandbox.js` and `bundle.js` — the wasm
   wallet logic bundled to run inside a hidden WebView — then copies them into RN assets
@@ -42,10 +43,13 @@ npm run dev              # bundler/server.js, a dev server for the WebView bundl
 
 ## Tests
 
-Co-located `*.test.js`/`*.test.ts` under `lib/` (e.g. `lib/wallet.test.ts`,
-`lib/didHooks.test.ts`) run via this package's own `jest.config.js`. Separately,
-`bundler/test/bundle.test.js` is a Playwright test (`npm run test:bundle`) that loads the built
-bundle in a browser — not part of the root Jest run.
+Co-located `*.test.js`/`*.test.ts` files exist under `lib/`, but only the `.test.js` ones actually
+run: this package's own `jest.config.js` matches `**/!(*.e2e).test.js` (`.js` only), and the root
+`jest.config.js` explicitly ignores `packages/react-native/.*\.test\.ts$`. So `lib/wallet.test.ts`
+and `lib/didHooks.test.ts` are not executed by either the package's `npm test` or the root Jest
+run — treat them as a coverage gap, not exercised suites. Separately, `bundler/test/bundle.test.js`
+is a Playwright test (`npm run test:bundle`) that loads the built bundle in a browser — not part
+of the root Jest run either.
 
 ## See also
 

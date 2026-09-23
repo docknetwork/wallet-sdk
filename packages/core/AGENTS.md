@@ -19,7 +19,7 @@ storage backend must be supplied by the consumer.
 cd packages/core
 npm test            # jest, this package only
 npm run build        # tsc -p tsconfig.build.json, then fix-build-imports.js
-npm run docs          # regenerate this package's jsdoc reference into ../../jsdocs/core*
+npm run docs          # regenerate this package's jsdoc reference into ../../docs/api (generate-docs.js)
 ```
 
 ## Tests

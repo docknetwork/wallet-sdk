@@ -5,8 +5,9 @@
 `@docknetwork/wallet-sdk-wasm` is the crypto and blockchain integration layer: it wraps the Cheqd
 blockchain SDK (`@docknetwork/cheqd-blockchain-api`/`-modules`), `@docknetwork/credential-sdk`,
 OID4VCI/OID4VC, SD-JWT, and the delegation engine behind the SDK's own service/module interfaces.
-It is the largest package by file count and the dependency every other `packages/*` workspace
-(directly or transitively) sits on.
+It is the largest package by file count and the dependency most other `packages/*` workspaces
+(directly or transitively) sit on — `dids`, `request-logger`, and `wallet-edv-storage` are
+standalone exceptions with no wasm dependency.
 
 ## Entry Point & Stack
 
