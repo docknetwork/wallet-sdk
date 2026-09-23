@@ -42,8 +42,6 @@ module.exports = {
   globalTeardown: './scripts/test-teardown-globals.js',
   setupFiles: ['jest-localstorage-mock'],
   moduleNameMapper: {
-    '@digitalbazaar/minimal-cipher': '@digitalbazaar/minimal-cipher/Cipher',
-    '@digitalbazaar/did-method-key': '@digitalbazaar/did-method-key/lib/main',
     '@digitalbazaar/http-client':
       '<rootDir>/node_modules/@digitalbazaar/http-client/dist/cjs/index.cjs',
     '@docknetwork/wallet-sdk-wasm/lib/(.*)':
@@ -56,6 +54,6 @@ module.exports = {
       '@docknetwork/wallet-sdk-data-store/src',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky|did-jwt-cjs|@scure/base)',
+    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|crypto-ld|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky|did-jwt-cjs|@scure/base)',
   ],
 };
