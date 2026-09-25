@@ -123,6 +123,7 @@ jest.mock(
     revokeDelegatableCredential: jest.fn(),
     unrevokeDelegatableCredential: jest.fn(),
     isDelegatableCredentialRevoked: jest.fn(),
+    isDelegationChainRevoked: jest.fn(),
   }),
 );
 
@@ -460,6 +461,7 @@ describe('WalletSDK initialize', () => {
         'revokeDelegatableCredential',
         'unrevokeDelegatableCredential',
         'isDelegatableCredentialRevoked',
+        'isDelegationChainRevoked',
       ].forEach(name => expect(typeof WalletSDK[name]).toBe('function'));
     });
 

@@ -45,6 +45,7 @@ import {
   revokeDelegatableCredential,
   unrevokeDelegatableCredential,
   isDelegatableCredentialRevoked,
+  isDelegationChainRevoked,
 } from '@docknetwork/wallet-sdk-core/src/delegation/delegation-revocation';
 import {blockchainService} from '@docknetwork/wallet-sdk-wasm/src/services/blockchain';
 import {
@@ -871,6 +872,7 @@ export {
   revokeDelegatableCredential,
   unrevokeDelegatableCredential,
   isDelegatableCredentialRevoked,
+  isDelegationChainRevoked,
 };
 
 export default {
@@ -907,4 +909,5 @@ export default {
   revokeDelegatableCredential,
   unrevokeDelegatableCredential,
   isDelegatableCredentialRevoked,
+  isDelegationChainRevoked,
 };
