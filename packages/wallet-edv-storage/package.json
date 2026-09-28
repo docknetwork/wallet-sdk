@@ -1,6 +1,11 @@
 {
   "name": "@docknetwork/wallet-edv-storage",
   "version": "1.9.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/docknetwork/wallet-sdk.git",
+    "directory": "packages/wallet-edv-storage"
+  },
   "main": "./src/index.js",
   "license": "MIT",
   "type": "module",

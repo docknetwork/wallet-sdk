@@ -1,24 +1,34 @@
+# Publishes packages to npm using npm Trusted Publishing (OIDC).
+# Docs: https://docs.npmjs.com/trusted-publishers
+# npm package settings must list: owner, repo, workflow `npm-publish.yml`,
+# environment `npm-publish`. Renaming either breaks publishing.
+
 name: NPM Publish
 
 on:
   release:
     types: [published]
 
-  workflow_dispatch:
+permissions:
+  id-token: write # lets the job request the OIDC token npm exchanges for a publish token
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # trusted publishing only works on GitHub-hosted runners
+    # Requires reviewer approval before the job starts (Settings > Environments).
+    environment: npm-publish
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20.2.0'
+          node-version: '24.14.0'
           registry-url: https://registry.npmjs.org/
+      # Trusted publishing needs npm >= 11.5.1.
+      - run: npm install -g npm@11
       - run: npm ci
       - run: npm run build
+      # No NODE_AUTH_TOKEN: npm authenticates via OIDC.
       - run: |
           cd packages
           find . -maxdepth 1 -mindepth 1 -type d \( -path ./examples -o -path ./scripts \) -prune -o -type d -exec bash -c "cd '{}' && npm publish --access public" \;
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
