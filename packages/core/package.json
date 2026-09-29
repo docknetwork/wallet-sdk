@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@docknetwork/wallet-sdk-wasm": "^1.9.3",
+    "axios": "^0.32.0",
     "futoin-hkdf": "^1.5.3"
   },
   "devDependencies": {

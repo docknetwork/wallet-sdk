@@ -417,7 +417,9 @@ class CredentialService {
 
     const {credentialStatus} = credential;
 
-    if (result.verified && credentialStatus?.id) {
+    // Accumulator revocation only: the witness lives outside the credential, so
+    // verifyCredential can't check it. StatusList2021 is already checked there.
+    if (result.verified && credentialStatus?.id && !isStatusList2021) {
       try {
         const isRevoked = await getIsRevoked(credential, membershipWitness);
 

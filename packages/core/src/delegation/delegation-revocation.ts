@@ -5,6 +5,7 @@ import {didServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/dids/inde
 import {credentialServiceRPC} from '@docknetwork/wallet-sdk-wasm/src/services/credential';
 import {utilCryptoService} from '@docknetwork/wallet-sdk-wasm/src/services/util-crypto';
 import {getAllDIDs, getDIDKeyPair} from '../did-provider';
+import {getDelegationChain} from './delegation-chain';
 
 const CREDENTIAL_STATUS_ID_PREFIX = 'status-list2021:dock:0x';
 
@@ -283,15 +284,56 @@ export async function setDelegatableCredentialRevocation(
  */
 export async function isDelegatableCredentialRevoked(
   credential: any,
+  fetchStatusList: (url: string) => Promise<any> = defaultFetchStatusList,
 ): Promise<boolean> {
   const {statusListIndex} = parseStatusEntry(credential);
-  const {data: statusListCredential} = await axios.get(
+  const statusListCredential = await fetchStatusList(
     credential.credentialStatus.statusListCredential,
   );
   return credentialServiceRPC.isStatusList2021Revoked({
     statusListCredential,
     statusListIndex,
   });
+}
+
+async function defaultFetchStatusList(url: string): Promise<any> {
+  const {data} = await axios.get(url);
+  return data;
+}
+
+/**
+ * Check whether a delegated credential or any of its ancestors is revoked.
+ * Links with no StatusList2021Entry (e.g. the root) are skipped, and each
+ * distinct status list is fetched once.
+ */
+export async function isDelegationChainRevoked(
+  credential: any,
+  wallet: IWallet,
+): Promise<boolean> {
+  const chain = await getDelegationChain(credential, wallet);
+
+  const cache = new Map<string, Promise<any>>();
+  const fetchStatusList = (url: string) => {
+    if (!cache.has(url)) {
+      cache.set(url, defaultFetchStatusList(url));
+    }
+    return cache.get(url);
+  };
+
+  const results = await Promise.all(
+    chain.map(async link => {
+      if (!hasStatusEntry(link)) {
+        return false;
+      }
+      return isDelegatableCredentialRevoked(link, fetchStatusList);
+    }),
+  );
+
+  return results.some(Boolean);
+}
+
+function hasStatusEntry(credential: any): boolean {
+  return credential?.credentialStatus?.type === 'StatusList2021Entry';
 }
 
 /** Convenience wrapper: revoke. */

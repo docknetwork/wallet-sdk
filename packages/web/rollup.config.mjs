@@ -8,7 +8,6 @@ import nodePolyfills from 'rollup-plugin-polyfill-node';
 import inject from '@rollup/plugin-inject';
 import alias from '@rollup/plugin-alias';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import terser from '@rollup/plugin-terser';
 
@@ -108,33 +107,6 @@ function getPlugins() {
           if (resolved) {
             return resolved;
           }
-        }
-        return null;
-      },
-      // Fix CJS modules where commonjs plugin can't detect named exports.
-      // Read the file, strip `module.exports = api;` and append ESM named exports.
-      load(id) {
-        if (id.includes('@digitalbazaar/http-signature-header/lib/index.js')) {
-          let code = fs.readFileSync(id, 'utf8');
-          // Remove 'use strict' (ESM is always strict)
-          code = code.replace(/'use strict';?\n?/, '');
-          // Convert CJS require() to ESM imports
-          code = code.replace("const {assert} = require('./util.js');", "import _util from './util.js';\nconst {assert} = _util;");
-          code = code.replace("const HttpSignatureError = require('./HttpSignatureError');", "import HttpSignatureError from './HttpSignatureError';");
-          // Remove CJS module.exports
-          code = code.replace(/module\.exports\s*=\s*api;?/, '');
-          // Append ESM named exports
-          // Note: parseSignatureHeader, extractPseudoHeaders, HttpSignatureError are
-          // already declared as local identifiers, so export them directly.
-          // createAuthzHeader, createSignatureString, parseRequest are only on the api object.
-          code += `
-export const createAuthzHeader = api.createAuthzHeader;
-export const createSignatureString = api.createSignatureString;
-export const parseRequest = api.parseRequest;
-export { parseSignatureHeader, extractPseudoHeaders, HttpSignatureError };
-export default api;
-`;
-          return code;
         }
         return null;
       },
