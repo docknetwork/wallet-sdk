@@ -181,8 +181,10 @@ edit `dock-app` from here.
 - Grep first: find the closest existing provider/service/backend under the relevant package and
   mirror its structure before adding a new one.
 - **Cross-package change checklist:** if you touch a shared contract (e.g. `wasm`'s exports, the
-  `DataStore` interface in `data-store`), update every consuming package
-  (`core`, `data-store-typeorm`/`data-store-web`, `react-native`/`web`/`cli`) in the same change,
+  `DataStore` interface in `data-store`), update every consuming package in the same change —
+  for `wasm`: `core`, `data-store`, `data-store-typeorm`, `data-store-web`, `relay-service`,
+  `react-native`; for `DataStore`: `core`, `data-store-typeorm`, `data-store-web`,
+  `react-native`, `web`, `cli` —
   and bump the internal `dependencies`/`peerDependencies` version ranges in their `package.json`s
   if a breaking change is intended.
 - **Publishing:** package versions are bumped together via `npm run bump-version`
@@ -206,7 +208,8 @@ The agent **must ask** before:
 - Renaming or restructuring `packages/*` directories, or touching `examples/`.
 
 The agent must **never** modify without explicit direction:
-- Build/coverage output: `lib/`, `dist/`, `coverage/`, `reports/`, `node_modules/`.
+- Build/coverage output: `lib/`, `dist/`, `coverage/`, `reports/`, `node_modules/`. Exception:
+  `packages/react-native/lib/` and `packages/request-logger/lib/` are checked-in source.
 - `package-lock.json` outside of an intentional dependency change.
 - `.github/workflows/npm-publish.yml` and other release-triggering workflows.
 
@@ -227,6 +230,8 @@ The agent must **never** modify without explicit direction:
 
 ## Further Reading
 
+- [.github/copilot-instructions.md](.github/copilot-instructions.md) — Copilot code review
+  checklist distilled from this file; update it when these rules change.
 - Per-package guides: [core](packages/core/AGENTS.md), [wasm](packages/wasm/AGENTS.md),
   [data-store-typeorm](packages/data-store-typeorm/AGENTS.md),
   [react-native](packages/react-native/AGENTS.md), [cli](packages/cli/AGENTS.md).
