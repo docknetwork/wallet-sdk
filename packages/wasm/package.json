@@ -1,6 +1,6 @@
 {
     "name": "@docknetwork/wallet-sdk-wasm",
-    "version": "1.9.3",
+    "version": "1.9.4",
     "license": "https://github.com/docknetwork/wallet-sdk/LICENSE",
     "repository": {
         "type": "git",
@@ -31,7 +31,7 @@
         "@docknetwork/crypto-utils": "0.2.2",
         "@docknetwork/universal-wallet": "^3.3.5",
         "@docknetwork/vc-delegation-engine": "1.0.4",
-        "@docknetwork/wallet-sdk-dids": "^1.9.1",
+        "@docknetwork/wallet-sdk-dids": "^1.9.4",
         "@noble/hashes": "1.8.0",
         "@scure/bip39": "^1.6.0",
         "@sd-jwt/crypto-nodejs": "^0.15.0",
