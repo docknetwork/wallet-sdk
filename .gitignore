@@ -35,3 +35,4 @@ reports/
 packages/react-native/public/*.module.wasm
 
 integration-tests/debugging/*
+packed/

@@ -11,7 +11,7 @@
         "build": "rm -rf lib && rollup -c && node ../../scripts/fix-build-imports.js ./lib"
     },
     "dependencies": {
-        "@docknetwork/minimal-cipher": "^5.2.1",
+        "@docknetwork/minimal-cipher": "^6.0.0",
         "@docknetwork/wallet-sdk-wasm": "^1.9.4",
         "uuid": "^9.0.0"
     },
