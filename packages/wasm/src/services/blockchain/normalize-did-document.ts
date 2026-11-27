@@ -1,7 +1,9 @@
-// The universal resolver returns cheqd offchain (BBS+) keys as stringified
-// blobs in the relationship arrays instead of objects in verificationMethod,
-// leaving publicKeyBase58 unreachable. Lift them out, matching the on-chain
-// resolver's CheqdDIDDocument.toDIDDocument behaviour.
+// Universal resolvers can return verification methods (e.g. cheqd offchain
+// BBS+ keys) inside the relationship arrays instead of in verificationMethod,
+// either as JSON-stringified blobs or as embedded objects. Both leave
+// publicKeyBase58 unreachable for BBS+ verification, which looks keys up in
+// verificationMethod. Lift them out and leave the id as a reference, matching
+// the on-chain resolver's CheqdDIDDocument.toDIDDocument behaviour.
 
 const RELATIONSHIP_PROPS = [
   'assertionMethod',
@@ -11,7 +13,24 @@ const RELATIONSHIP_PROPS = [
   'keyAgreement',
 ] as const;
 
-function parseInlineVerificationMethod(entry: string): any | null {
+function isEmbeddedVerificationMethod(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as any).id === 'string' &&
+    typeof (value as any).type === 'string'
+  );
+}
+
+function parseInlineVerificationMethod(entry: unknown): any | null {
+  if (isEmbeddedVerificationMethod(entry)) {
+    return entry;
+  }
+
+  if (typeof entry !== 'string') {
+    return null;
+  }
+
   let parsed: unknown = entry;
 
   // cheqd offchain keys are double-JSON-stringified, so unwrap up to twice.
@@ -43,10 +62,6 @@ export function normalizeDIDDocument(doc: any): any {
     }
 
     doc[prop] = doc[prop].map((entry: any) => {
-      if (typeof entry !== 'string') {
-        return entry;
-      }
-
       const method = parseInlineVerificationMethod(entry);
       if (!method) {
         return entry;
@@ -61,10 +76,14 @@ export function normalizeDIDDocument(doc: any): any {
     const existing = Array.isArray(doc.verificationMethod)
       ? doc.verificationMethod
       : [];
-    const existingIds = new Set(existing.map((method: any) => method?.id));
-    const newMethods = liftedMethods.filter(
-      method => !existingIds.has(method.id),
-    );
+    const seenIds = new Set(existing.map((method: any) => method?.id));
+    const newMethods = liftedMethods.filter(method => {
+      if (seenIds.has(method.id)) {
+        return false;
+      }
+      seenIds.add(method.id);
+      return true;
+    });
 
     doc.verificationMethod = [...existing, ...newMethods];
   }

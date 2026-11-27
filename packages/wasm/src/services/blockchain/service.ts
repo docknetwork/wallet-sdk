@@ -26,10 +26,11 @@ import {utilCryptoService} from '../util-crypto';
 import {InitParams} from './configs';
 
 /**
- * Universal resolver URL for DID resolution fallback
+ * Universal resolver URL for DID resolution fallback: DIF's hosted instance.
+ * uniresolver.truvera.io was decommissioned and now redirects here.
  * @constant {string}
  */
-export const universalResolverUrl = 'https://uniresolver.truvera.io';
+export const universalResolverUrl = 'https://dev.uniresolver.io';
 
 import {
   AccumulatorCommon,
