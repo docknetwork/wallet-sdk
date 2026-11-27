@@ -87,6 +87,61 @@ describe('normalizeDIDDocument', () => {
     expect(doc.assertionMethod).toEqual([ed25519Key.id, 'not json', notAMethod]);
   });
 
+  it('keeps embedded keyAgreement objects in place while lifting them', () => {
+    const x25519Key = {
+      id: `${did}#keys-3`,
+      type: 'X25519KeyAgreementKey2019',
+      controller: did,
+      publicKeyBase58: 'x25519PublicKey',
+    };
+    const doc = normalizeDIDDocument({
+      id: did,
+      keyAgreement: [{...x25519Key}],
+    });
+
+    expect(doc.verificationMethod).toEqual([x25519Key]);
+    expect(doc.keyAgreement).toEqual([x25519Key]);
+  });
+
+  it('parses stringified keyAgreement entries into objects', () => {
+    const x25519Key = {
+      id: `${did}#keys-3`,
+      type: 'X25519KeyAgreementKey2019',
+      controller: did,
+      publicKeyBase58: 'x25519PublicKey',
+    };
+    const doc = normalizeDIDDocument({
+      id: did,
+      keyAgreement: [JSON.stringify(JSON.stringify(x25519Key))],
+    });
+
+    expect(doc.verificationMethod).toEqual([x25519Key]);
+    expect(doc.keyAgreement).toEqual([x25519Key]);
+  });
+
+  it('keeps a singleton verificationMethod object when lifting', () => {
+    const doc = normalizeDIDDocument({
+      id: did,
+      verificationMethod: ed25519Key,
+      assertionMethod: [{...bbsKey}],
+    });
+
+    expect(doc.verificationMethod).toEqual([ed25519Key, bbsKey]);
+    expect(doc.assertionMethod).toEqual([bbsKey.id]);
+  });
+
+  it('is idempotent', () => {
+    const input = {
+      id: did,
+      verificationMethod: [ed25519Key],
+      assertionMethod: [{...bbsKey}],
+    };
+    const once = normalizeDIDDocument(JSON.parse(JSON.stringify(input)));
+    const twice = normalizeDIDDocument(JSON.parse(JSON.stringify(once)));
+
+    expect(twice).toEqual(once);
+  });
+
   it('returns non-object input as is', () => {
     expect(normalizeDIDDocument(null)).toBeNull();
     expect(normalizeDIDDocument(undefined)).toBeUndefined();

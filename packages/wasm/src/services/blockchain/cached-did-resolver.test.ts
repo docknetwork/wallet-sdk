@@ -99,6 +99,29 @@ describe('CachedDIDResolver', () => {
       expect(mockRouter.resolve).not.toHaveBeenCalled();
     });
 
+    it('should normalize entries cached before normalization was added', async () => {
+      const did = 'did:cheqd:testnet:legacy';
+      const bbsKey = {
+        id: `${did}#keys-2`,
+        type: 'Bls12381BBSVerificationKeyDock2023',
+        controller: did,
+        publicKeyBase58: 'bbsPublicKey',
+      };
+      const cachedData = {
+        value: { id: did, assertionMethod: [JSON.stringify(JSON.stringify(bbsKey))] },
+        id: did,
+        timestamp: Date.now(),
+      };
+
+      mockStorageService.getItem.mockResolvedValue(JSON.stringify(cachedData));
+
+      const result = await resolver.resolve(did);
+
+      expect(result.verificationMethod).toEqual([bbsKey]);
+      expect(result.assertionMethod).toEqual([bbsKey.id]);
+      expect(mockRouter.resolve).not.toHaveBeenCalled();
+    });
+
     it('should return stale value immediately and refresh in background when cache entry is expired', async () => {
       const expiredTimestamp = Date.now() - (8 * 24 * 60 * 60 * 1000); // 8 days ago (expired)
       const staleResult = { id: testDid, publicKey: [], stale: true };

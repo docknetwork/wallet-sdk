@@ -68,11 +68,13 @@ export class CachedDIDResolver {
     if (cached) {
       if (Date.now() - cached.timestamp < this.ttl) {
         console.log('Cache hit for:', did);
-        return cached.value;
+        // Entries cached before normalization was added may still hold
+        // embedded verification methods.
+        return normalizeDIDDocument(cached.value);
       } else {
         console.log('Cache expired for:', did, 'returning stale value and refreshing in background');
         this.refreshInBackground(did);
-        return cached.value;
+        return normalizeDIDDocument(cached.value);
       }
     }
 

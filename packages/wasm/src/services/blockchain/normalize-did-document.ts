@@ -4,6 +4,9 @@
 // publicKeyBase58 unreachable for BBS+ verification, which looks keys up in
 // verificationMethod. Lift them out and leave the id as a reference, matching
 // the on-chain resolver's CheqdDIDDocument.toDIDDocument behaviour.
+// keyAgreement is the exception: DIDComm (relay-service) reads agreement keys
+// as objects from keyAgreement, so those entries stay embedded (parsed if they
+// were stringified) and are only copied into verificationMethod.
 
 const RELATIONSHIP_PROPS = [
   'assertionMethod',
@@ -68,13 +71,15 @@ export function normalizeDIDDocument(doc: any): any {
       }
 
       liftedMethods.push(method);
-      return method.id;
+      return prop === 'keyAgreement' ? method : method.id;
     });
   }
 
   if (liftedMethods.length) {
     const existing = Array.isArray(doc.verificationMethod)
       ? doc.verificationMethod
+      : doc.verificationMethod
+      ? [doc.verificationMethod]
       : [];
     const seenIds = new Set(existing.map((method: any) => method?.id));
     const newMethods = liftedMethods.filter(method => {
