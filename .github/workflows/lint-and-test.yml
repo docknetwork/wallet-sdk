@@ -48,3 +48,44 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage/lcov.info
           fail_ci_if_error: true
+
+  # Installs the packed packages into a clean project (no root overrides, no
+  # Jest transforms) and loads the entry points, the way customers get them.
+  # Catches dependencies that crash on load, like the legacy `esm` loader.
+  packedInstall:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup node 22.12.0
+        uses: actions/setup-node@v1
+        with:
+          node-version: '22.12.0'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack
+        run: node scripts/test-packed-install.js --pack ${{ runner.temp }}/packed
+
+      - name: Check packed install on Node 22.12.0
+        run: node scripts/test-packed-install.js ${{ runner.temp }}/packed
+
+      - name: Setup node 20.19.0
+        uses: actions/setup-node@v1
+        with:
+          node-version: '20.19.0'
+
+      - name: Check packed install on Node 20.19.0
+        run: node scripts/test-packed-install.js ${{ runner.temp }}/packed

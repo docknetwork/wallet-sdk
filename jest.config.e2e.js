@@ -40,6 +40,6 @@ module.exports = {
       '<rootDir>/node_modules/@docknetwork/credential-sdk/dist/cjs/vc/contexts.cjs',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|crypto-ld|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky|did-jwt-cjs|@scure/base)',
+    '/node_modules/(?!@babel|@docknetwork|@digitalbazaar|base58-universal|base64url-universal|crypto-ld|multiformats|p-limit|yocto-queue|@cheqd/ts-proto|ky|did-jwt-cjs|@scure/base)',
   ],
 };

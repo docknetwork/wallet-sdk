@@ -6,7 +6,7 @@ To use the wallet-sdk, all you need to do is wrap your app in a `WalletSDKProvid
 
 The Truvera Mobile SDK supports:
 - Devices that have Android 8.1 or higher and iOS 11 or higher.
-- Minimum supported version of Node.js is 20.2.0
+- Supported Node.js versions are `^20.19.0 || >=22.12.0` (Node 21 is not supported). These are the versions that can load ESM-only dependencies with `require()`
 
 ## Installation
 ```js
